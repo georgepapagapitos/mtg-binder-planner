@@ -71,7 +71,35 @@ export class SaveCollectionError extends Error {
   }
 }
 
+/**
+ * Resolves once the collection store has loaded its local rows.
+ *
+ * Every write below diffs the snapshot it is handed against IDB and tombstones
+ * whatever is missing. A snapshot built from a store that has not hydrated yet
+ * is EMPTY, so persisting it deletes the whole collection — and enqueues the
+ * deletes for every other device. That is not hypothetical: the trade sweep
+ * once raced the IndexedDB hydrate on mount and wiped a 49-card collection
+ * down to the single card it had just received. Gating here covers every
+ * mutator at once rather than each caller remembering to.
+ *
+ * The store is loaded dynamically because it imports this module (same reason
+ * sync.ts reaches the store the same way).
+ */
+export async function waitForCollectionHydration(): Promise<void> {
+  const { useCollectionStore } = await import('../store/collection');
+  if (!useCollectionStore.getState().hydrating) return;
+  await new Promise<void>((resolve) => {
+    const unsubscribe = useCollectionStore.subscribe((s) => {
+      if (!s.hydrating) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+}
+
 export async function saveCollection(data: StoredCollection): Promise<void> {
+  await waitForCollectionHydration();
   // allSettled (not Promise.all): a single kind's failure must not mask that
   // the others persisted — otherwise the caller wrongly reports total loss.
   const results = await Promise.allSettled([

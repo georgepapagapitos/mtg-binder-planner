@@ -5,6 +5,7 @@ import { toast } from '../store/toasts';
 import { getCardById } from './api';
 import { getCardsByNames } from '@/deck-builder/services/scryfall/client';
 import { logger } from './logger';
+import { waitForCollectionHydration } from './local-cards';
 import { planSettlement, describeSettlement } from './trade-settlement';
 import {
   listTrades,
@@ -71,28 +72,10 @@ export async function settleTrade(offer: TradeOffer): Promise<boolean> {
   }
 }
 
-/**
- * Resolves once the collection store has loaded its local rows. Settling
- * against a store that has not hydrated yet plans against an EMPTY collection:
- * the cards owed read as "no longer owned", and the first write persists a
- * one-card array whose diff against IDB tombstones everything else. That is
- * not hypothetical — the proposer's device wiped a 49-card collection down to
- * the single card it had just received, because the focus/mount sweep raced
- * the IndexedDB hydrate and lost.
- */
-export function waitForCollectionHydration(): Promise<void> {
-  if (!useCollectionStore.getState().hydrating) return Promise.resolve();
-  return new Promise((resolve) => {
-    const unsubscribe = useCollectionStore.subscribe((s) => {
-      if (!s.hydrating) {
-        unsubscribe();
-        resolve();
-      }
-    });
-  });
-}
-
 async function applySettlement(offer: TradeOffer): Promise<boolean> {
+  // The persist layer gates every write on hydration (local-cards.ts), but
+  // the PLAN is computed here from store.cards — planning against a store
+  // that has not loaded yet reads every owed card as "no longer owned".
   await waitForCollectionHydration();
   const store = useCollectionStore.getState();
   const plan = planSettlement(offer.give, offer.receive, store.cards);

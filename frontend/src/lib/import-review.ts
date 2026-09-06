@@ -71,3 +71,15 @@ export function importReviewHeadline(counts: {
     ? 'Import needs a look'
     : 'Import summary';
 }
+
+/**
+ * The "N card(s) couldn't be fetched" disclosure — retyped independently at
+ * six call sites (UploadPanel, ProductSearchPanel, ScanFab, AddCardsSheet),
+ * each with its own em-dash-explainer tail (B3-05). One shared sentence,
+ * no em-dash: state the count, then the next step as its own sentence.
+ * `retryHint` is a complete sentence, e.g. "Retry below." or
+ * "The card service was unreachable, so they weren't imported."
+ */
+export function fetchErrorMessage(count: number, retryHint: string): string {
+  return `${count} card${count === 1 ? '' : 's'} couldn't be fetched. ${retryHint}`;
+}

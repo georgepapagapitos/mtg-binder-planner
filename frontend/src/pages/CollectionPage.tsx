@@ -24,6 +24,7 @@ export function CollectionPage() {
   const hydrating = useCollectionStore((s) => s.hydrating);
   const isRefreshingPrices = useCollectionStore((s) => s.isRefreshingPrices);
   const priceRefreshProgress = useCollectionStore((s) => s.priceRefreshProgress);
+  const pricesEverLoaded = useCollectionStore((s) => s.pricesEverLoaded);
   const error = useCollectionStore((s) => s.error);
   const setError = useCollectionStore((s) => s.setError);
   const authStatus = useAuth((s) => s.status);
@@ -148,7 +149,8 @@ export function CollectionPage() {
                 <span aria-label="Collection totals">
                   {displayCardCount.toLocaleString()} {collectionCardCount === 1 ? 'card' : 'cards'}{' '}
                   ·{' '}
-                  {isRefreshingPrices && priceRefreshProgress ? (
+                  {(isRefreshingPrices && priceRefreshProgress) ||
+                  (!isEmpty && !pricesEverLoaded && collectionValue === 0) ? (
                     // The prominent total must not read as a settled figure
                     // while the collection is being priced for the FIRST time —
                     // not as a real $0, and not as a partial sum either. The
@@ -158,16 +160,19 @@ export function CollectionPage() {
                     // ~60s on an 11.5k-card collection. A confident $1,646
                     // against a true $7,754 is worse than showing no number.
                     //
-                    // `priceRefreshProgress` is exactly the right signal and
-                    // needs no state of our own: the store only populates it
-                    // for `{ track: noPrices }` — the fresh-device first fill.
-                    // A routine daily staleness refresh leaves it null, so an
-                    // existing total keeps rendering and the pill never flashes
-                    // on a normal launch (autoRefreshStalePrices says so in as
-                    // many words).
+                    // `priceRefreshProgress` covers the in-flight chunked
+                    // refresh. `pricesEverLoaded` (B3-02) covers the narrower
+                    // gap BEFORE that: cards can render — via sync's initial
+                    // pull, all at purchasePrice 0 — a full render or more
+                    // before autoRefreshStalePrices has even decided whether a
+                    // refresh is needed, which is when isRefreshingPrices was
+                    // false, priceRefreshProgress was null, and this pill's
+                    // predecessor confidently showed "$0" instead.
                     <span className="collection-hero-pricing" aria-live="polite">
                       <span className="sync-indicator-spinner" aria-hidden="true" />
-                      {`Pricing ${priceRefreshProgress.done}/${priceRefreshProgress.total}…`}
+                      {priceRefreshProgress
+                        ? `Pricing ${priceRefreshProgress.done}/${priceRefreshProgress.total}…`
+                        : 'Pricing…'}
                     </span>
                   ) : (
                     <span title="Current market value (Scryfall)">
@@ -175,7 +180,7 @@ export function CollectionPage() {
                     </span>
                   )}
                   {cubeReservedCount > 0 && (
-                    <span title="Copies reserved by a physical cube (unavailable to decks)">
+                    <span title="Unavailable to decks">
                       {' · '}
                       {cubeReservedCount.toLocaleString()} reserved by cubes
                     </span>

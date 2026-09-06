@@ -128,6 +128,14 @@ interface CollectionState {
    * still set it so the count reads 0/1→1/1). Device-local, not synced.
    */
   priceRefreshProgress: { done: number; total: number } | null;
+  /**
+   * True once autoRefreshStalePrices has resolved at least once this session
+   * (whether or not it actually ran a refresh). Before that, an unpriced
+   * card's purchasePrice of 0 is a "haven't checked yet" placeholder, not a
+   * confirmed $0 — CardRow/CollectionPage widen their pending state on this
+   * flag so a fresh sync never flashes a confidently wrong $0 (B3-02).
+   */
+  pricesEverLoaded: boolean;
   error: string | null;
 
   binders: BinderDef[];
@@ -492,6 +500,7 @@ export const useCollectionStore = create<CollectionState>()(
       isLoading: false,
       isRefreshingPrices: false,
       priceRefreshProgress: null,
+      pricesEverLoaded: false,
       error: null,
       activeTab: 'uncategorized',
       editingBinder: null,
@@ -994,75 +1003,83 @@ export const useCollectionStore = create<CollectionState>()(
       },
 
       autoRefreshStalePrices: async () => {
-        const s = get();
-        if (s.isRefreshingPrices) return;
-        if (s.cards.length === 0) {
-          // Boot-time catch-all for a collection emptied somewhere the local
-          // subscriber below can't see — most importantly a DELETE that arrived
-          // as a sync tombstone from another device, which lands under the
-          // applyingServer guard. Records $0 (no-op on a never-used log) and
-          // stops: there is nothing to price.
-          void recordCollectionSnapshot(0).catch(() => {});
-          return;
-        }
-        // …and the same catch-all for a collection that came BACK. The authed
-        // boot path writes `cards` from sync's local rehydrate, under the
-        // applyingServer guard — so the store subscriber never sees the cards
-        // arrive, and prices restored from the device cache are usually fresh,
-        // so the refresh below returns early too. Without this, a log left at
-        // $0 by a delete (or by this function's own empty branch firing in the
-        // window before the first pull lands) stays $0 until a price goes stale
-        // a day later, and the hero reports $0 for a collection you can see.
-        // App.tsx re-fires this when the collection becomes non-empty, which is
-        // what makes it a correction rather than a boot-order gamble.
-        const total = s.cards.reduce((sum, c) => sum + (c.purchasePrice ?? 0), 0);
-        // A $0 total here is an unpriced collection, not a worthless one —
-        // logging it would poison today's point; the refresh below fills the
-        // prices in and records the real one.
-        if (total > 0) void recordCollectionSnapshot(total).catch(() => {});
-
-        // Never reach for the network when we know we're offline. (navigator is
-        // absent in the node test env; treat that as "online" so logic is testable.)
-        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-
-        const now = Date.now();
-        // Stale if ANY card was priced over a day ago or has never been priced
-        // (missing pricedAt → treated as epoch 0, i.e. maximally stale).
-        const stale = s.cards.some((c) => now - (c.pricedAt ?? 0) > PRICE_STALE_MS);
-        if (!stale) return;
-
-        // Device-local attempt throttle: skip if we already tried recently, so a
-        // failed/offline run (or a quick remount) can't hammer the endpoint.
+        // B3-02: wrap the whole body so every exit path below — no cards,
+        // already refreshing, offline, nothing stale, throttled, or a
+        // completed refresh — marks pricing "resolved" for this boot. Until
+        // then, a $0 card is "haven't checked yet," not a confirmed price.
         try {
-          const last = Number(localStorage.getItem(PRICE_REFRESH_LS_KEY)) || 0;
-          if (now - last < PRICE_REFRESH_RETRY_MS) return;
-          localStorage.setItem(PRICE_REFRESH_LS_KEY, String(now));
-        } catch {
-          // localStorage unavailable (private mode / SSR) — fall through and
-          // still refresh; the in-flight isRefreshingPrices guard prevents overlap.
-        }
+          const s = get();
+          if (s.isRefreshingPrices) return;
+          if (s.cards.length === 0) {
+            // Boot-time catch-all for a collection emptied somewhere the local
+            // subscriber below can't see — most importantly a DELETE that arrived
+            // as a sync tombstone from another device, which lands under the
+            // applyingServer guard. Records $0 (no-op on a never-used log) and
+            // stops: there is nothing to price.
+            void recordCollectionSnapshot(0).catch(() => {});
+            return;
+          }
+          // …and the same catch-all for a collection that came BACK. The authed
+          // boot path writes `cards` from sync's local rehydrate, under the
+          // applyingServer guard — so the store subscriber never sees the cards
+          // arrive, and prices restored from the device cache are usually fresh,
+          // so the refresh below returns early too. Without this, a log left at
+          // $0 by a delete (or by this function's own empty branch firing in the
+          // window before the first pull lands) stays $0 until a price goes stale
+          // a day later, and the hero reports $0 for a collection you can see.
+          // App.tsx re-fires this when the collection becomes non-empty, which is
+          // what makes it a correction rather than a boot-order gamble.
+          const total = s.cards.reduce((sum, c) => sum + (c.purchasePrice ?? 0), 0);
+          // A $0 total here is an unpriced collection, not a worthless one —
+          // logging it would poison today's point; the refresh below fills the
+          // prices in and records the real one.
+          if (total > 0) void recordCollectionSnapshot(total).catch(() => {});
 
-        // A fresh device that just synced has a whole collection of unpriced
-        // ($0) cards; show the progress pill on that first fill so it reads as
-        // "Refreshing prices" instead of a silent wall of $0 (the thing that
-        // looked broken). Routine daily staleness — where most cards are
-        // already priced — stays silent so the pill never flashes on a normal
-        // launch.
-        const noPrices = s.cards.every((c) => !((c.purchasePrice ?? 0) > 0));
+          // Never reach for the network when we know we're offline. (navigator is
+          // absent in the node test env; treat that as "online" so logic is testable.)
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
 
-        // Background best-effort: refreshPrices re-throws on failure, but a
-        // stale-price auto-refresh the user never asked for must stay silent —
-        // swallowing the rejection is not enough, because refreshPrices has
-        // already written the message into `error`, which CollectionPage renders
-        // as a banner. On native that surfaced the raw OkHttp exception string
-        // ('Unable to resolve host "spellcontrol.com"…') on launch whenever the
-        // radio hadn't finished re-associating before the boot refresh fired.
-        // Un-set what we swallow; the next stale check (or a manual refresh,
-        // which DOES surface its error) retries.
-        try {
-          await get().refreshPrices(undefined, { track: noPrices });
-        } catch {
-          set({ error: null });
+          const now = Date.now();
+          // Stale if ANY card was priced over a day ago or has never been priced
+          // (missing pricedAt → treated as epoch 0, i.e. maximally stale).
+          const stale = s.cards.some((c) => now - (c.pricedAt ?? 0) > PRICE_STALE_MS);
+          if (!stale) return;
+
+          // Device-local attempt throttle: skip if we already tried recently, so a
+          // failed/offline run (or a quick remount) can't hammer the endpoint.
+          try {
+            const last = Number(localStorage.getItem(PRICE_REFRESH_LS_KEY)) || 0;
+            if (now - last < PRICE_REFRESH_RETRY_MS) return;
+            localStorage.setItem(PRICE_REFRESH_LS_KEY, String(now));
+          } catch {
+            // localStorage unavailable (private mode / SSR) — fall through and
+            // still refresh; the in-flight isRefreshingPrices guard prevents overlap.
+          }
+
+          // A fresh device that just synced has a whole collection of unpriced
+          // ($0) cards; show the progress pill on that first fill so it reads as
+          // "Refreshing prices" instead of a silent wall of $0 (the thing that
+          // looked broken). Routine daily staleness — where most cards are
+          // already priced — stays silent so the pill never flashes on a normal
+          // launch.
+          const noPrices = s.cards.every((c) => !((c.purchasePrice ?? 0) > 0));
+
+          // Background best-effort: refreshPrices re-throws on failure, but a
+          // stale-price auto-refresh the user never asked for must stay silent —
+          // swallowing the rejection is not enough, because refreshPrices has
+          // already written the message into `error`, which CollectionPage renders
+          // as a banner. On native that surfaced the raw OkHttp exception string
+          // ('Unable to resolve host "spellcontrol.com"…') on launch whenever the
+          // radio hadn't finished re-associating before the boot refresh fired.
+          // Un-set what we swallow; the next stale check (or a manual refresh,
+          // which DOES surface its error) retries.
+          try {
+            await get().refreshPrices(undefined, { track: noPrices });
+          } catch {
+            set({ error: null });
+          }
+        } finally {
+          set({ pricesEverLoaded: true });
         }
       },
 

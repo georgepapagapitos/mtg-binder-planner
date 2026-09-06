@@ -165,7 +165,7 @@ describe('PodsIndexPage — create flow', () => {
     expect(toastSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         tone: 'error',
-        message: 'Pod created, but invites failed to send — invite friends from the pod page.',
+        message: 'Pod created, but invites failed to send. Invite friends from the pod page.',
       })
     );
   });

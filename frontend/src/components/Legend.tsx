@@ -171,7 +171,7 @@ export function LegendContent({ context }: { context: LegendContext }) {
           <Entry key={t} glyph={<TypeIcon type={t} />} word={capitalize(t)} />
         ))}
       </Section>
-      <Section title="Set symbol — tinted by rarity" grid>
+      <Section title="Set symbol · Tinted by rarity" grid>
         {RARITY_WORDS.map(({ rarity, word }) => (
           <Entry
             key={rarity}
@@ -226,7 +226,7 @@ export function LegendContent({ context }: { context: LegendContext }) {
       {/* Binder list rows render the same CardRow chips, so the binder Key
           carries the section too (glyph-literacy rule: Key entry per surface). */}
       {(context === 'collection' || context === 'binder') && (
-        <Section title="Condition — Near Mint unmarked">
+        <Section title="Condition · Near Mint unmarked">
           {CONDITION_OPTIONS.filter((o) => o.value !== '' && o.value !== 'nm').map((o) => (
             <Entry
               key={o.value}

@@ -4,6 +4,7 @@ import { useLockBodyScroll } from '../lib/use-lock-body-scroll';
 import { useSheetExit } from '../lib/use-sheet-exit';
 import { useCanScan } from '../lib/use-can-scan';
 import { importScannedCards } from '../lib/scan-import';
+import { fetchErrorMessage } from '../lib/import-review';
 import { useCollectionStore } from '../store/collection';
 import { AddCardSearchPanel } from './AddCardSearchPanel';
 import { UploadPanel } from './UploadPanel';
@@ -90,14 +91,14 @@ export function AddCardsSheet({ onClose, initialTab = 'search' }: Props) {
           `Added ${added.toLocaleString()} of ${requested.toLocaleString()} scanned cards`,
         ];
         if (fetchErrors > 0) {
-          parts.push(`${fetchErrors} couldn't be fetched — retry from “Add from list”`);
+          parts.push(fetchErrorMessage(fetchErrors, 'Retry from “Add from list.”'));
         }
         setScanSuccess(parts.join(' · '));
       } else {
         const parts = [`Added ${added.toLocaleString()} scanned card${added === 1 ? '' : 's'}`];
         if (unresolved > 0) parts.push(`${unresolved} unresolved`);
         if (fetchErrors > 0) {
-          parts.push(`${fetchErrors} couldn't be fetched — retry from “Add from list”`);
+          parts.push(fetchErrorMessage(fetchErrors, 'Retry from “Add from list.”'));
         }
         setScanSuccess(parts.join(' · '));
       }
@@ -218,7 +219,8 @@ export function AddCardsSheet({ onClose, initialTab = 'search' }: Props) {
                 <h3 className="scan-tab-title">Scan cards with your camera</h3>
                 <p className="scan-tab-desc">
                   Point your camera at one card at a time. Each match is added straight to your
-                  collection — no mode picker, no re-import. For bulk file imports or paste, use{' '}
+                  collection, no mode picker or re-import needed. For bulk file imports or paste,
+                  use{' '}
                   <button type="button" className="btn-link" onClick={() => setTab('upload')}>
                     Add from list
                   </button>

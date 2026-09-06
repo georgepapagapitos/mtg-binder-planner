@@ -647,7 +647,7 @@ export function CardScanner({ onClose, onConfirm }: Props) {
             showHint(
               noCard
                 ? 'Center a card in the frame, in good light.'
-                : "Can't read this card — try better light or lay it flat.",
+                : "Can't read this card. Try better light or lay it flat.",
               2200
             );
           }
@@ -709,7 +709,7 @@ export function CardScanner({ onClose, onConfirm }: Props) {
         }
       } catch (err) {
         logger.error('[scanner] capture failed:', err);
-        showHint('Scan failed — try again.');
+        showHint('Scan failed. Try again.');
       } finally {
         busyRef.current = false;
         setStatus('ready');

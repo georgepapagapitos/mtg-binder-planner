@@ -659,12 +659,14 @@ describe('route registration order (server.ts contract)', () => {
     });
 
     try {
+      // A definite miss is a real 404 (marketing top-5, #1773) — still the
+      // SPA shell with noindex, so the app renders its own not-found state.
       const deckRes = await request(miniServer).get('/d/no-such-slug-at-all');
-      expect(deckRes.status).toBe(200);
+      expect(deckRes.status).toBe(404);
       expect(deckRes.text).toContain('<meta name="robots" content="noindex,nofollow"');
 
       const userRes = await request(miniServer).get('/u/no-such-user-at-all');
-      expect(userRes.status).toBe(200);
+      expect(userRes.status).toBe(404);
       expect(userRes.text).toContain('<meta name="robots" content="noindex,nofollow"');
     } finally {
       miniServer.closeAllConnections();

@@ -983,6 +983,17 @@ export const deckStatSnapshots = pgTable(
   })
 );
 
+export const eventCounts = pgTable(
+  'event_counts',
+  {
+    day: date('day', { mode: 'string' }).notNull(),
+    name: text('name').notNull(),
+    path: text('path').notNull(),
+    count: integer('count').notNull().default(0),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.day, t.name, t.path] }) })
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type AuthIdentityRow = typeof authIdentities.$inferSelect;
 export type OauthHandoffCodeRow = typeof oauthHandoffCodes.$inferSelect;
@@ -1018,3 +1029,4 @@ export type AggregateRollupRunRow = typeof aggregateRollupRuns.$inferSelect;
 export type CommanderStatsRow = typeof commanderStats.$inferSelect;
 export type CommanderCardInclusionRow = typeof commanderCardInclusion.$inferSelect;
 export type DeckStatSnapshotRow = typeof deckStatSnapshots.$inferSelect;
+export type EventCountRow = typeof eventCounts.$inferSelect;

@@ -15,12 +15,12 @@ import { EmptyStateMark } from '@/components/shared/EmptyStateMark';
 import { Layout } from './components/Layout';
 import { CollectionHubLayout } from './components/CollectionHubLayout';
 // Eager pages — the entry surfaces a first paint lands on. WelcomePage is the
-// marketing landing (guest-fresh "/"), HomePage the authed default, and the
-// auth pair is where the first-run gate sends a brand-new install. Everything
-// else is lazy: each hub loads its chunk on first visit, so the boot bundle
-// stops shipping the deck builder, the play table, and the admin panel to
-// someone who came to look at their binders.
-import { HomePage } from './pages/HomePage';
+// marketing landing (guest-fresh "/") and the auth pair is where the first-run
+// gate sends a brand-new install. Everything else is lazy — including HomePage:
+// its bento cards statically reach game-night polls, trade offers and friend
+// hubs, which made every first-time visitor download the whole social surface
+// before the landing could paint. Its chunk is immutable-cached, so a returning
+// signed-in user pays one request once.
 import { WelcomePage } from './pages/WelcomePage';
 import AuthPage from './pages/AuthPage';
 import ChooseUsernamePage from './pages/ChooseUsernamePage';
@@ -34,6 +34,7 @@ import { AutoLinkBanner } from './components/AutoLinkBanner';
 import { useFirstRunGate } from './lib/use-first-run-gate';
 import { useTradeSettlement } from './lib/use-trade-settlement';
 import { hasEverVisited } from './lib/first-run';
+import { track } from './lib/analytics';
 
 /** Named-export adapter for React.lazy (every page below exports by name). */
 function lazyPage<K extends string, T extends Record<K, ComponentType>>(
@@ -43,6 +44,7 @@ function lazyPage<K extends string, T extends Record<K, ComponentType>>(
   return lazy(() => load().then((m) => ({ default: m[name] })));
 }
 
+const HomePage = lazyPage(() => import('./pages/HomePage'), 'HomePage');
 // Collection hub
 const CollectionPage = lazyPage(() => import('./pages/CollectionPage'), 'CollectionPage');
 const BinderPage = lazyPage(() => import('./pages/BinderPage'), 'BinderPage');
@@ -221,10 +223,17 @@ export default function App() {
   const bootstrap = useAuth((s) => s.bootstrap);
   const syncStartedFor = useRef<string | null>(null);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // First-party, cookieless page-view counter (lib/analytics). Path only,
+  // ids/tokens collapsed client-side, so the server holds nothing per-person.
+  useEffect(() => {
+    track('pageview', pathname);
+  }, [pathname]);
 
   // First-run gate: on a brand-new install, send the user to /auth before
   // dropping them into the app. The gate flips off as soon as any

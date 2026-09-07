@@ -199,10 +199,10 @@ describe('WelcomePage fresh-decks rail', () => {
     // rails are always present) before asserting the negative, rather than
     // just confirming the mock was called (which is already true
     // pre-resolution and would prove nothing about the resolved state).
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /try sample cards/i })).toBeTruthy()
-    );
-    expect(screen.queryByText('Fresh public decks')).toBeNull();
+    // The rail shows a skeleton until the fetch resolves, so wait for the
+    // resolved negative rather than asserting it on first paint.
+    await waitFor(() => expect(screen.queryByText('Fresh public decks')).toBeNull());
+    expect(screen.getByRole('button', { name: /try sample cards/i })).toBeTruthy();
     // TrendingRail never self-hides on its own — WelcomePage doesn't mount it
     // at all when the sibling rail also found nothing, so its empty state
     // ("Nothing trending yet.") must never appear here either.

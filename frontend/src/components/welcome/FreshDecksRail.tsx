@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DiscoverDeckTile } from '../DiscoverDeckTile';
+import { DiscoverDeckTile, DiscoverTileSkeleton } from '../DiscoverDeckTile';
+// The rail header borrows HomeCard's header/view-all family. HomePage is lazy,
+// so this chunk (main) has to load the stylesheet itself.
+import '../home/HomeCard.css';
 import { listDiscoverDecks, type DiscoverDeck } from '../../lib/discover-client';
 
 /** Below this many fresh decks, the rail renders nothing rather than a
@@ -9,6 +12,10 @@ import { listDiscoverDecks, type DiscoverDeck } from '../../lib/discover-client'
  *  GHOST_TOWN_THRESHOLD, applied to a rail's visibility instead of a stat
  *  line's. */
 const MIN_DECKS_TO_SHOW = 3;
+/** A rail, not the whole first Discover page: the skeleton below reserves
+ *  exactly this many tiles, so the feature grid under it doesn't jump when
+ *  the real tiles land (the landing's one large layout shift). */
+const RAIL_SIZE = 6;
 
 /**
  * "Fresh public decks" — the welcome storefront's first live rail (pass 2c).
@@ -31,7 +38,8 @@ export function FreshDecksRail({
 }: {
   onVisibilityChange?: (visible: boolean) => void;
 } = {}) {
-  const [decks, setDecks] = useState<DiscoverDeck[]>([]);
+  // null = still loading (skeleton); [] = resolved with nothing / failed.
+  const [decks, setDecks] = useState<DiscoverDeck[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,8 +48,9 @@ export function FreshDecksRail({
         if (!cancelled) setDecks(res.decks);
       })
       .catch(() => {
-        // Silent — see doc comment above. Nothing to recover into; staying
-        // in the initial empty state already renders nothing.
+        // Silent — see doc comment above. Nothing to recover into; an empty
+        // resolution collapses the rail exactly like the too-few case.
+        if (!cancelled) setDecks([]);
       });
     return () => {
       cancelled = true;
@@ -49,9 +58,23 @@ export function FreshDecksRail({
   }, []);
 
   useEffect(() => {
-    onVisibilityChange?.(decks.length >= MIN_DECKS_TO_SHOW);
+    if (decks) onVisibilityChange?.(decks.length >= MIN_DECKS_TO_SHOW);
   }, [decks, onVisibilityChange]);
 
+  if (decks === null) {
+    return (
+      <section className="welcome-fresh-rail" aria-busy="true">
+        <p role="status" aria-live="polite" className="sr-only">
+          Loading public decks…
+        </p>
+        <ul className="decks-index-list is-grid" aria-hidden="true">
+          {Array.from({ length: RAIL_SIZE }, (_, i) => (
+            <DiscoverTileSkeleton key={i} view="grid" />
+          ))}
+        </ul>
+      </section>
+    );
+  }
   if (decks.length < MIN_DECKS_TO_SHOW) return null;
 
   return (
@@ -65,7 +88,7 @@ export function FreshDecksRail({
         </Link>
       </div>
       <ul className="decks-index-list is-grid" aria-label="Recently published public decks">
-        {decks.map((deck) => (
+        {decks.slice(0, RAIL_SIZE).map((deck) => (
           <DiscoverDeckTile key={deck.slug} deck={deck} view="grid" />
         ))}
       </ul>

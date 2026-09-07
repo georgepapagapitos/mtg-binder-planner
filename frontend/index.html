@@ -54,10 +54,21 @@
          injected at runtime by store/typeset.ts, so a user on a non-default set
          never pays for these. Keep in lockstep with DEFAULT_TYPESET in
          lib/typesets.ts and the `--font-*` fallbacks in styles/tokens.css. -->
+    <!-- media="print" + onload swap: the font CSS downloads without blocking
+         first paint (it was the landing's longest render-blocking request);
+         display=swap already paints fallback text until the faces land. -->
     <link
       href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Eczar:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Marcellus&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Eczar:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Marcellus&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <script>
       // Set data-theme + data-scheme synchronously so the right [data-theme]
       // and [data-scheme] CSS rules apply on first paint. Mirrors

@@ -1,5 +1,56 @@
-import { describe, expect, it } from 'vitest';
-import { buildShareHeadTags, cardArtUrl, escapeHtmlAttr, injectShareHead } from './og';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createServer } from 'node:http';
+import express from 'express';
+import request from 'supertest';
+import {
+  buildShareHeadTags,
+  cardArtUrl,
+  createShareLandingHandler,
+  escapeHtmlAttr,
+  injectShareHead,
+} from './og';
+
+describe('createShareLandingHandler status', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'og-shell-'));
+  fs.writeFileSync(path.join(dir, 'index.html'), '<html><head></head><body></body></html>');
+  const server = createServer(
+    express()
+      .get(
+        '/d/:token',
+        createShareLandingHandler(dir, async (t) =>
+          t === 'live' ? { title: 'x', description: 'y', url: 'u', indexable: true } : null
+        )
+      )
+      .get(
+        '/err/:token',
+        createShareLandingHandler(dir, async () => {
+          throw new Error('db down');
+        })
+      )
+  );
+  beforeAll(() => new Promise<void>((r) => server.listen(0, '127.0.0.1', r)));
+  afterAll(() => new Promise<void>((r) => server.close(() => r())));
+
+  it('serves 200 + canonical for a live page', async () => {
+    const res = await request(server).get('/d/live');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('rel="canonical"');
+  });
+  it('serves a real 404 (still the SPA shell, noindex) for a definite miss', async () => {
+    const res = await request(server).get('/d/nope');
+    expect(res.status).toBe(404);
+    expect(res.text).toContain('noindex,nofollow');
+    expect(res.text).toContain('<body>');
+  });
+  it('keeps 200 when the lookup itself errors', async () => {
+    const res = await request(server).get('/err/x');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('noindex,nofollow');
+  });
+});
 
 describe('escapeHtmlAttr', () => {
   it('escapes all HTML-sensitive characters', () => {

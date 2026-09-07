@@ -45,6 +45,8 @@ import {
 } from './routes/public';
 import { reportsRouter } from './routes/reports';
 import { discoverRouter } from './routes/discover';
+import { eventsRouter } from './routes/events';
+import { sitemapHandler } from './sitemap';
 import { activityRouter } from './routes/activity';
 import { aiRouter } from './routes/ai';
 import { getMatcher } from './scanner/matcher';
@@ -297,6 +299,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/discover', discoverRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/events', eventsRouter);
 
 /**
  * One-time backfill: resolve printing IDs (scryfallId) → oracle IDs from the
@@ -1171,6 +1174,10 @@ function readImportRows(req: Request): ImportRow[] | null {
  * backend stays API-only. Registered AFTER every /api route so nothing here
  * can shadow the API, and before the error handler so it stays last.
  */
+// Live sitemap (static pages + public decks/profiles). Registered before the
+// SPA static layer so it can't be shadowed by a stale file in public/.
+app.get('/sitemap.xml', sitemapHandler);
+
 const SPA_DIR = path.join(__dirname, '..', 'public');
 if (existsSync(SPA_DIR)) {
   // Share-landing routes need to render before the SPA static handler so

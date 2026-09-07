@@ -16,6 +16,26 @@ export const adminRouter: Router = Router();
  * tombstoned) rows — cheap enough to run on every request because each
  * sum is one indexed scan per table.
  */
+/**
+ * GET /api/admin/events?days=30
+ * Raw (day, name, path, count) rows from the first-party beacon for the last
+ * N days (default 30, max 365). The admin page aggregates client-side.
+ */
+adminRouter.get('/events', requireAdmin, async (req: Request, res: Response) => {
+  const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
+  const { rows } = await getPool().query<{
+    day: string;
+    name: string;
+    path: string;
+    count: number;
+  }>(
+    `SELECT day::text AS day, name, path, count FROM event_counts
+      WHERE day >= CURRENT_DATE - ($1::int - 1) ORDER BY day DESC, count DESC`,
+    [days]
+  );
+  res.json({ events: rows });
+});
+
 adminRouter.get('/users', requireAdmin, async (_req: Request, res: Response) => {
   const { rows } = await getPool().query<{
     id: string;

@@ -41,6 +41,10 @@ interface Props {
 // and Chrome re-snaps on those — mid-gesture that yanks a trackpad swipe. The
 // render window therefore follows `index` only once the scroller has been
 // quiet this long. The ±windowRadius buffer keeps the deferral invisible.
+// The same quiet period bounds `is-scrolling` on the track (see CSS): slide
+// content animations pause while the track moves so a pan is a pure
+// compositor translate instead of a per-frame repaint of every animating
+// skeleton / foil overlay in the window.
 const WINDOW_SETTLE_MS = 150;
 
 /**
@@ -84,20 +88,27 @@ export const SnapCarousel = forwardRef<SnapCarouselHandle, Props>(function SnapC
   const settleTimer = useRef(0);
   const settle = () => {
     window.clearTimeout(settleTimer.current);
-    settleTimer.current = window.setTimeout(
-      () => setWindowCenter(indexRef.current),
-      WINDOW_SETTLE_MS
-    );
+    settleTimer.current = window.setTimeout(() => {
+      setWindowCenter(indexRef.current);
+      trackRef.current?.classList.remove('is-scrolling');
+    }, WINDOW_SETTLE_MS);
   };
+  // `settle` only reads refs, so both effects are safe to key narrowly.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(settle, [index]);
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    track.addEventListener('scroll', settle, { passive: true });
+    const onScroll = () => {
+      track.classList.add('is-scrolling');
+      settle();
+    };
+    track.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      track.removeEventListener('scroll', settle);
+      track.removeEventListener('scroll', onScroll);
       window.clearTimeout(settleTimer.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackRef]);
 
   // Edge spacers: (content width − edge slide width) / 2, minus the flex gap

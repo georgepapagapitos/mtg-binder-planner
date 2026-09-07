@@ -64,6 +64,24 @@ describe('SnapCarousel', () => {
     expect((screen.getByLabelText('Next') as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('marks the track is-scrolling while it moves and clears it once quiet', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<Harness index={0} />);
+      const track = container.querySelector('.track') as HTMLDivElement;
+      fireEvent.scroll(track);
+      expect(track.classList.contains('is-scrolling')).toBe(true);
+      vi.advanceTimersByTime(100);
+      fireEvent.scroll(track); // still moving — the quiet window restarts
+      vi.advanceTimersByTime(100);
+      expect(track.classList.contains('is-scrolling')).toBe(true);
+      vi.advanceTimersByTime(100);
+      expect(track.classList.contains('is-scrolling')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('arrow keys and the ref handle scroll the target slide into view', () => {
     const handle = createRef<SnapCarouselHandle>();
     render(<Harness index={1} handle={handle} />);

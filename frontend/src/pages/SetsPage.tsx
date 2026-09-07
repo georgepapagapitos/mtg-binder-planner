@@ -422,7 +422,7 @@ function SetsIndex() {
                     <p className="sets-card-more">
                       +{cardResults.total - cardResults.matches.length} more{' '}
                       {cardResults.total - cardResults.matches.length === 1 ? 'card' : 'cards'}{' '}
-                      match — keep typing to narrow.
+                      match. Keep typing to narrow.
                     </p>
                   )}
                 </section>
@@ -481,7 +481,7 @@ function SetDetail({ code }: { code: string }) {
               status: 'error',
               message: navigator.onLine
                 ? "Couldn't load this set's card list from Scryfall."
-                : "You're offline — set checklists need a connection.",
+                : "You're offline. Set checklists need a connection.",
             },
           });
       });
@@ -558,7 +558,7 @@ function SetDetail({ code }: { code: string }) {
         celebratedSetComplete.add(sealKey);
         fireSealMoment();
         pushToast({
-          message: `${displayName} complete — all ${rows.length} cards collected.`,
+          message: `${displayName} complete: all ${rows.length} cards collected.`,
           tone: 'success',
         });
       }
@@ -758,7 +758,7 @@ function SetDetail({ code }: { code: string }) {
                 : filter === 'missing'
                   ? `You own every card in ${displayName}.`
                   : filter === 'owned'
-                    ? `Nothing from ${displayName} yet — tap a card to add it.`
+                    ? `Nothing from ${displayName} yet. Tap a card to add it.`
                     : `Scryfall lists no cards for ${displayName}.`}
             </p>
           ) : view === 'grid' ? (

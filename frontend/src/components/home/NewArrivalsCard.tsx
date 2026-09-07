@@ -117,7 +117,7 @@ export function NewArrivalsCard() {
               aria-label={`Open deck: ${deck.name}, ${count} new arrival${count === 1 ? '' : 's'}`}
             >
               <span className="home-new-arrival-name">{deck.name}</span>
-              <span className="home-new-arrival-count">— {count} new</span>
+              <span className="home-new-arrival-count">{count} new</span>
             </Link>
           </li>
         ))}

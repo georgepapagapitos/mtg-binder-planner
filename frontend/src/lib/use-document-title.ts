@@ -15,7 +15,7 @@ export function useDocumentTitle(title: string | null | undefined): void {
   useEffect(() => {
     if (!title) return;
     const prev = document.title;
-    document.title = `${title} — SpellControl`;
+    document.title = `${title} · SpellControl`;
     return () => {
       document.title = prev;
     };

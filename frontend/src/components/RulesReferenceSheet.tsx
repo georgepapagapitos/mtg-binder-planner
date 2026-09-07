@@ -180,7 +180,7 @@ function RulesReferenceBody({ onClose }: { onClose: () => void }) {
           >
             <Sparkles width={14} height={14} aria-hidden />
             <span className="rules-ref-ask-ai-text">Ask a rules question</span>
-            <span className="rules-ref-ask-ai-hint">AI — cites the rules</span>
+            <span className="rules-ref-ask-ai-hint">AI · cites the rules</span>
           </button>
         )}
 
@@ -314,7 +314,7 @@ function RulesList({
         </p>
       ))}
       {results.length >= LIMIT && (
-        <p className="rules-ref-status">Showing the first {LIMIT} matches — refine your search.</p>
+        <p className="rules-ref-status">Showing the first {LIMIT} matches. Refine your search.</p>
       )}
     </div>
   );

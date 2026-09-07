@@ -11,8 +11,10 @@ import { NewArrivalsCard } from '../components/home/NewArrivalsCard';
 import { BinderReviewCard } from '../components/home/BinderReviewCard';
 
 /**
- * The /home dashboard (social program W3). Reachable by direct URL only for
- * now — not yet the default landing (that flip is w3-nav-activation). The
+ * The /home dashboard (social program W3) — the default landing for authed
+ * users since w3-nav-activation shipped (App.tsx routes both `/` and the
+ * catch-all here for them); still reachable by direct URL for guests, who
+ * are never auto-routed here. The
  * hero band (HomeHero — pass 2b, "your collection is the hero") replaces the
  * old plain `<h1>` + Quick Actions with collection art, the greeting/value,
  * the scale line, a scoped deck search, and Quick Actions along its bottom

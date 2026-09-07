@@ -123,11 +123,18 @@ describe('RecentDecksCard', () => {
     expect(links.map((l) => l.getAttribute('href'))).not.toContain('/decks/d2');
   });
 
-  it('links each row to its deck editor with a descriptive aria-label', () => {
-    setStore([makeDeck({ id: 'atraxa', name: "Atraxa, Praetors' Voice", format: 'commander' })]);
+  it('links each row to its deck editor with a descriptive aria-label, incl. relative updated time', () => {
+    setStore([
+      makeDeck({
+        id: 'atraxa',
+        name: "Atraxa, Praetors' Voice",
+        format: 'commander',
+        updatedAt: Date.now() - 2 * 60 * 60 * 1000,
+      }),
+    ]);
     renderCard();
     const link = screen.getByRole('link', {
-      name: "Open deck: Atraxa, Praetors' Voice, Commander",
+      name: "Open deck: Atraxa, Praetors' Voice, Commander, updated 2h ago",
     });
     expect(link.getAttribute('href')).toBe('/decks/atraxa');
   });

@@ -39,7 +39,8 @@ describe('AdminPanel — clear profile', () => {
     render(<AdminPanel currentUserId="admin-1" />);
     await screen.findByText('nova');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear profile for nova' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for nova' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear profile' }));
     await screen.findByText('Clear profile?');
 
     // Cancel: dismisses without calling the API.
@@ -50,7 +51,8 @@ describe('AdminPanel — clear profile', () => {
     // Re-open and confirm; the refetch after success returns a cleared row.
     listUsersMock.mockResolvedValueOnce([{ ...baseUser, displayName: null, bio: null }]);
     clearUserProfileMock.mockResolvedValueOnce(undefined);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear profile for nova' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for nova' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear profile' }));
     await screen.findByText('Clear profile?');
     fireEvent.click(screen.getByRole('button', { name: 'Clear profile' }));
 

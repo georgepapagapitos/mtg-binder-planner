@@ -18,14 +18,14 @@ interface Props {
 }
 
 /** Folds the ownership fact into the tile's accessible name (rather than a
- *  second separately-focusable element per card) — e.g. "Sol Ring — owned,
+ *  second separately-focusable element per card), e.g. "Sol Ring · owned,
  *  in Sacrifice binder". Shared with SharedCardList's row label. */
 export function ownedAriaSuffix(ownership?: CardOwnership): string {
   if (!ownership?.owned) return '';
   const names = [...new Set(ownership.binders.map((b) => b.name))];
-  if (names.length === 0) return ' — owned';
-  if (names.length === 1) return ` — owned, in ${names[0]} binder`;
-  return ` — owned, in ${names.length} binders`;
+  if (names.length === 0) return ' · owned';
+  if (names.length === 1) return ` · owned, in ${names[0]} binder`;
+  return ` · owned, in ${names.length} binders`;
 }
 
 /**

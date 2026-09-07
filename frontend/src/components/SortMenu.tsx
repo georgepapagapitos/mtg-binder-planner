@@ -101,7 +101,7 @@ export function SortMenu<T extends string>({
             onClick={() => onChange(value)}
             // Names the direction it will produce, not the one showing — the
             // button's job is to say what happens if you press it.
-            aria-label={`Reverse sort order — ${nextDirLabel}`}
+            aria-label={`Reverse sort order: ${nextDirLabel}`}
           >
             <ArrowDownUp width={14} height={14} strokeWidth={2} aria-hidden />
             <span className="sort-menu-reverse-label">Reverse</span>

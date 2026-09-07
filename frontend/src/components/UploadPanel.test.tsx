@@ -347,7 +347,7 @@ describe('UploadPanel import review surface (E130)', () => {
     // Unresolved names are listed and repairable inline — scope to that
     // section since the fetch-error section also has its own "Show list".
     const unresolvedSection = screen
-      .getByText(/couldn't be matched to Scryfall data/)
+      .getByText(/didn't match Scryfall/)
       .closest('.import-review-section') as HTMLElement;
     fireEvent.click(within(unresolvedSection).getByRole('button', { name: 'Show list' }));
     expect(within(unresolvedSection).getByText('Sol Rign')).toBeTruthy();

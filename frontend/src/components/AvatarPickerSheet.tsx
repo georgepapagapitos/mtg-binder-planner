@@ -302,7 +302,7 @@ export function AvatarPickerSheet({ current, onPick, onClose }: Props) {
 
           {searching && loading && (
             <p className="card-picker-empty" aria-live="polite">
-              Searching...
+              Searching…
             </p>
           )}
           {searching && error && (
@@ -345,7 +345,7 @@ export function AvatarPickerSheet({ current, onPick, onClose }: Props) {
           )}
           {!searching && browseHasMore && (
             <p className="avatar-picker-hint">
-              Showing your first 300 cards — search above for more.
+              Showing your first 300 cards. Search above for more.
             </p>
           )}
         </div>

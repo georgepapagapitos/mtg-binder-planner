@@ -53,7 +53,7 @@ export function LikeButton({ slug, initialLiked, initialCount, size = 16 }: Prop
     } catch {
       setLiked(prevLiked);
       setCount(prevCount);
-      toast.show({ message: "Couldn't like this deck — try again", tone: 'error' });
+      toast.show({ message: "Couldn't like this deck. Try again.", tone: 'error' });
     } finally {
       setBusy(false);
     }

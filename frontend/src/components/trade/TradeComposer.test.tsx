@@ -113,7 +113,7 @@ function renderComposer(extra: Partial<Parameters<typeof TradeComposer>[0]> = {}
 
 /** The give side's results list, which is the second "pick a card" list. */
 function giveResults() {
-  return screen.getByRole('list', { name: /You give — pick a card/i });
+  return screen.getByRole('list', { name: /You give: pick a card/i });
 }
 
 beforeEach(() => {
@@ -136,7 +136,7 @@ describe('TradeComposer — give-side result row split', () => {
 
     expect(screen.getByTestId('preview-slide').textContent).toBe('Sol Ring');
     // Nothing entered the basket — the whole point of carving the thumb out.
-    expect(screen.queryByRole('list', { name: /You give — chosen cards/i })).toBeNull();
+    expect(screen.queryByRole('list', { name: /You give: chosen cards/i })).toBeNull();
     // The give side never hits the network: these copies are already owned.
     expect(resolveTradePreview).not.toHaveBeenCalled();
   });
@@ -145,7 +145,7 @@ describe('TradeComposer — give-side result row split', () => {
     renderComposer();
     fireEvent.click(within(giveResults()).getByRole('button', { name: 'Add Sol Ring' }));
 
-    const basket = screen.getByRole('list', { name: /You give — chosen cards/i });
+    const basket = screen.getByRole('list', { name: /You give: chosen cards/i });
     expect(within(basket).getByText('Sol Ring')).toBeTruthy();
     expect(screen.queryByTestId('preview')).toBeNull();
   });
@@ -165,7 +165,7 @@ describe('TradeComposer — give-side result row split', () => {
     fireEvent.click(within(giveResults()).getByRole('button', { name: 'Preview Sol Ring' }));
     fireEvent.click(screen.getByRole('button', { name: 'preview-Add' }));
 
-    const basket = screen.getByRole('list', { name: /You give — chosen cards/i });
+    const basket = screen.getByRole('list', { name: /You give: chosen cards/i });
     expect(within(basket).getByText('Sol Ring')).toBeTruthy();
     expect(within(basket).queryByText('Arcane Signet')).toBeNull();
   });
@@ -184,7 +184,7 @@ describe('TradeComposer — a picked row opens the DEAL', () => {
 
     // Put one of ours in too, so the deal has both sides.
     fireEvent.click(within(giveResults()).getByRole('button', { name: 'Add Sol Ring' }));
-    const basket = screen.getByRole('list', { name: /You give — chosen cards/i });
+    const basket = screen.getByRole('list', { name: /You give: chosen cards/i });
     fireEvent.click(within(basket).getByRole('button', { name: 'Preview Sol Ring' }));
 
     expect(await screen.findByTestId('preview')).toBeTruthy();
@@ -209,7 +209,7 @@ describe('TradeComposer — a picked row opens the DEAL', () => {
     renderComposer({ initialWant: { oracleId: 'o-rhystic', name: 'Rhystic Study' } });
 
     fireEvent.click(within(giveResults()).getByRole('button', { name: 'Add Sol Ring' }));
-    const wantBasket = screen.getByRole('list', { name: /You get — chosen cards/i });
+    const wantBasket = screen.getByRole('list', { name: /You get: chosen cards/i });
     fireEvent.click(within(wantBasket).getByRole('button', { name: 'Preview Rhystic Study' }));
 
     expect(await screen.findByTestId('preview')).toBeTruthy();
@@ -232,7 +232,7 @@ describe('TradeComposer — the 40-line side cap', () => {
     }));
     renderComposer({ friendCards: many });
 
-    const wantResults = () => screen.getByRole('list', { name: /You get — pick a card/i });
+    const wantResults = () => screen.getByRole('list', { name: /You get: pick a card/i });
     // The picker shows PICKER_LIMIT (40) results — add every one of them.
     for (let i = 1; i <= 40; i++) {
       const name = `Add Wanted Card ${String(i).padStart(2, '0')}`;
@@ -245,7 +245,7 @@ describe('TradeComposer — the 40-line side cap', () => {
     });
     fireEvent.click(within(wantResults()).getByRole('button', { name: 'Add Wanted Card 41' }));
 
-    const basket = screen.getByRole('list', { name: /You get — chosen cards/i });
+    const basket = screen.getByRole('list', { name: /You get: chosen cards/i });
     expect(within(basket).getAllByRole('listitem')).toHaveLength(40);
     expect(within(basket).queryByText('Wanted Card 41')).toBeNull();
     expect(

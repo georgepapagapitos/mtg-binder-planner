@@ -24,6 +24,12 @@ export function scrollToHeading(id: string, opts: { focus?: boolean } = {}): boo
   // time from wherever the user has since put it.
   if (opts.focus === false) return true;
   el.tabIndex = -1;
+  // `scroll-heading-target` (base-layout.css) suppresses the browser's raw
+  // default focus ring here: this is a programmatic scroll-anchor, not a
+  // control the user tabbed to, and the scroll motion is the sighted-user
+  // cue (a screen reader still gets the announcement either way) — see
+  // base-layout.css for the recognized-exception rationale (B8-01).
+  el.classList.add('scroll-heading-target');
   // preventScroll: the scroll is scrollIntoView's job. A bare focus() runs
   // its own scroll-if-needed, and in Chromium that cancels the smooth scroll
   // just started whenever the heading is already inside the viewport — the

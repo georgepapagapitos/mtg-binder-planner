@@ -12,6 +12,10 @@
  * client-rendered) can't expose to crawlers. Returning guests and authed
  * users skip it (App routes them straight to /collection).
  *
+ * The first-run gate (lib/first-run.ts / use-first-run-gate.ts) sends a
+ * fresh guest here — to the welcome storefront at `/`, not `/auth` — leaving
+ * sign-in as one of this page's own doors (below) rather than a forced stop.
+ *
  * Onboarding doors, now split between the hero and a tightened row below the
  * live rails:
  *   1. Import my collection → /collection?add=list (AddCardsSheet) — the
@@ -47,22 +51,22 @@ const FEATURES = [
   {
     Icon: Layers,
     title: 'Rule-based binders',
-    body: 'Sort your physical collection into binders defined by rules — colors, types, sets, price, tags. Set the pocket size and order; every card files itself into the first binder it matches.',
+    body: 'Sort your physical collection into binders. Cards file into the first one whose rule matches, top to bottom.',
   },
   {
     Icon: Wand2,
     title: 'Generate Commander decks',
-    body: 'Pick a commander, choose themes, and set a power bracket — then get a full 100-card deck from EDHREC data, balanced for mana curve and card roles.',
+    body: 'Pick a commander and a power bracket, and generate a full 100-card deck tuned to your curve and role mix.',
   },
   {
     Icon: SlidersHorizontal,
     title: 'Tune any deck with the Coach',
-    body: 'Build in eight formats with live legality checks — then tune with the Coach: a ranked list of moves (add, cut, swap for a card you already own), each with a plain-English reason. Backed by combo, win-condition, and synergy analysis, plus power-bracket fit.',
+    body: 'Build in eight formats with live legality checks, then tune with the Coach: a ranked list of adds, cuts, and swaps, each with a plain-English reason.',
   },
   {
     Icon: Swords,
     title: 'Track multiplayer games',
-    body: 'Run life totals and full game state across your pod — local games at the table or live online sessions synced across devices.',
+    body: 'Run life totals and full game state for your pod, at the table or online, synced across devices.',
   },
 ];
 
@@ -73,6 +77,13 @@ export function WelcomePage() {
 
   const [loadingSamples, setLoadingSamples] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
+  // TrendingRail has no self-hiding threshold of its own (unlike
+  // FreshDecksRail) — mounting it unconditionally means a cold dataset shows
+  // "Nothing trending yet." as the first content block under the hero. Gate
+  // it on whether the sibling rail found enough live data instead: if there
+  // isn't enough for one rail, there's unlikely to be enough for the other,
+  // and this avoids stacking two half-empty marketing sections. (B1-06)
+  const [hasFreshDecks, setHasFreshDecks] = useState(false);
 
   /**
    * Door 3 — Try sample cards.
@@ -104,21 +115,25 @@ export function WelcomePage() {
       <main className="welcome-shell">
         <WelcomeHero />
 
-        <FreshDecksRail />
+        <FreshDecksRail onVisibilityChange={setHasFreshDecks} />
 
-        {/* "Trending commanders" — TrendingRail mounted as-is (it already
-            renders its own title + loading/error/empty states; verified
-            guest-safe and already reachable logged-out on /decks/discover).
-            Only the trailing "View all" link is new here — TrendingRail has
-            no such link of its own since every one of ITS OWN tiles already
-            links to a real destination (a deck or the deck builder), never
-            back to /decks/discover itself. */}
-        <section className="welcome-trending" aria-label="Trending commanders">
-          <TrendingRail enabled={true} />
-          <Link to="/decks/discover" className="home-card-view-all">
-            View all public decks →
-          </Link>
-        </section>
+        {/* "Trending commanders" — TrendingRail mounted only once the sibling
+            rail above found enough live data to show itself (see
+            hasFreshDecks above). It already renders its own title +
+            loading/error/empty states, and is guest-safe and already
+            reachable logged-out on /decks/discover. Only the trailing
+            "View all" link is new here — TrendingRail has no such link of
+            its own since every one of ITS OWN tiles already links to a real
+            destination (a deck or the deck builder), never back to
+            /decks/discover itself. */}
+        {hasFreshDecks && (
+          <section className="welcome-trending" aria-label="Trending commanders">
+            <TrendingRail enabled={true} />
+            <Link to="/decks/discover" className="home-card-view-all">
+              View all public decks →
+            </Link>
+          </section>
+        )}
 
         <section className="welcome-alt-start" aria-label="Other ways to start">
           <div className="welcome-doors">

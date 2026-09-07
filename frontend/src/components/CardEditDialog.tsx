@@ -552,7 +552,7 @@ export function CardEditDialog({
                         className={`card-edit-finish-btn${selectedFinish === f ? ' is-active' : ''}${owned ? ' is-owned' : ''}`}
                         onClick={() => setSelectedFinish(f)}
                         aria-pressed={selectedFinish === f}
-                        aria-label={owned ? `${label} — you own this finish` : label}
+                        aria-label={owned ? `${label} · You own this finish` : label}
                       >
                         {label}
                         {owned && (
@@ -635,9 +635,8 @@ export function CardEditDialog({
                       aria-describedby="card-edit-override-hint"
                     />
                     <span id="card-edit-override-hint" className="card-edit-paid-hint">
-                      For a printing Scryfall prices wrong or not at all — replaces the market price
-                      everywhere it's used (collection total, binder rules, filters). Leave blank to
-                      use Scryfall's price.
+                      Use this when Scryfall has no price, or the wrong one. It overrides the market
+                      price everywhere it's used. Leave blank to use Scryfall's price.
                     </span>
                   </div>
                   <div className="card-edit-finishes" role="group" aria-label="Card flags">
@@ -658,7 +657,7 @@ export function CardEditDialog({
 
               {singleCopy && (
                 <p className="card-edit-single-note">
-                  Editing one copy — other copies of this printing stay as they are.
+                  Editing one copy. Other copies of this printing stay as they are.
                 </p>
               )}
 

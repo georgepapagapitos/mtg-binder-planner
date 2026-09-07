@@ -203,7 +203,7 @@ export default function AuthPage() {
 
         {oauthFailed ? (
           <div role="alert" className="auth-error">
-            Google sign-in didn't complete. Please try again.
+            Google sign-in didn't complete. Try again.
           </div>
         ) : null}
 
@@ -259,7 +259,6 @@ export default function AuthPage() {
                 onClick={() => setShowPassword((v) => !v)}
                 aria-pressed={showPassword}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
               </button>
@@ -268,7 +267,7 @@ export default function AuthPage() {
               <ul className="auth-rules" aria-label="Password requirements" aria-live="polite">
                 <li
                   className={`auth-rule${password.length >= 10 ? ' is-met' : ''}`}
-                  aria-label={`At least 10 characters — ${password.length >= 10 ? 'met' : 'not yet met'}`}
+                  aria-label={`At least 10 characters: ${password.length >= 10 ? 'met' : 'not yet met'}`}
                 >
                   <span className="auth-rule-mark" aria-hidden="true">
                     {password.length >= 10 ? '✓' : '•'}
@@ -279,7 +278,7 @@ export default function AuthPage() {
                   <span className="auth-rule-mark" aria-hidden="true">
                     !
                   </span>
-                  No password reset — pick something you'll remember
+                  No password reset. Pick something you'll remember.
                 </li>
               </ul>
             ) : null}
@@ -308,7 +307,6 @@ export default function AuthPage() {
                   onClick={() => setShowConfirm((v) => !v)}
                   aria-pressed={showConfirm}
                   aria-label={showConfirm ? 'Hide password' : 'Show password'}
-                  tabIndex={-1}
                 >
                   {showConfirm ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
                 </button>
@@ -316,7 +314,7 @@ export default function AuthPage() {
               <ul className="auth-rules" aria-label="Confirm requirements" aria-live="polite">
                 <li
                   className={`auth-rule${confirm.length > 0 && confirm === password ? ' is-met' : ''}${confirmError ? ' is-error' : ''}`}
-                  aria-label={`Passwords match — ${confirm.length > 0 && confirm === password ? 'met' : 'not yet met'}`}
+                  aria-label={`Passwords match: ${confirm.length > 0 && confirm === password ? 'met' : 'not yet met'}`}
                 >
                   <span className="auth-rule-mark" aria-hidden="true">
                     {confirm.length > 0 && confirm === password ? '✓' : '•'}

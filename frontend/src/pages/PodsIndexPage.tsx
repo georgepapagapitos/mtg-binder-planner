@@ -180,7 +180,7 @@ function PodsIndexPageBody() {
       <header className="binder-hero">
         <div className="settings-page-hero-text">
           <h1 className="binder-hero-name">Pods</h1>
-          <p className="binder-hero-meta">Your regular tables — games and trades in one place.</p>
+          <p className="binder-hero-meta">Your regular tables: games and trades in one place.</p>
         </div>
       </header>
 
@@ -340,7 +340,7 @@ function CreatePodDialog({
           // The pod itself was created successfully — never strand it or
           // block navigation over the secondary invite call failing.
           toast.show({
-            message: 'Pod created, but invites failed to send — invite friends from the pod page.',
+            message: 'Pod created, but invites failed to send. Invite friends from the pod page.',
             tone: 'error',
           });
         }
@@ -372,7 +372,7 @@ function CreatePodDialog({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={POD_NAME_MAX}
-            placeholder="e.g. Friday commander table"
+            placeholder="Friday commander table"
             aria-describedby={countId}
             autoFocus
           />
@@ -387,11 +387,11 @@ function CreatePodDialog({
             <p className="pods-dialog-hint">Loading friends…</p>
           ) : friendsFetch.status === 'error' ? (
             <p className="pods-dialog-hint">
-              Couldn't load your friends list — you can invite people from the pod page instead.
+              Couldn't load your friends list. Invite people from the pod page instead.
             </p>
           ) : friendsFetch.friends.length === 0 ? (
             <p className="pods-dialog-hint">
-              No friends yet — you can invite people from the pod page once you have some.
+              No friends yet. Invite people from the pod page once you have some.
             </p>
           ) : (
             <ul className="pods-dialog-friend-list">

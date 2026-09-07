@@ -2728,20 +2728,34 @@ do not declare a bespoke `@keyframes *-shimmer` clone. `motion-tokens.test.ts`
 fails CI on any other `*-shimmer` keyframe.
 
 **Infinite animations inside a scroll-snap carousel run on the active, resting
-slide only (2026-09-07 ruling, #1772).** `skeleton-shimmer` and the ambient
-`foil-drift` both animate `background-position`, which is _not_ compositor
-accelerated — every tick repaints the element on the main thread. Inside the
-binder flipbook's render window that is ~120 pockets, and it turned every
-trackpad-pan frame into a full repaint + re-raster (measured over one 2.5s pan:
-29k paint records / 4.5k raster tasks; 82 / 111 once paused) — the "stuttery,
-glitchy swipe". The rule set in `footer-card-preview.css` pauses
-(`animation-play-state: paused`, so they resume in place) every slide-content
-animation on `:not(.is-active)` slides and on all slides while the track
-carries `is-scrolling` (set by `SnapCarousel` for the scroll plus its 150ms
-settle). Anything new that loops inside a `.card-preview-slide` /
-`.binder-pages-slide` must join that selector list, and nothing may assume a
+slide only (2026-09-07 ruling, #1772).** `skeleton-shimmer` animates
+`background-position`, which is _not_ compositor accelerated — every tick
+repaints the element on the main thread. Inside the binder flipbook's render
+window that is ~120 pockets, and it turned every trackpad-pan frame into a full
+repaint + re-raster (measured over one 2.5s pan: 29k paint records / 4.5k
+raster tasks; 82 / 111 once paused) — the "stuttery, glitchy swipe". The rule
+set in `footer-card-preview.css` pauses (`animation-play-state: paused`, so it
+resumes in place) every slide-content animation on `:not(.is-active)` slides
+and on all slides while the track carries `is-scrolling` (set by
+`SnapCarousel` for the scroll plus its 150ms settle). Anything new that loops
+inside a `.card-preview-slide` / `.binder-pages-slide` must join that selector
+list.
+
+**The foil rainbow moves by `transform`, never `background-position` (#1775).**
+The ambient `foil-drift` (grid tiles, deck tiles, binder pockets, touch-mode
+preview, the `.foil-badge` chip) and the preview's cursor parallax used to
+animate `background-position` on the shine — so even at rest a binder spread
+with 18 foil pockets repainted and re-rastered every frame (740 paint records
+/ 552 raster tasks per 3s of doing nothing; the whole browser felt laggy with
+the flipbook open). The gradient now lives on a 3.2× `::before` canvas and
+_translates_: `background-position: P%` ≡ `translate(P% × −0.6875)` of the
+canvas, `foil-drift` is `translate(0,0) → translate(-68.75%, -68.75%)`, and
+reduced-motion parks it at `-34.375%` (the old `50% 50%`). Result: 0 paint /
+0 raster at rest. Non-active carousel slides get `animation: none` (no
+animation → no compositor layer) rather than `paused`. Nothing may assume a
 `background-position` (or `background-size`, `box-shadow`, `filter`) animation
-is cheap because "it's just a gradient".
+is cheap because "it's just a gradient" — if it has to loop, it moves by
+`transform` or `opacity`.
 
 ## Color & spacing
 

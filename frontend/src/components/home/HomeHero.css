@@ -27,6 +27,14 @@
 /* min-width: 0 so the search pill can shrink instead of forcing the card
    frame off the panel on narrow viewports. space-between pushes Quick
    Actions to the panel's bottom edge when the card column runs taller. */
+/* container-type/-name: lets QuickActionsRow.css gate its own wrap/collapse
+ * rule on THIS column's real available width instead of the viewport's — the
+ * hero's featured-card sleeve eats a variable amount of the panel, so the
+ * viewport width and this column's width are two different numbers above
+ * 600px (B2-01; STYLE_GUIDE's "container ≠ viewport" ruling for action
+ * rows). Below 600px this rule is moot: `display: contents` (below) removes
+ * the box entirely, and QuickActionsRow.css's own media query covers that
+ * regime instead. */
 .home-hero-main {
   flex: 1 1 auto;
   min-width: 0;
@@ -34,6 +42,8 @@
   flex-direction: column;
   justify-content: space-between;
   gap: var(--space-3);
+  container-type: inline-size;
+  container-name: home-hero-main;
 }
 
 /* ≤600px: the side-by-side columns squeeze the functional column to ~174px

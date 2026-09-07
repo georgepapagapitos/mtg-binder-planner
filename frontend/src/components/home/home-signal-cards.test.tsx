@@ -372,7 +372,10 @@ describe('NewArrivalsCard', () => {
     );
     renderIn(<NewArrivalsCard />);
     expect(screen.getByText('Atraxa Superfriends')).toBeTruthy();
-    expect(screen.getByText('— 2 new')).toBeTruthy();
+    // The fan's own total badge reads the same "2 new" as the per-row count
+    // here (one deck, 2 candidates) — assert both exist rather than an
+    // ambiguous unscoped query.
+    expect(screen.getAllByText('2 new')).toHaveLength(2);
     const link = screen.getByRole('link', {
       name: 'Open deck: Atraxa Superfriends, 2 new arrivals',
     });
@@ -414,7 +417,10 @@ describe('NewArrivalsCard', () => {
         })
     );
     const { container } = renderIn(<NewArrivalsCard />);
-    expect(screen.getByText('2 new')).toBeTruthy();
+    // Scoped to the fan's own total badge: the per-row count now also reads
+    // "2 new" (the leading em-dash was dropped), so an unscoped text query
+    // would be ambiguous between the two.
+    expect(container.querySelector('.home-arrivals-fan-count')?.textContent).toBe('2 new');
     const thumbs = container.querySelectorAll('.home-arrivals-fan-thumbs .home-thumb');
     expect(thumbs).toHaveLength(2);
     const img = container.querySelector('.home-arrivals-fan-thumbs img') as HTMLImageElement | null;

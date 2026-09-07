@@ -49,7 +49,7 @@ describe('PLAYSTYLES vocabulary', () => {
   });
 
   it('playstyleById resolves a known id and rejects an unknown one', () => {
-    expect(playstyleById('tokens')?.label).toBe('Tokens (go wide)');
+    expect(playstyleById('tokens')?.label).toBe('Go-wide tokens');
     expect(playstyleById('nope')).toBeUndefined();
   });
 });

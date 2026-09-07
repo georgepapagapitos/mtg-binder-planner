@@ -72,7 +72,7 @@ export const PLAYSTYLES: Playstyle[] = [
   },
   {
     id: 'tokens',
-    label: 'Tokens (go wide)',
+    label: 'Go-wide tokens',
     edhrecSlug: 'tokens',
     blurb: 'Flood the board with tokens, then pump and swing.',
     themeSignals: ['tokens', 'go wide'],

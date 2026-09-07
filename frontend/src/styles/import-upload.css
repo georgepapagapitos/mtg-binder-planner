@@ -773,6 +773,15 @@
   font-weight: 600;
 }
 
+/* The sharing requirement used to live only in the Fetch button's `title`,
+   invisible on touch (B3/C2 title-not-sole-path). Same tier as the label
+   above it, not the mono `.import-card-desc`. */
+.import-link-hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+
 .import-link-row {
   display: flex;
   align-items: center;

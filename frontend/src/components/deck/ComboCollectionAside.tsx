@@ -113,7 +113,7 @@ export function ComboCollectionAside({ cards, produces, hosts, locations }: Prop
                 >
                   {c.name}
                 </button>
-                {seeding === c.name && <span className="combo-aside-page"> — opening…</span>}
+                {seeding === c.name && <span className="combo-aside-page">, opening…</span>}
               </span>
             ))}
             {rest > 0 && (
@@ -141,7 +141,7 @@ export function ComboCollectionAside({ cards, produces, hosts, locations }: Prop
                 {card.cardName}
               </span>
               <span className="combo-aside-sep" aria-hidden>
-                {' — '}
+                {' · '}
               </span>
               <Link className="combo-aside-binder" to={`/collection/binders/${at.binderId}`}>
                 {at.binderName}

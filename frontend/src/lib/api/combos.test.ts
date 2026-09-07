@@ -29,12 +29,12 @@ describe('timeout + abort handling', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
       Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
     );
-    await expect(matchCombos({ ownedOracleIds: [] })).rejects.toThrow(/timed out/i);
+    await expect(matchCombos({ ownedOracleIds: [] })).rejects.toThrow(/taking too long/i);
   });
 
   it('throws a friendly error when the network is unreachable', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
-    await expect(matchCombos({ ownedOracleIds: [] })).rejects.toThrow(/isn't responding/i);
+    await expect(matchCombos({ ownedOracleIds: [] })).rejects.toThrow(/couldn't reach combos/i);
   });
 });
 

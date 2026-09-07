@@ -97,7 +97,7 @@ describe('withPlayableFilter — card-repository contract', () => {
 
   it('throws from getCardByName when the resolved card is non-playable', async () => {
     const repo = withPlayableFilter(poisonedRepo());
-    await expect(repo.getCardByName('art')).rejects.toThrow(/non-playable/i);
+    await expect(repo.getCardByName('art')).rejects.toThrow(/can't be played/i);
   });
 
   it('drops non-playable entries from getCardsByNames', async () => {

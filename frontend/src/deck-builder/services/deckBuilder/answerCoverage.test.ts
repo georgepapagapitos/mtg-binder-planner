@@ -228,18 +228,18 @@ describe('answerCoverageFindings', () => {
   it('flags all-fight creature coverage as fragile (the mono-green failure)', () => {
     const fights = [preyUpon, { ...preyUpon, name: 'Epic Confrontation' }];
     const findings = answerCoverageFindings(fights, ['G']);
-    const fragile = findings.find((f) => f.message.includes('indestructible'));
+    const fragile = findings.find((f) => f.message.includes('damage or fight effect'));
     expect(fragile?.severity).toBe('info');
   });
 
   it('flags all-bounce coverage as temporary', () => {
     const findings = answerCoverageFindings([unsummon, cyclonicRift], ['U']);
-    expect(findings.some((f) => f.message.includes('comes right back'))).toBe(true);
+    expect(findings.some((f) => f.message.includes('here bounce'))).toBe(true);
   });
 
   it('does not call solid coverage fragile', () => {
     const findings = answerCoverageFindings([swords, preyUpon], ['G', 'W']);
-    expect(findings.some((f) => f.message.includes('indestructible'))).toBe(false);
+    expect(findings.some((f) => f.message.includes('damage or fight effect'))).toBe(false);
   });
 
   it('notes a single answer to a class as thin, but not a doubly-covered one', () => {
@@ -260,11 +260,11 @@ describe('answerCoverageFindings', () => {
 
   it('notes zero counterspells only when blue is in the identity', () => {
     const blue = answerCoverageFindings([unsummon], ['U']);
-    expect(blue.some((f) => f.message.includes('counter a spell'))).toBe(true);
+    expect(blue.some((f) => f.message.includes('stack interaction'))).toBe(true);
     const white = answerCoverageFindings([swords], ['W']);
-    expect(white.some((f) => f.message.includes('counter a spell'))).toBe(false);
+    expect(white.some((f) => f.message.includes('stack interaction'))).toBe(false);
     const covered = answerCoverageFindings([unsummon, counterspell], ['U']);
-    expect(covered.some((f) => f.message.includes('counter a spell'))).toBe(false);
+    expect(covered.some((f) => f.message.includes('stack interaction'))).toBe(false);
   });
 
   it('notes an all-sorcery-speed answer suite', () => {

@@ -237,7 +237,7 @@ export function comboIntegrityAuditPhase(
         repairs.push({
           cut: weak.card.name,
           added: card.name,
-          reason: `${weak.card.name} (${auditInclusion.get(weak.card.name) ?? 0}% inclusion) wasn't earning its slot — swapped for ${card.name}, which completes ${combosCompleted} near-miss combo${combosCompleted === 1 ? '' : 's'}.`,
+          reason: `Swapped ${weak.card.name} for ${card.name}. Completes ${combosCompleted} more combo${combosCompleted === 1 ? '' : 's'}.`,
         });
         // Mark all combos this card completes
         for (const dc of detectedCombos) {
@@ -332,7 +332,7 @@ export function comboIntegrityAuditPhase(
         repairs.push({
           cut: weak.card.name,
           added: missing.name,
-          reason: `Completes the ${dc.cards.join(' + ')} combo${dc.results[0] ? ` (${dc.results[0]})` : ''} — swapped in ${missing.name}.`,
+          reason: `Swapped in ${missing.name}. Completes the ${dc.cards.join(' + ')} combo${dc.results[0] ? ` (${dc.results[0]})` : ''}.`,
         });
       }
       if (ok) {
@@ -398,7 +398,7 @@ export function comboIntegrityAuditPhase(
           repairs.push({
             cut: orphanName,
             added: replacement.name,
-            reason: `${orphanName} was an orphaned piece of an incomplete combo (still missing ${trulyMissing.length} card${trulyMissing.length === 1 ? '' : 's'}) — swapped for ${replacement.name}.`,
+            reason: `${orphanName}'s combo was still missing ${trulyMissing.length} card${trulyMissing.length === 1 ? '' : 's'}. Swapped for ${replacement.name}.`,
           });
           logger.debug(
             `[DeckGen] Combo audit: evicted orphan ${orphanName} (${auditInclusion.get(orphanName) ?? 0}% inclusion) → ${replacement.name}`

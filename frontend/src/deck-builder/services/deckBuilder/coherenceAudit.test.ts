@@ -400,8 +400,8 @@ describe('auditDeckCoherence — land sanity', () => {
     });
     const util = flagged.filter((f) => f.kind === 'land-sanity' && f.basicFixColor === 'U');
     expect(util.length).toBeGreaterThan(0);
-    expect(util[0].message).toContain('an Island');
-    expect(util[0].message).not.toContain('a Island');
+    expect(util[0].message).toContain('An Island');
+    expect(util[0].message).not.toContain('A Island');
   });
 
   it('never flags a must-include land', () => {

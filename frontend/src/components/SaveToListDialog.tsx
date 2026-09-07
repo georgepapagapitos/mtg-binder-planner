@@ -87,7 +87,7 @@ export function SaveToListDialog({ cardCount, lists, onSubmit, onCancel }: Props
               className="name-input-field"
               type="text"
               value={newName}
-              placeholder="e.g. Ramp pieces"
+              placeholder="Ramp pieces"
               onChange={(e) => setNewName(e.target.value)}
               autoFocus
             />

@@ -126,7 +126,7 @@ describe('buildLandCountNote', () => {
       finalAvgCmc: 3.4,
     });
     expect(note).toContain('Auto-tuned to 36 lands');
-    expect(note).toContain('delivered 40 after post-tune deck adjustments');
+    expect(note).toContain('Delivered 40 after post-tune deck adjustments');
   });
 
   it('still reconciles curve stats to FINAL state, not auto-tune-time values', () => {
@@ -142,7 +142,7 @@ describe('buildLandCountNote', () => {
     });
     expect(note).toContain('Auto-tuned to 36 lands');
     expect(note).toContain('avg CMC 3.4');
-    expect(note).toContain('delivered 35 after post-tune deck adjustments');
+    expect(note).toContain('Delivered 35 after post-tune deck adjustments');
   });
 
   it('formats CMC to one decimal place', () => {
@@ -171,7 +171,7 @@ describe('buildLandCountNote', () => {
       nonBasicLandCount: 15,
       effectiveNonBasicLandCount: 17,
     });
-    expect(note).toContain('nonbasic land budget raised to 17 to match the higher land count');
+    expect(note).toContain('Nonbasic land budget raised to 17 to match the higher land count');
   });
 
   it('says nothing about the nonbasic budget when the scaling never fired (values equal)', () => {
@@ -259,7 +259,7 @@ describe('buildOverBudgetNote', () => {
         comboBudgetSkipCount: 0,
         convergedSwapCount: 6,
       });
-      expect(note).toBe('Deck totals $48.75 — landed under your $50 budget after 6 substitutions.');
+      expect(note).toBe('Deck totals $48.75. 6 substitutions kept it under your $50 budget.');
     });
 
     it('uses singular phrasing for exactly one substitution', () => {
@@ -270,7 +270,7 @@ describe('buildOverBudgetNote', () => {
         comboBudgetSkipCount: 0,
         convergedSwapCount: 1,
       });
-      expect(note).toContain('1 substitution.');
+      expect(note).toContain('1 substitution kept it');
       expect(note).not.toContain('1 substitutions');
     });
 
@@ -284,8 +284,8 @@ describe('buildOverBudgetNote', () => {
         residualReason: 'the rest is must-includes and combo pieces with no cheaper equivalent',
       });
       expect(note).toBe(
-        'Deck totals $53.10 — $3.10 over your $50 budget after 9 substitutions; ' +
-          'the rest is must-includes and combo pieces with no cheaper equivalent.'
+        'Deck totals $53.10, $3.10 over your $50 budget after 9 substitutions. ' +
+          'The rest is must-includes and combo pieces with no cheaper equivalent.'
       );
     });
 
@@ -300,7 +300,7 @@ describe('buildOverBudgetNote', () => {
         comboBudgetSkipCount: 0,
         convergedSwapCount: 0,
       });
-      expect(note).toBe('Deck totals $70.24 — $20.24 over your $50 budget.');
+      expect(note).toBe('Deck totals $70.24, $20.24 over your $50 budget.');
     });
 
     it('falls back to the combo-skip clause when convergence never ran and combo candidates were skipped', () => {
@@ -312,7 +312,7 @@ describe('buildOverBudgetNote', () => {
         convergedSwapCount: 0,
       });
       expect(note).toBe(
-        'Deck totals $60.00 — $10.00 over your $50 budget. Some combo upgrades were skipped to stay as close as possible.'
+        'Deck totals $60.00, $10.00 over your $50 budget. Some combo upgrades were skipped to stay as close as possible.'
       );
     });
   });
@@ -434,14 +434,14 @@ describe('buildPriceSanityNote (E80)', () => {
   it('names the count with plural phrasing', () => {
     const note = buildPriceSanityNote(3);
     expect(note).toBe(
-      'Preferred 3 cheaper near-equivalents over premium picks — set budget preference to "expensive" to disable.'
+      'Preferred 3 cheaper near-equivalents over premium picks. Set budget preference to "expensive" to disable.'
     );
   });
 
   it('uses singular phrasing for exactly one decided pick', () => {
     const note = buildPriceSanityNote(1);
     expect(note).toBe(
-      'Preferred 1 cheaper near-equivalent over premium picks — set budget preference to "expensive" to disable.'
+      'Preferred 1 cheaper near-equivalent over premium picks. Set budget preference to "expensive" to disable.'
     );
   });
 });
@@ -642,7 +642,7 @@ describe('buildBracketPriceDisclosureNote (E110 — disclosure-only)', () => {
 
   it('fires for a casual-bracket ask, no budget, high total', () => {
     expect(buildBracketPriceDisclosureNote(base)).toBe(
-      'Bracket 2 constrains power, not price — this build optimizes card quality ($582.00). Set a budget to cap cost.'
+      'Bracket 2 constrains power, not price. This build optimizes card quality ($582.00). Set a budget to cap cost.'
     );
   });
 
@@ -678,25 +678,25 @@ describe('buildWipeAsymmetryNote (E109)', () => {
 
   it('names only the target shave when no one-sided wipe survived to the final deck', () => {
     expect(buildWipeAsymmetryNote(true, 0, 2)).toBe(
-      'Own board matters for this plan — trimmed the board wipe target by one.'
+      'This plan protects your own board: trimmed the board wipe target by one.'
     );
   });
 
   it('names only the surviving one-sided count (singular) when the target was not shaved', () => {
     expect(buildWipeAsymmetryNote(false, 1, 2)).toBe(
-      "Own board matters for this plan — 1 of the deck's 2 wipes spares your own board."
+      "This plan protects your own board: 1 of the deck's 2 wipes spares your own board."
     );
   });
 
   it('names both, with plural wording, when the target was shaved and multiple wipes survive one-sided', () => {
     expect(buildWipeAsymmetryNote(true, 2, 3)).toBe(
-      "Own board matters for this plan — trimmed the board wipe target by one and 2 of the deck's 3 wipes spare your own board."
+      "This plan protects your own board: trimmed the board wipe target by one and 2 of the deck's 3 wipes spare your own board."
     );
   });
 
   it('uses singular "wipe" when the deck ran exactly one wipe total', () => {
     expect(buildWipeAsymmetryNote(false, 1, 1)).toBe(
-      "Own board matters for this plan — 1 of the deck's 1 wipe spares your own board."
+      "This plan protects your own board: 1 of the deck's 1 wipe spares your own board."
     );
   });
 });
@@ -768,23 +768,21 @@ describe('buildLandSqueezeTrimNote (E88 + E82 attempt 6, E94 cause-honest rewrit
     // landDriven = 2 - 0 = 2, wildcardCount = 0
     const note = buildLandSqueezeTrimNote(['Card A', 'Card B'], [], 40);
     expect(note).toBe(
-      'Auto-tuning the land count to 40 took 2 spell slots — reconciled by cutting the lowest-value picks: Card A, Card B.'
+      'Raising lands to 40 cost 2 spell slots. Cut the lowest-value picks: Card A, Card B.'
     );
   });
 
   it('land-driven only: singular phrasing for exactly one cut card', () => {
     // landDriven = 1 - 0 = 1, wildcardCount = 0
     const note = buildLandSqueezeTrimNote(['Card A'], [], 38);
-    expect(note).toBe(
-      'Auto-tuning the land count to 38 took 1 spell slot — reconciled by cutting the lowest-value pick: Card A.'
-    );
+    expect(note).toBe('Raising lands to 38 cost 1 spell slot. Cut the lowest-value pick: Card A.');
   });
 
   it('both drivers: land delta AND wildcard displacement each take their own named share', () => {
     // landDriven = 3 - 1 = 2 (land count's own share), wildcardCount = 1
     const note = buildLandSqueezeTrimNote(['Card A', 'Card B', 'Card C'], ['Card D'], 39);
     expect(note).toBe(
-      'Auto-tuning the land count to 39 took 2 spell slots, and 1 stronger leftover card (Card D) claimed 1 more — reconciled by cutting the 3 lowest-value picks: Card A, Card B, Card C.'
+      'Raising lands to 39 cost 2 spell slots. 1 stronger card (Card D) bumped 3 weaker picks: Card A, Card B, Card C.'
     );
   });
 
@@ -793,9 +791,7 @@ describe('buildLandSqueezeTrimNote (E88 + E82 attempt 6, E94 cause-honest rewrit
     // slots of its own. landDriven = 1 - 1 = 0, so every cut is credited to
     // the wildcard scan, and the note must not mention the land count.
     const note = buildLandSqueezeTrimNote(['Card A'], ['Card B'], 37);
-    expect(note).toBe(
-      "1 stronger leftover card (Card B) displaced the deck's lowest-value pick: Card A."
-    );
+    expect(note).toBe('1 stronger card (Card B) replaced the lowest-value pick: Card A.');
     expect(note).not.toMatch(/land count/i);
   });
 
@@ -803,9 +799,7 @@ describe('buildLandSqueezeTrimNote (E88 + E82 attempt 6, E94 cause-honest rewrit
     // landDriven = 1 - 2 = -1 — inconsistent/negative, must not surface a
     // negative number or blame the land count.
     const note = buildLandSqueezeTrimNote(['Card A'], ['Card B', 'Card C'], 34);
-    expect(note).toBe(
-      "2 stronger leftover cards (Card B, Card C) displaced the deck's lowest-value pick: Card A."
-    );
+    expect(note).toBe('2 stronger cards (Card B, Card C) replaced the lowest-value pick: Card A.');
     expect(note).not.toMatch(/-1|land count/i);
   });
 
@@ -814,9 +808,7 @@ describe('buildLandSqueezeTrimNote (E88 + E82 attempt 6, E94 cause-honest rewrit
     // restored every originally-cut incumbent) — landDriven = 0 - 2 = -2,
     // wildcardCount = 2, cutNames empty.
     const note = buildLandSqueezeTrimNote([], ['Card B', 'Card C'], 34);
-    expect(note).toBe(
-      '2 stronger leftover cards (Card B, Card C) added, with no incumbent cut needed.'
-    );
+    expect(note).toBe('2 stronger cards (Card B, Card C) added, nothing needed to be cut.');
   });
 });
 
@@ -1248,7 +1240,7 @@ describe('buildComboCompletionNote (emergent combo-completion disclosure)', () =
   it('returns one row naming the cards and result for a single newly-completed combo', () => {
     const notes = buildComboCompletionNote([completedCombo()]);
     expect(notes).toEqual([
-      'Grim Monolith + Rings of Brighthearth — produces Infinite colorless mana',
+      'Grim Monolith + Rings of Brighthearth: produces Infinite colorless mana',
     ]);
   });
 
@@ -1260,14 +1252,14 @@ describe('buildComboCompletionNote (emergent combo-completion disclosure)', () =
     });
     const notes = buildComboCompletionNote([completedCombo(), second]);
     expect(notes).toEqual([
-      'Grim Monolith + Rings of Brighthearth — produces Infinite colorless mana',
-      'Basalt Monolith + Rings of Brighthearth — produces Infinite colorless mana',
+      'Grim Monolith + Rings of Brighthearth: produces Infinite colorless mana',
+      'Basalt Monolith + Rings of Brighthearth: produces Infinite colorless mana',
     ]);
   });
 
   it('falls back to generic wording when results is empty', () => {
     const notes = buildComboCompletionNote([completedCombo({ results: [] })]);
-    expect(notes).toEqual(['Grim Monolith + Rings of Brighthearth — produces a combo finish']);
+    expect(notes).toEqual(['Grim Monolith + Rings of Brighthearth: produces a combo finish']);
   });
 
   it('the baseline diff excludes combos already complete at generation start', () => {
@@ -1293,7 +1285,7 @@ describe('buildComboCompletionNote (emergent combo-completion disclosure)', () =
     expect(newlyComplete.map((dc) => dc.comboId)).toEqual(['combo-2']);
     const notes = buildComboCompletionNote(newlyComplete);
     expect(notes).toEqual([
-      'Basalt Monolith + Rings of Brighthearth — produces Infinite colorless mana',
+      'Basalt Monolith + Rings of Brighthearth: produces Infinite colorless mana',
     ]);
   });
 });
@@ -1433,7 +1425,7 @@ describe('assembleCardProvenance', () => {
       comboFloorAdd: null,
       themeNames: [],
     });
-    expect(result['Leftover Gem']).toBe('Earned a flex slot on deck-wide value');
+    expect(result['Leftover Gem']).toBe('A wildcard pick for its overall power');
   });
 
   it('names the selected theme for a theme-synergy card', () => {
@@ -1498,9 +1490,7 @@ describe('assembleCardProvenance', () => {
       comboFloorAdd: null,
       themeNames: [],
     });
-    expect(result['Filler Card']).toBe(
-      'Added from a Scryfall search — the EDHREC pool ran short for this slot'
-    );
+    expect(result['Filler Card']).toBe('Filled in by a broader card search for this slot');
   });
 
   it('falls back to the Scryfall-fill reason when cardInclusionMap is entirely absent (alt-generator modes)', () => {
@@ -1513,8 +1503,6 @@ describe('assembleCardProvenance', () => {
       comboFloorAdd: null,
       themeNames: [],
     });
-    expect(result['Oracle Role Pick']).toBe(
-      'Added from a Scryfall search — the EDHREC pool ran short for this slot'
-    );
+    expect(result['Oracle Role Pick']).toBe('Filled in by a broader card search for this slot');
   });
 });

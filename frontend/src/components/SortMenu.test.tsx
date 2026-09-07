@@ -53,12 +53,12 @@ describe('SortMenu — the direction action', () => {
     // Ascending release date is newest-LAST, so "desc" would be actively
     // misleading here even to a reader who knows what it means.
     setup('release', 'asc');
-    expect(reverseButton().getAttribute('aria-label')).toBe('Reverse sort order — Newest first');
+    expect(reverseButton().getAttribute('aria-label')).toBe('Reverse sort order: Newest first');
   });
 
   it('uses each field’s own phrasing, not one shared asc/desc pair', () => {
     setup('edhrec', 'asc');
-    expect(reverseButton().getAttribute('aria-label')).toBe('Reverse sort order — Least played');
+    expect(reverseButton().getAttribute('aria-label')).toBe('Reverse sort order: Least played');
   });
 
   it('states the resolved direction on the active field row', () => {

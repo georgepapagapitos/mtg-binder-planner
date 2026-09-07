@@ -17,11 +17,20 @@ const MIN_DECKS_TO_SHOW = 3;
  * construction: `DiscoverDeckTile`'s Like/Bookmark buttons already handle a
  * signed-out viewer, and the server never returns personal data to a guest.
  * Renders nothing until the fetch resolves with at least
- * `MIN_DECKS_TO_SHOW` decks (a loading skeleton or an error banner would be
- * a broken-looking half-shell on a marketing page — it just stays absent,
- * identical to the too-few-decks case, and reappears once real data lands).
+ * `MIN_DECKS_TO_SHOW` decks. It stays absent — no loading skeleton or error
+ * banner, which would read as a broken half-shell on a marketing page —
+ * identical to the too-few-decks case, and reappears once real data lands.
+ *
+ * `onVisibilityChange` reports whether the rail decided to show anything
+ * (called once real data has resolved), so a caller can decide whether a
+ * sibling rail is also worth mounting rather than stacking two half-empty
+ * marketing sections (B1-06 — see WelcomePage's use of it with TrendingRail).
  */
-export function FreshDecksRail() {
+export function FreshDecksRail({
+  onVisibilityChange,
+}: {
+  onVisibilityChange?: (visible: boolean) => void;
+} = {}) {
   const [decks, setDecks] = useState<DiscoverDeck[]>([]);
 
   useEffect(() => {
@@ -38,6 +47,10 @@ export function FreshDecksRail() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    onVisibilityChange?.(decks.length >= MIN_DECKS_TO_SHOW);
+  }, [decks, onVisibilityChange]);
 
   if (decks.length < MIN_DECKS_TO_SHOW) return null;
 

@@ -260,7 +260,7 @@ async function buildHistoricalPool(
   for (const bump of [0, 5, 10]) {
     const year = requested + bump;
     onProgress?.(
-      bump === 0 ? `Reaching back to ${requested}…` : `Few cards that old — easing to ${year}…`,
+      bump === 0 ? `Reaching back to ${requested}…` : `Few cards that old, easing to ${year}…`,
       8
     );
     // permanentsOnly is an oracle-role-only toggle; don't let a stale flag
@@ -277,9 +277,7 @@ async function buildHistoricalPool(
         dataSource: 'historical',
         detail: `year<=${year}`,
         relaxedNote:
-          bump > 0
-            ? `Cards from ${requested} were too few, so we reached forward to ${year}.`
-            : undefined,
+          bump > 0 ? `Too few cards from ${requested}. Expanded the range to ${year}.` : undefined,
       };
     }
   }

@@ -53,7 +53,7 @@ describe('Legend (context-aware symbol key)', () => {
   it('shows one rarity-tinted set-symbol sample per tint, plus the foil pip', () => {
     renderLegend('collection');
     openKey();
-    expect(screen.getByText('Set symbol — tinted by rarity')).toBeTruthy();
+    expect(screen.getByText('Set symbol · Tinted by rarity')).toBeTruthy();
     for (const tint of ['mythic', 'rare', 'uncommon', 'common']) {
       expect(document.querySelector(`.ss.ss-mh2.set-symbol--${tint}`)).toBeTruthy();
     }
@@ -75,7 +75,7 @@ describe('Legend (context-aware symbol key)', () => {
   it('collection: explains the deviation abbreviations with the real chip — NM is unmarked', () => {
     renderLegend('collection');
     openKey();
-    expect(screen.getByText('Condition — Near Mint unmarked')).toBeTruthy();
+    expect(screen.getByText('Condition · Near Mint unmarked')).toBeTruthy();
     for (const [abbr, word] of [
       ['LP', 'Lightly Played'],
       ['MP', 'Moderately Played'],
@@ -93,7 +93,7 @@ describe('Legend (context-aware symbol key)', () => {
   it('binder: has the Condition section (binder rows render the same chips)', () => {
     renderLegend('binder');
     openKey();
-    expect(screen.getByText('Condition — Near Mint unmarked')).toBeTruthy();
+    expect(screen.getByText('Condition · Near Mint unmarked')).toBeTruthy();
     expect(document.querySelectorAll('.card-list-condition').length).toBe(4);
   });
 

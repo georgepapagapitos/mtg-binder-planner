@@ -69,13 +69,12 @@ function healthyInput(): PlanScoreInput {
 }
 
 describe('bandFor', () => {
-  it('maps thresholds', () => {
-    expect(bandFor(95)).toBe('Tuned');
-    expect(bandFor(90)).toBe('Tuned');
-    expect(bandFor(80)).toBe('Healthy');
-    expect(bandFor(65)).toBe('Solid');
-    expect(bandFor(50)).toBe('Rough');
-    expect(bandFor(10)).toBe('Thin');
+  it('maps the two canonical cross-panel band words (UX-315)', () => {
+    expect(bandFor(95)).toBe('Dialed in');
+    expect(bandFor(70)).toBe('Dialed in');
+    expect(bandFor(69)).toBe('Needs work');
+    expect(bandFor(50)).toBe('Needs work');
+    expect(bandFor(10)).toBe('Needs work');
   });
 });
 
@@ -194,7 +193,7 @@ describe('computePlanScore', () => {
     expect(ps.limitedData).toBe(true);
     // roles=100, curve=100, cardFit=100 → overall 100, NOT diluted by a 0 strategy.
     expect(ps.overall).toBe(100);
-    expect(ps.bandLabel).toBe('Tuned');
+    expect(ps.bandLabel).toBe('Dialed in');
   });
 
   it('includes strategy in the composite when an engine is present', () => {
@@ -262,6 +261,6 @@ describe('computePlanScore', () => {
     input.sampleSize = 12345;
     expect(computePlanScore(input).byline).toBe('Based on 12,345 decklists.');
     delete input.sampleSize;
-    expect(computePlanScore(input).byline).toMatch(/aggregated EDHREC/);
+    expect(computePlanScore(input).byline).toMatch(/EDHREC decklists/);
   });
 });

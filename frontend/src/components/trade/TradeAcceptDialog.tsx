@@ -131,8 +131,8 @@ export function TradeAcceptDialog({ counterpartyName, choices, busy, onCancel, o
             Which copies are you giving?
           </h2>
           <p className="choice-dialog-body">
-            {counterpartyName} gets the exact printings you pick here, and they leave your
-            collection as soon as you accept.
+            {counterpartyName} gets the exact printings you pick here. They leave your collection
+            the moment you accept.
           </p>
 
           <ul className="trade-accept-list">
@@ -189,7 +189,7 @@ export function TradeAcceptDialog({ counterpartyName, choices, busy, onCancel, o
                     }
                     disabled={busy}
                     binderByCopyId={binderByCopyId}
-                    label={`${choice.asked.name} — your printings`}
+                    label={`${choice.asked.name}: your printings`}
                   />
                 </li>
               );

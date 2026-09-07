@@ -28,7 +28,7 @@ describe('ThinDataNote', () => {
   it('states the exact sample size', () => {
     render(<ThinDataNote sampleSize={12} />);
     expect(
-      screen.getByText('Based on only 12 decks on EDHREC — treat this as a hunch, not a stat.')
+      screen.getByText('Based on only 12 decks on EDHREC. Treat this as a hunch, not a stat.')
     ).toBeTruthy();
   });
 

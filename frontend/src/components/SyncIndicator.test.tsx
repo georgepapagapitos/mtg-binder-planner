@@ -284,7 +284,7 @@ describe('HeaderSyncIndicator', () => {
     vi.spyOn(sync, 'isOnline').mockReturnValue(false);
     vi.spyOn(sync, 'getPendingCount').mockReturnValue(3);
     renderHeaderIndicator();
-    expect(screen.getByText(/Offline — 3 changes saved locally/)).toBeTruthy();
+    expect(screen.getByText(/Offline\. 3 changes saved locally\./)).toBeTruthy();
   });
 
   it('renders Syncing pill with spinner when actively syncing', () => {

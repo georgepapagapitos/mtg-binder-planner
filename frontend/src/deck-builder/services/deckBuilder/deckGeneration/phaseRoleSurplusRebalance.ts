@@ -287,7 +287,7 @@ function buildConversionReason(params: {
 }): string {
   const roleLabel = ROLE_LABEL[params.role];
   const nonboClause = params.nonbo
-    ? `; ${params.cutName} also worked against the deck's own plan (flagged as a nonbo)`
+    ? ` ${params.cutName} also worked against the deck's own plan (flagged as a nonbo).`
     : '';
   const sym = params.currency === 'EUR' ? '€' : '$';
   const priceClause =
@@ -300,14 +300,14 @@ function buildConversionReason(params: {
       : `${params.isRoleExit ? 'Converted' : 'Upgraded'} to ${params.addedName}${priceClause} for a stronger payoff.`;
 
   if (params.isRoleExit) {
-    const capClause = `${roleLabel} was running ${params.have} vs a ${params.target} target — over cap`;
-    return `${capClause}${nonboClause}. ${addedClause}`;
+    const capClause = `${roleLabel} is over cap (${params.have}/${params.target}).`;
+    return `${capClause}${nonboClause} ${addedClause}`;
   }
   // Same-role swap: context for WHY this role's slots are under scrutiny at
-  // all, without claiming this specific swap resolves the overage (it can't
-  // — evicting and re-adding the same role nets to zero count change).
-  const contextClause = `${roleLabel} is over cap (${params.have} vs ${params.target} target); this swap upgrades a slot within the role, it doesn't reduce the count`;
-  return `${contextClause}${nonboClause}. ${addedClause}`;
+  // all, without claiming this specific swap resolves the overage (it can't:
+  // evicting and re-adding the same role nets to zero count change).
+  const contextClause = `${roleLabel} is over cap (${params.have}/${params.target}). This swap upgrades a slot within the role. It doesn't reduce the count.`;
+  return `${contextClause}${nonboClause} ${addedClause}`;
 }
 
 // E113 follow-up (half b); E160 generalizes from boardwipe-only to any
@@ -340,7 +340,7 @@ function buildBackfillReason(params: {
   // "vs its N-card target" (E160 copy fix) reads correctly for every target
   // magnitude — the prior "vs a N target" produced "a 8 target" for removal's
   // larger targets; applies to wipes too (deliberate copy improvement).
-  const deficitClause = `${capitalizedLabel} was running ${params.haveBefore} vs its ${params.target}-card target — under target. Freed a slot from ${params.cutName}. ${addedClause}`;
+  const deficitClause = `${capitalizedLabel} is under target (${params.haveBefore}/${params.target}). Freed a slot from ${params.cutName}. ${addedClause}`;
   return deficitClause;
 }
 

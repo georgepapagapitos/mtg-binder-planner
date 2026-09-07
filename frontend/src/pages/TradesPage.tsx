@@ -205,7 +205,7 @@ function TradesPageBody() {
           <EmptyStateMark />
           <p className="empty-state-tagline">No trades yet.</p>
           <p className="empty-state-hint">
-            Open a friend's hub to see what they have and propose one — it shows up here for both of
+            Open a friend's hub to see what they have and propose one. It shows up here for both of
             you until it's answered.
           </p>
           <Link to="/friends" className="btn btn-primary">

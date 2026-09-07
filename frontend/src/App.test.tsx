@@ -142,19 +142,23 @@ describe('App — /settings alias', () => {
 });
 
 describe('App — "*" (unmatched path) route resolution', () => {
-  it('guest → /collection', () => {
+  it('guest → a Page not found state linking to /collection', () => {
     authState.status = 'guest';
     hasEverVisitedMock.mockReturnValue(true);
     renderAt('/does-not-exist');
-    expect(screen.getByTestId('navigate').getAttribute('data-to')).toBe('/collection');
+    expect(screen.getByText('Page not found.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /go to collection/i }).getAttribute('href')).toBe(
+      '/collection'
+    );
   });
 
-  it('authed → /home', () => {
+  it('authed → a Page not found state linking to /home', () => {
     authState.status = 'authed';
     authState.user = { id: 'u1', username: 'alice', role: 'user' };
     hasEverVisitedMock.mockReturnValue(true);
     renderAt('/does-not-exist');
-    expect(screen.getByTestId('navigate').getAttribute('data-to')).toBe('/home');
+    expect(screen.getByText('Page not found.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /go to home/i }).getAttribute('href')).toBe('/home');
   });
 });
 

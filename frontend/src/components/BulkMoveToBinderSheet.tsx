@@ -4,10 +4,16 @@ import { useCollectionStore } from '../store/collection';
 import { useLockBodyScroll } from '../lib/use-lock-body-scroll';
 import { useEscapeKey } from '../lib/use-escape-key';
 import { useSheetExit } from '../lib/use-sheet-exit';
+import { compileFilterGroups, cardMatchesAnyGroup, areAllGroupsEmpty } from '../lib/rules';
+import type { EnrichedCard } from '../types';
 
 interface Props {
   /** Physical copyIds to move into the chosen binder. */
   copyIds: string[];
+  /** The full cards behind `copyIds` — used to compute the per-binder
+   *  "N of M match this binder's rules" line (B3-09), mirroring the
+   *  single-card sheet's own rule check. */
+  cards: EnrichedCard[];
   /**
    * Maps each copyId to the binder it currently lives in (primary assignment),
    * mirroring the single-card move path. Copies present here are *moved* (excluded
@@ -18,11 +24,32 @@ interface Props {
   onClose: () => void;
 }
 
-export function BulkMoveToBinderSheet({ copyIds, currentBinderByCopyId, onClose }: Props) {
+export function BulkMoveToBinderSheet({ copyIds, cards, currentBinderByCopyId, onClose }: Props) {
   const binders = useCollectionStore((s) => s.binders);
   const pinCardToBinder = useCollectionStore((s) => s.pinCardToBinder);
   const removeCardFromBinder = useCollectionStore((s) => s.removeCardFromBinder);
   const [doneTo, setDoneTo] = useState<string | null>(null);
+
+  const compiledByBinder = useMemo(
+    () => new Map(binders.map((b) => [b.id, compileFilterGroups(b.filterGroups)])),
+    [binders]
+  );
+
+  // How many of the selected cards would route into this binder on its own
+  // rules — a manual binder or one with no rules always "matches" everything
+  // (mirrors AddToBinderSheet.cardMatchesBinder).
+  const matchCount = useCallback(
+    (binderId: string): number => {
+      const binder = binders.find((b) => b.id === binderId);
+      if (!binder || binder.mode === 'manual' || areAllGroupsEmpty(binder.filterGroups)) {
+        return cards.length;
+      }
+      const compiled = compiledByBinder.get(binderId);
+      if (!compiled) return cards.length;
+      return cards.filter((c) => cardMatchesAnyGroup(c, compiled)).length;
+    },
+    [binders, compiledByBinder, cards]
+  );
 
   useLockBodyScroll();
 
@@ -107,6 +134,7 @@ export function BulkMoveToBinderSheet({ copyIds, currentBinderByCopyId, onClose 
               const isDone = doneTo === binder.id;
               const isManual = binder.mode === 'manual';
               const actionWord = isMove ? 'Move' : 'Add';
+              const matches = matchCount(binder.id);
               return (
                 <li key={binder.id} className="add-to-binder-row">
                   <span
@@ -118,6 +146,11 @@ export function BulkMoveToBinderSheet({ copyIds, currentBinderByCopyId, onClose 
                     {binder.name}
                     {isManual && <span className="add-to-binder-mode-hint">Manual</span>}
                   </span>
+                  {!isManual && matches < count && !isDone && (
+                    <span className="add-to-binder-mismatch">
+                      {matches} of {count} match this binder's rules
+                    </span>
+                  )}
                   {isDone ? (
                     <span className="add-to-binder-added" aria-live="polite">
                       <Check

@@ -97,7 +97,7 @@ export function TradeOfferList({ offers, onChanged, onCounter, linkCounterparty,
       <div className="empty-state trade-offers-empty">
         <p className="empty-state-tagline">No trades yet.</p>
         <p className="empty-state-hint">
-          Propose one and it shows up here — for both of you — until it's answered.
+          Propose one and it shows up here for both of you, until it's answered.
         </p>
       </div>
     );
@@ -401,7 +401,7 @@ function SettledNote({
   if (filed.length === 0) {
     return (
       <p className="trade-offer-settled" role="status">
-        Settled — your collection is up to date.
+        Settled: your collection is up to date.
       </p>
     );
   }
@@ -414,7 +414,7 @@ function SettledNote({
 
   return (
     <p className="trade-offer-settled" role="status">
-      Settled — file{' '}
+      Settled: file{' '}
       {shown.map(({ card, where }, i) => (
         <span key={card.oracleId || card.name}>
           {i > 0 && ', '}

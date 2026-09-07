@@ -63,6 +63,7 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
   const allCards = useCollectionStore((s) => s.cards);
   const replaceAllCards = useCollectionStore((s) => s.replaceAllCards);
   const updateBinder = useCollectionStore((s) => s.updateBinder);
+  const isRefreshingPrices = useCollectionStore((s) => s.isRefreshingPrices);
   const pushToast = useToastsStore((s) => s.push);
   const sortEditable = binder.def.mode !== 'manual' && !binder.def.manualOrder?.length;
   const allocations = useAllocations();
@@ -371,6 +372,7 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
                     qty={r.qty}
                     allocations={allocationsFor(r.card)}
                     pageNum={r.pageNum}
+                    pricePending={isRefreshingPrices && !((r.card.purchasePrice ?? 0) > 0)}
                     onActivate={() => {
                       const idx = previewIndexFor.get(`${sectionKey}:${r.key}`);
                       if (idx !== undefined) setPreviewIndex(idx);

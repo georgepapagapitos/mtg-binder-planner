@@ -33,6 +33,21 @@ const COLORS: { key: ColorChoice; label: string }[] = [
 ];
 const DEFAULT_EDHREC_TOP_N = 100;
 
+/**
+ * A rule group's badge count (B4-01). `matchCount` always comes from
+ * `countBinderMatches`, which treats an empty filter as a binder's
+ * deliberate catch-all — correct for a binder, wrong for a list (whose empty
+ * rule matches nothing, per `dynamic-list.ts`). Returns null to mean "no rule
+ * yet" rather than surfacing the binder's catch-all number to a list caller.
+ */
+export function groupBadgeCount(
+  filter: BinderFilter,
+  matchCount: number,
+  emptyGroupMatchesNothing: boolean
+): number | null {
+  return emptyGroupMatchesNothing && isFilterEmpty(filter) ? null : matchCount;
+}
+
 // ── Progressive-disclosure field split ────────────────────────────────────
 // ABOVE the fold (always visible, most-reached-for fields):
 //   Type line, Color identity, Rarity, CMC (mana value), Price
@@ -70,6 +85,7 @@ export function FilterGroupList({
   onDuplicate,
   onRemove,
   isNewBinder,
+  emptyGroupMatchesNothing = false,
 }: {
   groups: BinderFilterGroup[];
   cards: EnrichedCard[];
@@ -85,6 +101,13 @@ export function FilterGroupList({
   onDuplicate: (idx: number) => void;
   onRemove: (idx: number) => void;
   isNewBinder: boolean;
+  /** A binder's empty rule group is a deliberate catch-all (matches every
+   *  remaining card); a list's empty rule matches nothing (see
+   *  `dynamic-list.ts`'s `isRuleEmpty`). `countBinderMatches` always computes
+   *  the binder semantics, so a list caller sets this to correct the per-group
+   *  badge to match its own "no rule yet" reality instead of the binder's
+   *  catch-all count (B4-01). */
+  emptyGroupMatchesNothing?: boolean;
 }) {
   // Per-group counts are always raw rule matches; the total expands to
   // pulled-in printings when "keep all printings together" is on. See
@@ -113,6 +136,7 @@ export function FilterGroupList({
             onDuplicate={() => onDuplicate(i)}
             onRemove={() => onRemove(i)}
             showTemplates={isNewBinder && i === 0 && groups.length === 1}
+            emptyGroupMatchesNothing={emptyGroupMatchesNothing}
           />
           {i < groups.length - 1 && (
             <div className="filter-group-or" aria-hidden="true">
@@ -123,17 +147,13 @@ export function FilterGroupList({
       ))}
 
       <div className="filter-group-footer">
-        <button
-          type="button"
-          className="btn btn-add-group"
-          onClick={onAdd}
-          title="Add a whole alternative rule that OR's against everything above. Use this when you want entirely different combinations of fields — e.g. (Mythic creatures) OR (Rare instants). For OR within a single field, use the AND/OR pill between chips."
-        >
+        <button type="button" className="btn btn-add-group" onClick={onAdd}>
           + Add OR rule
         </button>
         <span className="filter-group-help" aria-hidden>
-          Use OR rules for whole alternative patterns. Within a single field, the{' '}
-          <strong>AND</strong>/<strong>OR</strong> pill between chips already handles per-field OR.
+          OR rules add a whole alternative pattern, such as Mythic creatures OR Rare instants. For
+          OR within one field, use the <strong>AND</strong>/<strong>OR</strong> pill between chips
+          instead.
         </span>
         {(groups.length > 1 || keepPrintingsTogether) && (
           <span className="filter-group-total" aria-live="polite">
@@ -166,6 +186,7 @@ function FilterGroupCard({
   onDuplicate,
   onRemove,
   showTemplates,
+  emptyGroupMatchesNothing,
 }: {
   group: BinderFilterGroup;
   index: number;
@@ -181,6 +202,7 @@ function FilterGroupCard({
   onDuplicate: () => void;
   onRemove: () => void;
   showTemplates: boolean;
+  emptyGroupMatchesNothing: boolean;
 }) {
   const nameRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -201,6 +223,7 @@ function FilterGroupCard({
   // Templates are only visible when there is no filter content yet.
   const hasContent = !isFilterEmpty(group.filter);
   const shouldShowTemplates = showTemplates && !hasContent;
+  const badgeCount = groupBadgeCount(group.filter, matchCount, emptyGroupMatchesNothing);
 
   return (
     <fieldset className="filter-group">
@@ -220,9 +243,15 @@ function FilterGroupCard({
         <span
           className="filter-group-count"
           aria-live="polite"
-          aria-label={`Rule group ${index + 1} matches ${matchCount} ${matchCount === 1 ? 'card' : 'cards'}`}
+          aria-label={
+            badgeCount === null
+              ? `Rule group ${index + 1} has no rule yet`
+              : `Rule group ${index + 1} matches ${badgeCount} ${badgeCount === 1 ? 'card' : 'cards'}`
+          }
         >
-          {matchCount.toLocaleString()} {matchCount === 1 ? 'card' : 'cards'}
+          {badgeCount === null
+            ? 'No rule yet'
+            : `${badgeCount.toLocaleString()} ${badgeCount === 1 ? 'card' : 'cards'}`}
         </span>
         <span className="filter-group-actions">
           <button
@@ -239,7 +268,7 @@ function FilterGroupCard({
             className="tab-action"
             onClick={onRemove}
             disabled={total <= 1}
-            title={total <= 1 ? 'A binder needs at least one rule group' : 'Remove this rule group'}
+            title={total <= 1 ? 'Keep at least one rule group' : 'Remove this rule group'}
             aria-label={`Remove rule group: ${displayLabel}`}
           >
             ×
@@ -266,6 +295,7 @@ function FilterGroupCard({
         typeSuggestions={typeSuggestions}
         oracleSuggestions={oracleSuggestions}
         revealSetsSignal={revealSetsSignal}
+        emptyGroupMatchesNothing={emptyGroupMatchesNothing}
       />
     </fieldset>
   );
@@ -320,6 +350,7 @@ function FilterGroupFields({
   typeSuggestions,
   oracleSuggestions,
   revealSetsSignal = 0,
+  emptyGroupMatchesNothing = false,
 }: {
   filter: BinderFilter;
   onPatch: (p: Partial<BinderFilter>) => void;
@@ -328,6 +359,10 @@ function FilterGroupFields({
   oracleSuggestions: string[];
   /** Bumped by the "A set binder" template — open this section + reveal Sets. */
   revealSetsSignal?: number;
+  /** See `groupBadgeCount` — also corrects the "no rules yet" hint's wording
+   *  for a list, whose empty rule matches nothing rather than catching every
+   *  remaining card. */
+  emptyGroupMatchesNothing?: boolean;
 }) {
   const patch = onPatch;
   // Radios group by shared `name` — several rule editors can be on screen.
@@ -403,7 +438,7 @@ function FilterGroupFields({
           onChange={(next) => patch({ typeChips: next })}
           suggestions={typeSuggestions}
           defaultJoiner="OR"
-          placeholder="e.g. creature, angel, legendary"
+          placeholder="creature, angel, legendary"
         />
       </RuleRow>
 
@@ -461,7 +496,7 @@ function FilterGroupFields({
           type="text"
           value={filter.nameContains || ''}
           onChange={(e) => patch({ nameContains: e.target.value })}
-          placeholder="e.g. dragon, sword"
+          placeholder="dragon, sword"
         />
       </RuleRow>
 
@@ -473,7 +508,7 @@ function FilterGroupFields({
             Mana cost{' '}
             <InfoTip
               label="mana cost filter"
-              text="Exact mana cost match. Use Scryfall syntax with curly braces, e.g. {2}{G}{W} or {1}{R/W}. Leave blank to ignore."
+              text="Exact mana cost match. Use Scryfall syntax with curly braces, like {2}{G}{W} or {1}{R/W}. Leave blank to ignore."
             />
           </>
         }
@@ -494,7 +529,7 @@ function FilterGroupFields({
             Commander{' '}
             <InfoTip
               label="commander eligibility"
-              text="Matches legal commanders: legendary creatures and cards that say 'can be your commander' (e.g. planeswalker-commanders), legal in the Commander format."
+              text="Matches legal commanders: legendary creatures and any card that says “can be your commander”, including planeswalker-commanders."
             />
           </>
         }
@@ -531,7 +566,7 @@ function FilterGroupFields({
             Proxy{' '}
             <InfoTip
               label="proxy filter"
-              text="Matches cards flagged as proxies — stand-in copies with no market value. Use this to keep proxies out of binders meant for real cards, or to route them into a dedicated proxy binder."
+              text="Matches cards flagged as proxies: stand-ins with no market value."
             />
           </>
         }
@@ -636,7 +671,9 @@ function FilterGroupFields({
         />
         {visibleFields.size === 0 && (
           <span className="rule-add-hint">
-            No rules yet — this group matches every card left over from the binders above it.
+            {emptyGroupMatchesNothing
+              ? 'No rule yet. This group matches nothing until you add one.'
+              : 'No rules yet. This group matches every card left over from the binders above it.'}
           </span>
         )}
       </div>

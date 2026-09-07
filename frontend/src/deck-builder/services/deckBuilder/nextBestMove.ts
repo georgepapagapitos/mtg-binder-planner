@@ -185,7 +185,7 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
       tier: 1,
       title: 'Define a win condition',
       detail:
-        'This deck has no clear path to victory. Add combo pieces, an infect package, a mill plan, or build around a dominant synergy to give the deck a win condition.',
+        'This deck has no clear path to victory yet. Add a combo, an alt-win plan (infect, mill), or lean harder into one synergy.',
       navigateTo: 'power',
     });
   }
@@ -223,7 +223,7 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
         id: 'land-count',
         tier: 2,
         title: `Add ${delta} lands`,
-        detail: `${count} lands is light for this curve — it wants ~${suggested}. Add ${delta} lands (basics are fine) to hit your land drops.`,
+        detail: `Add ${delta} lands to reach ~${suggested} for this curve. Basics are fine.`,
         navigateTo: 'stats',
       });
     } else if (delta <= -2) {
@@ -231,7 +231,7 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
         id: 'land-count',
         tier: 2,
         title: `Trim ${-delta} lands`,
-        detail: `${count} lands is heavy for this curve — ~${suggested} is enough. Swap ${-delta} lands for spells to cut flood draws.`,
+        detail: `Trim ${-delta} lands to ~${suggested} for this curve. Swap them for spells to cut flood draws.`,
         navigateTo: 'stats',
       });
     }
@@ -254,6 +254,7 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
         const deficit = mostDeficitRole(roleCounts, roleTargets);
         if (!deficit) continue;
         const label = roleLabel(deficit.role);
+        const labelLower = label.charAt(0).toLowerCase() + label.slice(1);
         const gap = gapForRole(gapAnalysis, deficit.role, usedCards, ownedNames, ownedOnly);
         const owns = gap != null && (ownedNames?.has(gap.name) ?? false);
         moves.push({
@@ -263,9 +264,9 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
           cardName: gap?.name,
           detail: gap
             ? owns
-              ? `Light on ${label} (${deficit.current} of ${deficit.target}). You own ${gap.name} — add it tonight (in ${Math.round(gap.inclusion)}% of decks like this).`
-              : `Light on ${label} (${deficit.current} of ${deficit.target}). Add ${gap.name} — in ${Math.round(gap.inclusion)}% of decks like this.`
-            : `Light on ${label} (${deficit.current} of ${deficit.target}). Add more ${label} to hit the target.`,
+              ? `Light on ${labelLower} (${deficit.current} of ${deficit.target}). You own ${gap.name}, played in ${Math.round(gap.inclusion)}% of decks like this.`
+              : `Light on ${labelLower} (${deficit.current} of ${deficit.target}). Add ${gap.name}, played in ${Math.round(gap.inclusion)}% of decks like this.`
+            : `Light on ${labelLower} (${deficit.current} of ${deficit.target}). Add more ${labelLower} to hit the target.`,
           navigateTo: SUBSCORE_VIEW.roles,
           focus: 'fill-gaps',
         });
@@ -306,8 +307,8 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
           cardName: gap?.name,
           detail: gap
             ? owns
-              ? `${sub.surface} You own ${gap.name} (synergy +${gap.synergy.toFixed(2)}, in ${Math.round(gap.inclusion)}% of builds) — add it to lean into your strategy.`
-              : `${sub.surface} Add ${gap.name} (synergy +${gap.synergy.toFixed(2)}, in ${Math.round(gap.inclusion)}% of builds) to lean into your strategy.`
+              ? `${sub.surface} You own ${gap.name}. It fits your strategy (${Math.round(gap.inclusion)}% of builds run it).`
+              : `${sub.surface} Add ${gap.name}. It fits your strategy (${Math.round(gap.inclusion)}% of builds run it).`
             : `${sub.surface} Add more on-theme cards to lean into your strategy.`,
           navigateTo: SUBSCORE_VIEW.strategy,
           focus: 'upgrade',
@@ -339,7 +340,7 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
       // scanning for one the player can finish with cards in hand.
       if (ownedOnly && !alreadyOwns) continue;
       const detail = alreadyOwns
-        ? `You already own ${missingName} — add it to complete ${partnerStr} → ${produces}.`
+        ? `You already own ${missingName}. Add it to complete ${partnerStr} → ${produces}.`
         : `Completes ${partnerStr} → ${produces}. Add ${missingName} to finish the combo.`;
       moves.push({
         id: `combo-${match.combo.id}`,
@@ -374,7 +375,7 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
       tier: 3,
       title: 'Limited data',
       detail:
-        'Some sub-scores were excluded due to limited EDHREC data — the score may shift as the deck fills out.',
+        'Some sub-scores were excluded due to limited EDHREC data. The score will shift as the deck fills out.',
     });
   }
 

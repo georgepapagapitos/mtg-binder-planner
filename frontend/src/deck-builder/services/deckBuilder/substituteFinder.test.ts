@@ -86,7 +86,7 @@ describe('findOwnedSubstitute', () => {
       usedName: 'Mind Stone',
       usedSubtypeMatch: true,
     });
-    expect(row!.reason).toBe('Mind Stone fills the 2-mana Ramp slot — owned, same mana rock.');
+    expect(row!.reason).toBe('Mind Stone fills the 2-mana Ramp slot. Owned, same mana rock.');
   });
 
   it('returns null when nothing owned fills the role (a genuine buy)', () => {
@@ -159,7 +159,7 @@ describe('findOwnedSubstitute', () => {
     );
     expect(row!.usedName).toBe('Mystic Confluence');
     expect(row!.usedSubtypeMatch).toBe(false);
-    expect(row!.reason).toBe('Mystic Confluence fills the 3-mana Removal slot — owned, same role.');
+    expect(row!.reason).toBe('Mystic Confluence fills the 3-mana Removal slot. Owned, same role.');
   });
 
   it('returns null for a missing card with no functional role', () => {
@@ -195,7 +195,7 @@ describe('findOwnedSubstitute', () => {
       new Set(),
       DIMIR
     );
-    expect(row!.reason).toBe('Mind Stone fills the Ramp slot — owned, same mana rock.');
+    expect(row!.reason).toBe('Mind Stone fills the Ramp slot. Owned, same mana rock.');
   });
 });
 

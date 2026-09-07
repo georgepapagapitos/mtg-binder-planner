@@ -25,15 +25,15 @@ function humanizeGenerationMode(mode: GenerationMode, detail?: string): string {
   switch (mode) {
     case 'oracle-role':
       return detail === 'permanents only'
-        ? 'Built by card function — permanents only'
+        ? 'Built by card function, permanents only'
         : 'Built by card function (Scryfall oracle tags)';
     case 'art-theme': {
       const motif = (detail ?? '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-      return motif ? `Art theme — every card depicts ${motif}` : 'Art theme';
+      return motif ? `Art theme: every card depicts ${motif}` : 'Art theme';
     }
     case 'historical': {
       const year = detail?.match(/\d{4}/)?.[0];
-      return year ? `Historical — cards printed through ${year}` : 'Historical';
+      return year ? `Historical: cards printed through ${year}` : 'Historical';
     }
     default:
       return '';
@@ -65,7 +65,7 @@ function synergyFillReason(f: { matchedTags: string[]; liftedBy?: string[] }): s
   const liftPart = f.liftedBy && f.liftedBy.length > 0 ? `Lifted by ${f.liftedBy.join(', ')}` : '';
   return (
     [tagsPart, liftPart].filter(Boolean).join(' · ') ||
-    'Slot filler — no shared synergy with the deck'
+    'Slot filler, no shared synergy with the deck'
   );
 }
 
@@ -276,7 +276,8 @@ export function BuildReportPanel({
                 : 'The combo you built around is in this deck'}
             </strong>
             <br />
-            {mustIncludeSkippedNote ?? `${comboSeedContext.pieceNames.join(' + ')} — all seated.`}
+            {mustIncludeSkippedNote ??
+              `${comboSeedContext.pieceNames.join(' + ')}, all in the deck.`}
           </span>
         </p>
       )}
@@ -296,9 +297,9 @@ export function BuildReportPanel({
 
       {targetBracket === 1 ? (
         <p className="build-report-line build-report-bracket">
-          Aimed Bracket <strong>1 (Exhibition)</strong> — estimated{' '}
-          <strong>{estimatedBracket}</strong>. Exhibition is a themed-build intent, not a measurable
-          power level, so estimates never read below Core (2) — this is expected, not a miss.
+          Aimed Bracket <strong>1 (Exhibition)</strong>, estimated{' '}
+          <strong>{estimatedBracket}</strong>. Exhibition decks always estimate at Core (2) or
+          higher; it's a themed-build intent, not a power level.
         </p>
       ) : (
         <p className="build-report-line build-report-bracket">
@@ -427,7 +428,7 @@ export function BuildReportPanel({
         <details className="build-report-subs">
           <summary>
             <strong>{comboUpsideNotes.length}</strong> expensive combo piece
-            {comboUpsideNotes.length === 1 ? '' : 's'} kept for upside — why
+            {comboUpsideNotes.length === 1 ? '' : 's'} kept for upside: why
           </summary>
           <ul className="build-report-subs-list">
             {comboUpsideNotes.map((n) => (
@@ -472,7 +473,7 @@ export function BuildReportPanel({
 
       {typeof collectionRelaxed === 'number' && collectionRelaxed > 0 && (
         <p className="build-report-flag">
-          Your collection ran short — added <strong>{collectionRelaxed}</strong> card
+          Your collection ran short. Added <strong>{collectionRelaxed}</strong> card
           {collectionRelaxed === 1 ? '' : 's'} from outside it to complete the deck.
         </p>
       )}
@@ -481,8 +482,8 @@ export function BuildReportPanel({
         <details className="build-report-subs">
           <summary>
             Used <strong>{collectionSubstitutions.length}</strong> owned card
-            {collectionSubstitutions.length === 1 ? '' : 's'} in place of staples you don't own —
-            why these cards?
+            {collectionSubstitutions.length === 1 ? '' : 's'} in place of staples you don't own: why
+            these cards?
           </summary>
           <ul className="build-report-subs-list">
             {collectionSubstitutions.map((s) => (
@@ -501,7 +502,7 @@ export function BuildReportPanel({
         <details className="build-report-subs">
           <summary>
             <strong>{synergyFills.length}</strong> card
-            {synergyFills.length === 1 ? '' : 's'} had no EDHREC data for this commander — why
+            {synergyFills.length === 1 ? '' : 's'} had no EDHREC data for this commander: why
             they're here
           </summary>
           <ul className="build-report-subs-list">
@@ -524,7 +525,7 @@ export function BuildReportPanel({
         <details className="build-report-subs">
           <summary>
             <strong>{packagePicks.length}</strong> hidden-synergy pick
-            {packagePicks.length === 1 ? '' : 's'} — not in your EDHREC pool, but strongly paired
+            {packagePicks.length === 1 ? '' : 's'}: not in your EDHREC pool, but strongly paired
             with cards already in the deck
           </summary>
           <ul className="build-report-subs-list">
@@ -557,8 +558,8 @@ export function BuildReportPanel({
               aren't carried this far — the floor is the useful number anyway. */}
           {packagePicks.some((p) => p.lowSample) && (
             <p className="thin-data-note">
-              Picks marked “Low sample” come from fewer than {THIN_SAMPLE_FLOOR} decks pairing those
-              cards — treat them as a hunch, not a stat.
+              Picks marked "Low sample" come from fewer than {THIN_SAMPLE_FLOOR} decks pairing those
+              cards.
             </p>
           )}
           {liftPicksNote && <p className="build-report-lift-note">{liftPicksNote}</p>}
@@ -572,8 +573,8 @@ export function BuildReportPanel({
             one card away
             {oneAwayOwnedCount > 0 && (
               <>
-                {' '}
-                — you own <strong>{oneAwayOwnedCount}</strong> missing piece
+                {', '}
+                you own <strong>{oneAwayOwnedCount}</strong> missing piece
                 {oneAwayOwnedCount === 1 ? '' : 's'}
               </>
             )}
@@ -608,7 +609,7 @@ export function BuildReportPanel({
             {coherenceFindings && coherenceFindings.length > 0 && (
               <>
                 <strong>{coherenceFindings.length}</strong> coherence flag
-                {coherenceFindings.length === 1 ? '' : 's'} — cards this exact build may not support
+                {coherenceFindings.length === 1 ? '' : 's'}: cards this exact build may not support
               </>
             )}
             {coherenceFindings &&
@@ -733,14 +734,10 @@ export function BuildReportPanel({
       {claimedConflicts != null && claimedConflicts > 0 && (
         <p className="build-report-conflict-note">
           {claimedConflicts} card{claimedConflicts === 1 ? ' you own is' : 's you own are'}{' '}
-          committed to other decks — open “Review shared cards” to pull a copy in (you choose what
-          the other deck does), or swap in free alternatives.
+          committed to other decks. Open "Review shared cards" to pull a copy in, or swap in free
+          alternatives.
           {collectionStrategy !== 'available' && (
-            <>
-              {' '}
-              Building again? Switch collection mode to “Available only — free copies” so generation
-              skips cards already committed elsewhere.
-            </>
+            <> Building again? Set collection mode to "Available only" to skip committed cards.</>
           )}
         </p>
       )}
@@ -748,8 +745,8 @@ export function BuildReportPanel({
       {committedExcluded != null && committedExcluded > 0 && collectionStrategy === 'available' && (
         <p className="build-report-conflict-note">
           Skipped <strong>{committedExcluded}</strong> card
-          {committedExcluded === 1 ? '' : 's'} in these colors you own — every copy is committed to
-          another deck. Switch collection mode to “Only my cards” to include them.
+          {committedExcluded === 1 ? '' : 's'} in these colors. Every copy is already committed
+          elsewhere. Switch collection mode to "Only my cards" to include them.
         </p>
       )}
 
@@ -759,7 +756,7 @@ export function BuildReportPanel({
             Mana sources vs target
             <InfoTip
               label="mana sources"
-              text="Each count is every source of that color in the final deck — lands plus mana rocks and dorks — not lands alone."
+              text="Each count is every source of that color in the final deck: lands plus mana rocks and dorks, not lands alone."
             />
           </span>
           <ul className="build-report-gaps-list">

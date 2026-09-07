@@ -312,7 +312,7 @@ export function SharedDeckView({ data, publicMeta, ownership, lead }: Props) {
             <Link
               to={`/u/${data.ownerUsername}`}
               className="shared-view-owner-link"
-              aria-label={`Shared by @${data.ownerUsername} — view profile`}
+              aria-label={`Shared by @${data.ownerUsername}: view profile`}
             >
               {ownerLine}
             </Link>

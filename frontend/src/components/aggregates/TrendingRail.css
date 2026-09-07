@@ -84,3 +84,12 @@
   flex-direction: column;
   gap: 0.3rem;
 }
+
+/* Collapsed empty state -- used when the page's own primary content is also
+   empty, so this rail doesn't stack a second illustrated empty state above
+   an already-empty page (see TrendingRail's `compactWhenEmpty` prop). */
+.trending-rail-compact-empty {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}

@@ -314,7 +314,7 @@ export function BinderPage() {
                     if (!active) return;
                     const ok = await confirm({
                       title: `Delete "${active.def.name}"?`,
-                      body: `Its cards will be re-routed through your other binders. Anything that does not match a remaining binder will only show up in the Collection view.`,
+                      body: `Its cards route to your other binders. Anything that no longer matches falls back to the Collection view. This can't be undone.`,
                       confirmLabel: 'Delete binder',
                       danger: true,
                     });

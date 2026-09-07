@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import './CubePage.css';
 import { Tabs } from '../components/Tabs';
 import { DecksHubTabs } from '../components/DecksHubTabs';
+import { BackLink } from '../components/BackLink';
 import { BuildCube } from './cube/BuildCube';
 import { CollabCube } from './cube/CollabCube';
 import { ImportCube } from './cube/ImportCube';
@@ -16,6 +17,11 @@ export function CubePage() {
     <>
       <DecksHubTabs />
       <div className="cube-page">
+        {/* Cube is a hub tab (DecksHubTabs above already reads "Decks"), but
+          it's also the deepest, most tool-like surface in the family — a
+          deliberate exit path back to the plain deck list, matching the
+          Compare/New/Brew siblings rather than staying silent about it. */}
+        <BackLink to="/decks" label="All decks" />
         {/* Hero band — joins the .binder-hero family every sibling hub page
           uses (Collection/Binders/Lists); the bare <h1> read as unfinished. */}
         <header className="binder-hero">

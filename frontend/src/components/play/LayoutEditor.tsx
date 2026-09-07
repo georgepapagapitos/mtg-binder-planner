@@ -430,7 +430,7 @@ function EditorSeat({
       onClick={onSelect}
       role="button"
       aria-pressed={selected}
-      aria-label={`${name} — drag or tap to arrange`}
+      aria-label={`${name}: drag or tap to arrange`}
     >
       <span className="cle-seat-rot">
         <FacingArrow rot={placement.rot} />

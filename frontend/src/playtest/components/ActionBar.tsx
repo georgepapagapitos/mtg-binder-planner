@@ -67,6 +67,11 @@ interface Props {
   citysBlessing: boolean;
   /** Show a small dot on the Log button — a Resistance event landed since it was last opened. */
   hasUnreadLog: boolean;
+  /** B6-04: folds `.playtest-page__header`'s back-navigation into this row,
+   *  shown only in the short-landscape tier (CSS-gated) — see PlaytestBoard
+   *  Props doc. Both optional so every other tier's markup is unaffected. */
+  deckName?: string;
+  onBack?(): void;
 }
 
 export function ActionBar({
@@ -95,6 +100,8 @@ export function ActionBar({
   initiative,
   citysBlessing,
   hasUnreadLog,
+  deckName,
+  onBack,
 }: Props) {
   // Designations held right now, short-labeled, for the button/menu badge —
   // mirrors how Resistance's own current level is always visible at a glance.
@@ -131,12 +138,10 @@ export function ActionBar({
   // Secondary actions, folded into a shared OverflowMenu on narrow viewports.
   // Resistance's current level (and any held designation) is encoded in its
   // label so it's visible at a glance without opening the picker.
-  const selectLabel = selectMode
-    ? `Done selecting${selectionSize > 0 ? ` (${selectionSize})` : ''}`
-    : 'Select cards';
-
+  // Select is deliberately absent here (B6-14) — its own standing button
+  // (below) is never hidden by `isNarrow`, so listing it here too would
+  // duplicate the identical toggle in both places.
   const overflowItems: OverflowMenuItem[] = [
-    { label: selectLabel, onClick: onToggleSelectMode },
     { label: 'Shuffle', onClick: onShuffle },
     { label: 'Mulligan', onClick: onMulligan },
     { label: 'Scry / surveil / mill', onClick: onScry, disabled: libraryCount === 0 },
@@ -156,6 +161,11 @@ export function ActionBar({
 
   return (
     <div className="playtest-actionbar" role="toolbar" aria-label="Playtest actions">
+      {onBack && (
+        <button type="button" className="playtest-actionbar__back" onClick={onBack}>
+          ← {deckName}
+        </button>
+      )}
       <span className="playtest-actionbar__turn">Turn {turn}</span>
       <button type="button" onClick={onOpenStats} className="playtest-actionbar__stats">
         Stats
@@ -164,25 +174,36 @@ export function ActionBar({
         type="button"
         onClick={onOpenLog}
         className="playtest-actionbar__log"
-        aria-label={hasUnreadLog ? 'Log — new opponent events' : 'Log'}
+        aria-label={hasUnreadLog ? 'Log: new opponent events' : 'Log'}
       >
         Log
         {hasUnreadLog && <span className="playtest-actionbar__log-dot" aria-hidden />}
       </button>
-      <button type="button" onClick={onDraw} disabled={libraryCount === 0} title="Draw (D)">
+      <button
+        type="button"
+        onClick={onDraw}
+        disabled={libraryCount === 0}
+        title="Draw (D)"
+        className="playtest-actionbar__primary"
+      >
         Draw
       </button>
       <button type="button" onClick={onUntapAll} title="Untap all (U)">
         Untap all
       </button>
-      <button type="button" onClick={onNextTurn} title="Next turn (N)">
+      <button
+        type="button"
+        onClick={onNextTurn}
+        title="Next turn (N)"
+        className="playtest-actionbar__primary"
+      >
         Next turn
       </button>
       <button
         type="button"
         onClick={takeback.onClick}
         className={`playtest-actionbar__takeback${takeback.isPending ? ' is-pending' : ''}`}
-        aria-label={takeback.isPending ? 'Take back — waiting for approval' : undefined}
+        aria-label={takeback.isPending ? 'Take back: waiting for approval' : undefined}
         title={takebackTitle}
       >
         Take back
@@ -194,7 +215,7 @@ export function ActionBar({
         onClick={onToggleSelectMode}
         aria-pressed={selectMode}
         className={`playtest-actionbar__select${selectMode ? ' is-active' : ''}`}
-        title="Tap cards to select several at once, then duplicate or move them together"
+        title="Select several cards to act on together"
       >
         {selectMode ? 'Done' : 'Select'}
         {selectMode && selectionSize > 0 && (
@@ -222,7 +243,7 @@ export function ActionBar({
             type="button"
             onClick={onScry}
             disabled={libraryCount === 0}
-            title="Look at the top of your library — scry, surveil, or mill"
+            title="Look at the top of your library"
           >
             Scry
           </button>
@@ -251,7 +272,7 @@ export function ActionBar({
             onClick={onOpenResistance}
             aria-haspopup="dialog"
             className={`playtest-actionbar__resistance${resistanceLevel !== 'off' ? ' is-active' : ''}`}
-            title="Simulated opponent: occasionally counters, removes, or wipes your plays"
+            title="Simulated opponent that disrupts your plays"
           >
             Resistance
             {resistanceLevel !== 'off' && (
@@ -265,7 +286,7 @@ export function ActionBar({
             onClick={takeback.onOpenSettings}
             aria-haspopup="dialog"
             className="playtest-actionbar__takeback-settings"
-            title="Choose how takebacks that need the table's OK are handled"
+            title="Takeback approval settings"
           >
             <Settings aria-hidden width={13} height={13} />
             Takeback: {TAKEBACK_MODE_LABEL[takeback.mode]}

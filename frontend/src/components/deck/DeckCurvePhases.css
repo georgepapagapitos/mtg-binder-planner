@@ -380,26 +380,20 @@
 }
 
 .deck-curve-phases-grade {
-  font-family: var(--font-mono);
   font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  text-align: center;
 }
 
-.deck-curve-phases-grade-a {
+.deck-curve-phases-grade-on-target {
   color: var(--role-ink-ramp);
 }
 
-.deck-curve-phases-grade-b {
-  color: var(--role-ink-draw);
-}
-
-.deck-curve-phases-grade-c {
+.deck-curve-phases-grade-a-little-off {
   color: var(--role-ink-wipe);
 }
 
-.deck-curve-phases-grade-d,
-.deck-curve-phases-grade-f {
+.deck-curve-phases-grade-off-target {
   color: var(--err-text);
 }
 

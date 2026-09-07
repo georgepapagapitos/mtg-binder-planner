@@ -736,7 +736,7 @@ export function CoachFeed({
         </h4>
         {!isPending && allChanges.length === 0 ? (
           <div className="empty-state">
-            <p className="empty-state-tagline">Nothing to coach — this deck looks tuned.</p>
+            <p className="empty-state-tagline">Nothing to coach. This deck looks tuned.</p>
             <p className="empty-state-hint">
               Your deck is well-covered. Try adjusting your power bracket or browsing themes below.
             </p>
@@ -783,7 +783,7 @@ export function CoachFeed({
                     type="button"
                     className="coach-feed-filter-chip"
                     aria-pressed={offMetaOnly}
-                    aria-label={`Off-meta picks — ${offMetaCount}. This deck's off-the-beaten-path suggestions, low or no EDHREC play rate.`}
+                    aria-label={`Off-meta picks, ${offMetaCount}. Spicy, low-EDHREC-play picks for this lane.`}
                     onClick={() => setOffMetaOnly((v) => !v)}
                   >
                     Off-meta
@@ -846,7 +846,7 @@ export function CoachFeed({
             {activeFilter === 'budget' && filteredRows.length > 0 && (
               <div className="coach-feed-budget-strip">
                 <span className="coach-feed-budget-summary">
-                  Badges rate how close each cheaper pick is to the card it replaces
+                  How close each cheaper pick is to the card it replaces:
                 </span>
                 <InfoTip
                   label="budget confidence"
@@ -857,13 +857,13 @@ export function CoachFeed({
                       </p>
                       <ul className="info-tip-list">
                         <li>
-                          <strong>Drop-in</strong> — near-identical; swap freely.
+                          <strong>Drop-in</strong>: near-identical, swap freely.
                         </li>
                         <li>
-                          <strong>Sidegrade</strong> — a lateral trade, a bit less played.
+                          <strong>Sidegrade</strong>: a lateral trade, a bit less played.
                         </li>
                         <li>
-                          <strong>Budget</strong> — a real downgrade for the savings.
+                          <strong>Budget</strong>: a real downgrade for the savings.
                         </li>
                       </ul>
                     </>
@@ -906,6 +906,7 @@ export function CoachFeed({
                       }
                     >
                       <DeckCardRow
+                        as="div"
                         change={change}
                         commanderName={commanderName}
                         peekName={change.name}
@@ -973,7 +974,7 @@ export function CoachFeed({
                 <div className="coach-feed-empty-filter coach-feed-empty-owned">
                   <p>
                     No off-meta {activeFilter === 'all' ? '' : FILTER_LABELS[activeFilter] + ' '}
-                    picks right now — this lane's suggestions are all played staples.
+                    picks right now. This lane's suggestions are all played staples.
                   </p>
                   <button
                     type="button"

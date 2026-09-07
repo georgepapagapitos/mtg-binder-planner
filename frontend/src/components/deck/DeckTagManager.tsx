@@ -31,7 +31,7 @@ export function DeckTagManager({
   };
 
   if (tags.length === 0) {
-    return <p className="deck-tag-manager-empty">No tags yet — add one from a card's preview.</p>;
+    return <p className="deck-tag-manager-empty">No tags yet. Add one from a card's preview.</p>;
   }
 
   return (

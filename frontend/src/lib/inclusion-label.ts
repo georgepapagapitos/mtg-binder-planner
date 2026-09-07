@@ -15,7 +15,7 @@ export type InclusionLabel =
 /** Reason-less surfaces (no why-pipeline) attach this as the Off-meta chip's
  *  tooltip/title so the "off-meta" verdict never reads as an unexplained gap. */
 export const OFFMETA_TOOLTIP =
-  'Not commonly played with this commander — chosen for its text and role, not its play-rate.';
+  'Not commonly played with this commander. Chosen for its text and role, not its play-rate.';
 
 export function classifyInclusion(inclusion: number | null | undefined): InclusionLabel {
   const pct = typeof inclusion === 'number' ? Math.round(inclusion) : 0;

@@ -108,7 +108,7 @@ export function useTakeback(onlineTable: OnlineTable | null): TakebackStatus {
 
   const pendingOutcomeMessage =
     pendingRequest?.status === 'approved' && staleApproval
-      ? 'Approved — but the board changed since you asked, so nothing was taken back.'
+      ? 'Approved, but the board changed. Nothing was taken back.'
       : null;
 
   const { verdict, stepsAvailable, boundary, next } = readTakeback(rewindTrail);

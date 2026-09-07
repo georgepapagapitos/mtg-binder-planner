@@ -358,7 +358,7 @@ describe('fromBracketFitMove', () => {
     expect(c.id).toBe('bracket-fit:swap:Cyclonic Rift');
     expect(c.name).toBe('Evacuation'); // primary = the incoming card
     expect(c.inName).toBe('Cyclonic Rift'); // the slot to cut
-    expect(c.reason).toBe('Replaces Cyclonic Rift — Game Changer over the Bracket 2 limit.');
+    expect(c.reason).toBe('Replaces Cyclonic Rift: Game Changer over the Bracket 2 limit.');
     expect(c.ownership).toBe('unowned');
     expect(c.isGameChanger).toBe(false); // downshift replacement is never a GC
   });
@@ -744,9 +744,7 @@ describe('whyFactors wiring — every lane adapter carries a structured breakdow
       side: 'payoff',
       reason: 'rewards going wide',
     });
-    expect((c.whyFactors ?? []).some((f) => /payoff for your Tokens engine/.test(f.text))).toBe(
-      true
-    );
+    expect((c.whyFactors ?? []).some((f) => /Pays off your Tokens engine/.test(f.text))).toBe(true);
   });
 
   it('fromOptimizeCard interprets the reason category on both sides', () => {

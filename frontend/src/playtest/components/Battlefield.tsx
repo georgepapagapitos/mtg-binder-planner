@@ -36,9 +36,7 @@ export function Battlefield({
       }}
     >
       {cards.length === 0 && (
-        <p className="playtest-battlefield__empty">
-          Tap a card in your hand — or drag it here — to play it
-        </p>
+        <p className="playtest-battlefield__empty">Tap or drag a card from your hand to play it</p>
       )}
       {cards.map((bf) => (
         // onClick/onContextMenu/onLongPress are passed straight through

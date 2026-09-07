@@ -269,7 +269,7 @@ export function DeckSizePrompt({
               ))}
             </ul>
           ) : (
-            <p className="deck-size-prompt-empty">No suggestions — pick a card below.</p>
+            <p className="deck-size-prompt-empty">No suggestions. Pick a card below.</p>
           )}
 
           {moreOptions && moreOptions.length > 0 && (

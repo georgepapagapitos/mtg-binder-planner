@@ -373,7 +373,7 @@ function SortableScryCard({
         className="playtest-scry-card__grip"
         {...attributes}
         {...listeners}
-        aria-label={`${card.name} — ${columnLabel}, position ${position} of ${total}`}
+        aria-label={`${card.name}, ${columnLabel}, position ${position} of ${total}`}
       >
         <ScryCardFace card={card} />
       </div>

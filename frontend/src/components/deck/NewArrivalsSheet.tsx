@@ -100,12 +100,12 @@ export function NewArrivalsSheet({
         onAnimationEnd={onAnimationEnd}
         role="dialog"
         aria-modal="true"
-        aria-label={`New arrivals — ${label}`}
+        aria-label={`New arrivals · ${label}`}
       >
         <div className="new-arrivals-sheet-header">
           <div className="new-arrivals-sheet-title-row">
             <div className="new-arrivals-sheet-title-text">
-              <h2 className="new-arrivals-sheet-heading">New arrivals — {label}</h2>
+              <h2 className="new-arrivals-sheet-heading">New arrivals · {label}</h2>
               <p className="new-arrivals-sheet-subheading">
                 Added to your collection since you last updated this deck.
               </p>

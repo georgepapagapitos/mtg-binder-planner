@@ -546,14 +546,14 @@ export function allocationSummary(row: Row): string {
 export function allocationAriaLabel(row: Row, opts: { editable: boolean }): string {
   const base = `${row.qty} in deck`;
   const detail = allocationSummary(row);
-  const tail = opts.editable ? ' — click to change quantity' : '';
-  return `${base} — ${detail}${tail}`;
+  const tail = opts.editable ? ', click to change quantity' : '';
+  return `${base}: ${detail}${tail}`;
 }
 
 export function allocationTitle(row: Row, opts: { editable: boolean }): string {
   const detail = allocationSummary(row);
   if (!opts.editable) return detail;
-  return `${detail} — click to change quantity`;
+  return `${detail}, click to change quantity`;
 }
 
 export const SORT_DEFAULT_DIR: Record<SortMode, 'asc' | 'desc'> = {

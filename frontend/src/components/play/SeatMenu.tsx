@@ -1,5 +1,5 @@
 import { Compass, Crown, FastForward, Play } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { DesignationKind, GameAction, GamePlayer, GameState } from '../../lib/game-state';
 import { encodeCustomLayout, resolveLayout } from '../../lib/board-layouts';
 import { paletteForSeat } from '../../lib/seat-palette';
@@ -48,6 +48,33 @@ export function SeatMenu({
   const facingGroup = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   useOverlayDismiss(onClose, panelRef);
+  // B7-02: the body can genuinely exceed even the biggest panel's height
+  // (2-player), so it scrolls — publish which edge(s) still have content
+  // behind them, mirroring Tabs.tsx's `data-overflow` fade convention
+  // (there: horizontal scroll strips; here: vertical).
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const update = () => {
+      const max = body.scrollHeight - body.clientHeight;
+      let next = 'none';
+      if (max > 1) {
+        const atTop = body.scrollTop <= 1;
+        const atBottom = body.scrollTop >= max - 1;
+        next = atTop ? 'bottom' : atBottom ? 'top' : 'both';
+      }
+      if (body.dataset.overflow !== next) body.dataset.overflow = next;
+    };
+    update();
+    body.addEventListener('scroll', update, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    ro?.observe(body);
+    return () => {
+      body.removeEventListener('scroll', update);
+      ro?.disconnect();
+    };
+  }, [player.seat]);
   const setFacing = (rot: 0 | 90 | 180 | 270) => {
     const seats = current.seats.map((st, i) => (i === player.seat ? { ...st, rot } : st));
     dispatch({
@@ -70,7 +97,7 @@ export function SeatMenu({
           ✕
         </button>
       </header>
-      <div className="seat-menu-body">
+      <div ref={bodyRef} className="seat-menu-body">
         {canEdit && game.status !== 'finished' && (
           <form
             className="seat-menu-form"

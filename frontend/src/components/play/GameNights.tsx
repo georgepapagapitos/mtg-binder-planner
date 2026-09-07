@@ -153,18 +153,11 @@ export function GameNightsTab({ isGuest, nights, loading, error, refresh }: Game
 
   if (error) {
     return (
-      <div className="empty-state">
-        <p className="empty-state-tagline">Couldn't load game nights.</p>
-        <p className="empty-state-hint">{error}</p>
-        <div className="empty-state-actions">
-          <button
-            type="button"
-            className="btn game-nights-retry-btn"
-            onClick={() => void refresh()}
-          >
-            Retry
-          </button>
-        </div>
+      <div className="discover-decks-error" role="alert">
+        <span>{error}</span>
+        <button type="button" className="discover-decks-error-retry" onClick={() => void refresh()}>
+          Retry
+        </button>
       </div>
     );
   }
@@ -191,7 +184,7 @@ export function GameNightsTab({ isGuest, nights, loading, error, refresh }: Game
             <div>
               <h2 className="play-setup-title">Game nights</h2>
               <p className="play-setup-help">
-                Share a night's link with anyone — RSVPs don't need an account.
+                Share a night's link with anyone. RSVPs don't need an account.
               </p>
             </div>
             <button type="button" className="btn btn-primary" onClick={() => setDialog('create')}>
@@ -234,7 +227,7 @@ export function GameNightsTab({ isGuest, nights, loading, error, refresh }: Game
           }
           body={
             pendingCancel.series && pendingCancel.series.endedAt === null
-              ? "This week is skipped — anyone opening the link sees it as cancelled, and next week's night takes its place."
+              ? "Anyone opening the link will see it as cancelled, and next week's night will take its place."
               : "Everyone opening the link will see it as cancelled. This can't be undone."
           }
           confirmLabel={
@@ -251,7 +244,7 @@ export function GameNightsTab({ isGuest, nights, loading, error, refresh }: Game
               .then(refresh)
               .then(() =>
                 toast.show({
-                  message: skipped ? 'Night skipped — see you next week.' : 'Game night cancelled.',
+                  message: skipped ? 'Night skipped. See you next week.' : 'Game night cancelled.',
                 })
               )
               .catch((err) =>
@@ -330,7 +323,7 @@ function NightCard({
     seedGameSetup(seeded, night.format);
     if (names.length > seeded.length) {
       toast.show({
-        message: `Added the first ${MAX_LOCAL_PLAYERS} players — add the rest from the seat list.`,
+        message: `Added the first ${MAX_LOCAL_PLAYERS} players. Add the rest from the seat list.`,
       });
     }
     navigate('/play?tab=local');
@@ -358,13 +351,13 @@ function NightCard({
       // opens the upcoming night.
       if (weekly) {
         await navigator.clipboard.writeText(gameNightSeriesUrl(night.series!.token));
-        toast.show({ message: 'Series link copied — it always opens the next night.' });
+        toast.show({ message: "Series link copied. It always opens next week's night." });
       } else {
         await navigator.clipboard.writeText(gameNightUrl(night.token));
         toast.show({
           message: night.inviteOnly
-            ? 'Link copied — only people you invited can reply.'
-            : 'Link copied — anyone with it can RSVP.',
+            ? 'Link copied. Only invited people can reply.'
+            : 'Link copied. Anyone with it can RSVP.',
         });
       }
     } catch {
@@ -465,7 +458,7 @@ function NightCard({
                 · waiting on {night.awaiting.join(', ')}
               </span>
             )}
-            {" — see who's in"}
+            {" · see who's in"}
           </span>
           <ChevronRight
             width={16}
@@ -589,7 +582,7 @@ function NightCard({
             setPendingStopRepeat(false);
             endGameNightSeries(night.series!.id)
               .then(refresh)
-              .then(() => toast.show({ message: 'Series stopped — no more weekly nights.' }))
+              .then(() => toast.show({ message: 'Series stopped. No more weekly nights.' }))
               .catch((err) =>
                 toast.show({
                   message: userMessage(err, "Couldn't stop the series."),
@@ -731,13 +724,13 @@ function AttendeeSheet({ night, onClose }: { night: GameNight; onClose: () => vo
     <Modal onClose={onClose} labelledBy={titleId}>
       <div className="game-night-dialog">
         <h2 id={titleId} className="game-night-dialog-title">
-          Who's in — {night.title}
+          Who's in · {night.title}
         </h2>
         {friendsFetch.status !== 'ready' && (
           <p className="game-night-dialog-hint">
             {friendsFetch.status === 'loading'
               ? "Checking who you're already friends with…"
-              : "Couldn't check friend status — add-friend isn't available right now."}
+              : "Couldn't check friend status. Add friend isn't available right now."}
           </p>
         )}
         {night.rsvps.length === 0 && <p className="game-night-dialog-hint">No replies yet.</p>}
@@ -811,7 +804,7 @@ function PollDialog({
     setSaving(true);
     try {
       await openGameNightPoll(night.id, slots);
-      toast.show({ message: 'Date vote opened — attendees can vote now.' });
+      toast.show({ message: 'Date vote opened. Attendees can vote now.' });
       onSaved();
     } catch (err) {
       setFormError(userMessage(err, "Couldn't open the date vote."));
@@ -1143,7 +1136,7 @@ function NightDialog({
         return;
       }
       await navigator.clipboard.writeText(url);
-      toast.show({ message: `Invite link for ${label} copied — send it to them.` });
+      toast.show({ message: `Invite link for ${label} copied. Send it to them.` });
     } catch (err) {
       // A dismissed share sheet rejects; that's a choice, not a failure.
       if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -1240,10 +1233,10 @@ function NightDialog({
           // A weekly night copies its stable series link — the one to pin.
           if (created.series) {
             await navigator.clipboard.writeText(gameNightSeriesUrl(created.series.token));
-            toast.show({ message: 'Weekly night created — series link copied.' });
+            toast.show({ message: 'Weekly night created. Series link copied.' });
           } else {
             await navigator.clipboard.writeText(gameNightUrl(created.token));
-            toast.show({ message: 'Game night created — link copied.' });
+            toast.show({ message: 'Game night created. Link copied.' });
           }
         } catch {
           toast.show({ message: 'Game night created.' });
@@ -1276,7 +1269,7 @@ function NightDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={80}
-              placeholder="e.g. Friday commander"
+              placeholder="Friday commander"
               autoFocus
             />
           </label>
@@ -1285,7 +1278,7 @@ function NightDialog({
             <>
               <fieldset className="game-night-dialog-datemode">
                 <legend>Date</legend>
-                <label className="game-night-dialog-pollmode">
+                <label className="game-night-dialog-option-toggle">
                   <input
                     type="radio"
                     name="game-night-date-mode"
@@ -1294,7 +1287,7 @@ function NightDialog({
                   />
                   <span>Fixed date</span>
                 </label>
-                <label className="game-night-dialog-pollmode">
+                <label className="game-night-dialog-option-toggle">
                   <input
                     type="radio"
                     name="game-night-date-mode"
@@ -1303,7 +1296,7 @@ function NightDialog({
                   />
                   <span>Vote on a date</span>
                 </label>
-                <label className="game-night-dialog-pollmode">
+                <label className="game-night-dialog-option-toggle">
                   <input
                     type="radio"
                     name="game-night-date-mode"
@@ -1322,13 +1315,13 @@ function NightDialog({
           )}
           {night !== null && night.series !== null && night.series.endedAt === null && (
             <p className="game-night-dialog-hint">
-              This night repeats weekly — your changes carry forward to future weeks.
+              This night repeats weekly. Your changes carry forward to future weeks.
             </p>
           )}
 
           {pollingEdit ? (
             <p className="game-night-dialog-hint">
-              The date is being voted on — lock one in from the night's card.
+              The date is being voted on. Lock one in from the night's card.
             </p>
           ) : pollCreate ? (
             <fieldset className="game-night-dialog-options">
@@ -1402,7 +1395,7 @@ function NightDialog({
               onFocus={() => setPlaceOpen(true)}
               onKeyDown={onPlaceKeyDown}
               maxLength={120}
-              placeholder="e.g. Sam's place"
+              placeholder="Sam's place"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded={placeOpen && placeOptions.length > 0}
@@ -1447,11 +1440,11 @@ function NightDialog({
               onChange={(e) => setNotes(e.target.value)}
               maxLength={500}
               rows={3}
-              placeholder="e.g. bracket 2 decks"
+              placeholder="Bracket 2 decks"
             />
           </label>
 
-          <label className="game-night-dialog-pollmode">
+          <label className="game-night-dialog-option-toggle">
             <input
               type="checkbox"
               checked={inviteOnly}
@@ -1461,8 +1454,8 @@ function NightDialog({
           </label>
           {inviteOnly && (
             <p className="game-night-dialog-hint">
-              Anyone with the link can see the night, but only people you invite — or who already
-              replied — can RSVP.
+              Anyone with the link can see the night, but only people you invite, or who already
+              replied, can RSVP.
             </p>
           )}
 
@@ -1514,7 +1507,7 @@ function NightDialog({
                 {awaitingLeft.map((username) => (
                   <li key={`invite:${username}`}>
                     <span className="game-night-person-name">{username}</span>
-                    <span className="game-night-person-status">Invited — hasn't replied</span>
+                    <span className="game-night-person-status">Invited · hasn't replied</span>
                     <button
                       type="button"
                       className="btn"
@@ -1535,8 +1528,8 @@ function NightDialog({
               <legend>Invite someone without an account</legend>
               <p className="game-night-dialog-hint">
                 {night.series !== null
-                  ? 'Each person gets their own link that keeps working every week. It admits them even on an invite-only night — no signup.'
-                  : 'Each person gets their own link for this night. It admits them even on an invite-only night — no signup.'}
+                  ? 'Each person gets their own link that keeps working every week. It works even on an invite-only night, no signup required.'
+                  : 'Each person gets their own link for this night. It works even on an invite-only night, no signup required.'}
               </p>
               <div className="game-night-guest-invite-add">
                 <label className="game-night-dialog-field">
@@ -1572,7 +1565,7 @@ function NightDialog({
                     <li key={`guest:${invite.id}`}>
                       <span className="game-night-person-name">{invite.label}</span>
                       <span className="game-night-person-status">
-                        {invite.weekly ? 'Invite link — every week' : 'Invite link'}
+                        {invite.weekly ? 'Invite link · every week' : 'Invite link'}
                       </span>
                       <div className="game-night-person-actions">
                         <button
@@ -1630,12 +1623,11 @@ function NightDialog({
               <p className="game-night-dialog-hint">Loading friends…</p>
             ) : friendsFetch.status === 'error' ? (
               <p className="game-night-dialog-hint">
-                Couldn't load your friends list — share the link instead; it works without an
-                account.
+                Couldn't load your friends list. Share the link instead, no account needed.
               </p>
             ) : friendsFetch.friends.length === 0 ? (
               <p className="game-night-dialog-hint">
-                No friends yet — share the link instead; it works without an account.
+                No friends yet. Share the link instead, no account needed.
               </p>
             ) : (
               <ul className="game-night-dialog-friend-list">

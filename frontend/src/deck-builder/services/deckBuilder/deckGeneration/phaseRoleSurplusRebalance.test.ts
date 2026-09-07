@@ -1332,9 +1332,7 @@ describe('applyRoleSurplusRebalance', () => {
       expect(result.conversions).toHaveLength(1);
       expect(result.conversions[0].added).toBe('Removal Candidate');
       expect(result.conversions[0].cut).toBe('Filler A');
-      expect(result.conversions[0].reason).toMatch(
-        /Removal was running 0 vs its 1-card target — under target/
-      );
+      expect(result.conversions[0].reason).toMatch(/Removal is under target \(0\/1\)/);
       expect(state.usedNames.has('Removal Candidate')).toBe(true);
       expect(state.usedNames.has('Filler A')).toBe(false);
     });
@@ -1679,9 +1677,7 @@ describe('applyRoleSurplusRebalance', () => {
 
       expect(result.conversions).toHaveLength(1);
       expect(result.conversions[0].added).toBe('Ramp Candidate');
-      expect(result.conversions[0].reason).toMatch(
-        /Ramp was running 0 vs its 1-card target — under target/
-      );
+      expect(result.conversions[0].reason).toMatch(/Ramp is under target \(0\/1\)/);
     });
 
     it('backfills a cardDraw deficit through the same machinery', () => {
@@ -1698,9 +1694,7 @@ describe('applyRoleSurplusRebalance', () => {
 
       expect(result.conversions).toHaveLength(1);
       expect(result.conversions[0].added).toBe('Draw Candidate');
-      expect(result.conversions[0].reason).toMatch(
-        /Card draw was running 0 vs its 1-card target — under target/
-      );
+      expect(result.conversions[0].reason).toMatch(/Card draw is under target \(0\/1\)/);
     });
 
     it('spends a lone donor on removal before ramp (DEFICIT_BACKFILL_ROLES order)', () => {

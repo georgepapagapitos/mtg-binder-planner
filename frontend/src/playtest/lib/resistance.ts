@@ -222,7 +222,7 @@ export function resistanceRespond(
       state: next,
       response: {
         spellName: spell.item,
-        message: `Opponent casts ${spell.item} — the board is wiped`,
+        message: `Opponent casts ${spell.item}: the board is wiped`,
         effect: 'wipe',
         targetIds,
       },
@@ -251,7 +251,7 @@ export function resistanceRespond(
     state: next,
     response: {
       spellName: spell.item,
-      message: `Opponent casts ${spell.item} — ${card.name} is ${EFFECT_VERB[effect]}`,
+      message: `Opponent casts ${spell.item}: ${card.name} is ${EFFECT_VERB[effect]}`,
       effect,
       targetIds: [card.id],
     },

@@ -166,7 +166,7 @@ describe('ShareDialog — Private revokes everything', () => {
 
     // Must never optimistically claim success before the revoke+unpublish
     // chain fully resolves.
-    expect(screen.queryByText('Not shared — only you can see this.')).toBeNull();
+    expect(screen.queryByText('Not shared. Only you can see this.')).toBeNull();
 
     await waitFor(() => expect(revokeShareMock).toHaveBeenCalledTimes(2));
     expect(revokeShareMock).toHaveBeenCalledWith('tok-link');
@@ -174,7 +174,7 @@ describe('ShareDialog — Private revokes everything', () => {
     expect(revokeShareMock).not.toHaveBeenCalledWith('tok-other-deck');
     expect(unpublishDeckMock).toHaveBeenCalledWith('d1');
 
-    await screen.findByText('Not shared — only you can see this.');
+    await screen.findByText('Not shared. Only you can see this.');
   });
 });
 
@@ -197,9 +197,7 @@ describe('ShareDialog — going Public', () => {
     renderDialog({ resourceId: 'd1', resourceLabel: 'Test Deck', onClose: () => {} });
 
     fireEvent.click(screen.getByRole('radio', { name: 'Public' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Make it public — anyone can view' })
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it public' }));
 
     const nameInput = await screen.findByLabelText('Display name');
     expect(publishDeckMock).not.toHaveBeenCalled();
@@ -224,9 +222,7 @@ describe('ShareDialog — going Public', () => {
     });
 
     fireEvent.click(screen.getByRole('radio', { name: 'Public' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Make it public — anyone can view' })
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it public' }));
 
     expect(screen.queryByLabelText('Display name')).toBeNull();
     await waitFor(() => expect(publishDeckMock).toHaveBeenCalledWith('d1'));
@@ -254,9 +250,7 @@ describe('ShareDialog — first-publish seal (E150)', () => {
     });
 
     fireEvent.click(screen.getByRole('radio', { name: 'Public' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Make it public — anyone can view' })
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it public' }));
 
     await waitFor(() => expect(publishDeckMock).toHaveBeenCalledWith('d-seal-first'));
     await waitFor(() => expect(fireSealMock).toHaveBeenCalledWith(['G', 'U']));
@@ -277,9 +271,7 @@ describe('ShareDialog — first-publish seal (E150)', () => {
     renderDialog({ resourceId: 'd-seal-republish', resourceLabel: 'Test Deck', onClose: () => {} });
 
     fireEvent.click(screen.getByRole('radio', { name: 'Public' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Make it public — anyone can view' })
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it public' }));
 
     await waitFor(() => expect(publishDeckMock).toHaveBeenCalledWith('d-seal-republish'));
     expect(fireSealMock).not.toHaveBeenCalled();
@@ -290,7 +282,7 @@ describe('ShareDialog — opening the dialog mints nothing', () => {
   it('opens an unshared deck on Private without minting a link share', async () => {
     renderDialog({ resourceId: 'd1', resourceLabel: 'Test Deck', onClose: () => {} });
 
-    await screen.findByText('Not shared — only you can see this.');
+    await screen.findByText('Not shared. Only you can see this.');
     expect((screen.getByRole('radio', { name: 'Private' }) as HTMLInputElement).checked).toBe(true);
     // The whole point: merely looking at the Share dialog used to leave a
     // permanent /s/:token behind, which then piled up in Settings.
@@ -323,7 +315,7 @@ describe('ShareDialog — opening the dialog mints nothing', () => {
 
   it('mints only once the user actually picks the link rung', async () => {
     renderDialog({ resourceId: 'd1', resourceLabel: 'Test Deck', onClose: () => {} });
-    await screen.findByText('Not shared — only you can see this.');
+    await screen.findByText('Not shared. Only you can see this.');
 
     fireEvent.click(screen.getByRole('radio', { name: 'Anyone with link' }));
 
@@ -369,9 +361,7 @@ describe('ShareDialog — Public supersedes the lesser rungs', () => {
     expect(before.value).toBe('https://spellcontrol.com/s/tok-link');
 
     fireEvent.click(screen.getByRole('radio', { name: 'Public' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Make it public — anyone can view' })
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it public' }));
 
     await waitFor(() => expect(publishDeckMock).toHaveBeenCalledWith('d1'));
     // The published view swaps in its own field (a /d/ slug, not a /s/ token);

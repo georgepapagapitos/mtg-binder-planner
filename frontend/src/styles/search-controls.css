@@ -452,3 +452,12 @@ input[type='url']:focus {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Sweep-3 B4-07: a two-field sort summary ("sort: mana value › color") clipped
+   mid-word at 360px under the 60vw cap; the row already wraps, so give the pill
+   the width on phones. */
+@media (max-width: 480px) {
+  .sort-popover-btn {
+    max-width: min(85vw, 22rem);
+  }
+}

@@ -402,6 +402,7 @@ export function CardListTable({
   // Import history powers the "Date added" sort (timestamp keyed by importId).
   const importHistory = useCollectionStore((s) => s.importHistory);
   const isRefreshingPrices = useCollectionStore((s) => s.isRefreshingPrices);
+  const pricesEverLoaded = useCollectionStore((s) => s.pricesEverLoaded);
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -1367,7 +1368,7 @@ export function CardListTable({
       title: `Delete ${removable.length} selected ${removable.length === 1 ? 'copy' : 'copies'}?`,
       body:
         skipped > 0
-          ? `${skipped} copy(ies) reserved by a deck will be kept. This can be undone.`
+          ? `${skipped} ${skipped === 1 ? 'copy' : 'copies'} reserved by a deck will be kept. This can be undone.`
           : `The selected copies will be removed from your collection. This can be undone.`,
       confirmLabel: 'Delete',
       danger: true,
@@ -1555,7 +1556,7 @@ export function CardListTable({
             ? `Added ${added} ${added === 1 ? 'card' : 'cards'} to “${name}”${
                 skipped > 0 ? ` · ${skipped} already there` : ''
               }`
-            : `Already in “${name}” — nothing to add`,
+            : `Already in “${name}”, nothing to add`,
         tone: added > 0 ? 'success' : 'info',
       });
     },
@@ -2121,7 +2122,7 @@ export function CardListTable({
           <span className="card-list-bulk-count">
             {selectedRowKeys.size > 0
               ? `${selectedRowKeys.size} ${selectedRowKeys.size === 1 ? 'row' : 'rows'} · ${selectedCopiesCount} ${selectedCopiesCount === 1 ? 'copy' : 'copies'}`
-              : 'Select cards…'}
+              : 'Select cards'}
           </span>
           <button
             type="button"
@@ -2432,7 +2433,9 @@ export function CardListTable({
                 isLastRow={item.index === displayRows.length - 1}
                 selectMode={selectMode}
                 selected={selected}
-                pricePending={isRefreshingPrices && !((r.card.purchasePrice ?? 0) > 0)}
+                pricePending={
+                  (isRefreshingPrices || !pricesEverLoaded) && !((r.card.purchasePrice ?? 0) > 0)
+                }
                 onActivate={() => (selectMode ? toggleRow(r.key) : setPreviewIndex(item.index))}
                 menu={
                   <CardRowMenu
@@ -2512,6 +2515,7 @@ export function CardListTable({
       {bulkMoveOpen && (
         <BulkMoveToBinderSheet
           copyIds={selectedCopyIds()}
+          cards={allCards.filter((c) => selectedCopyIds().includes(c.copyId))}
           currentBinderByCopyId={
             new Map(
               selectedCopyIds()

@@ -65,7 +65,7 @@ describe('BookmarkButton', () => {
 
     await waitFor(() => expect(btn.getAttribute('aria-pressed')).toBe('false'));
     expect(useToastsStore.getState().toasts[0]?.message).toBe(
-      "Couldn't save this deck — try again"
+      "Couldn't save this deck. Try again."
     );
   });
 

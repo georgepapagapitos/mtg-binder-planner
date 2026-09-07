@@ -82,6 +82,28 @@
   font-size: var(--text-base);
 }
 
+/* From tablet up, the two doors sit side by side instead of stacked — a
+ * 360px-tuned column stack left ~500-700px of near-empty canvas between the
+ * hero and the feature grid at wider viewports (B1-07). */
+@media (min-width: 768px) {
+  .welcome-doors {
+    flex-direction: row;
+    max-width: 480px;
+  }
+
+  /* Row mode: share the row instead of each pill claiming the stacked
+     layout's width:100% (which overflowed the row — the second pill was
+     clipped past the container edge). */
+  .welcome-doors .pill-btn {
+    width: auto;
+    flex: 1 1 0;
+  }
+
+  .welcome-door-secondary {
+    margin-top: 0;
+  }
+}
+
 /* Sign in door — secondary, keeps the default pill-btn surface style. */
 .welcome-door-secondary {
   margin-top: var(--space-1);

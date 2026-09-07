@@ -43,8 +43,11 @@ describe('DeckTokensSheet', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('shows an empty state for a token-less deck', () => {
+  // B6-17: the sheet's only caller gates it on deckTokens.length > 0, so an
+  // empty-tokens render can never happen live — this just proves the
+  // subtitle math doesn't crash rather than asserting a dead empty state.
+  it('does not crash on an empty token list', () => {
     render(<DeckTokensSheet tokens={[]} onClose={() => {}} />);
-    expect(screen.getByText(/makes no tokens/)).toBeTruthy();
+    expect(screen.getByText(/0 tokens/)).toBeTruthy();
   });
 });

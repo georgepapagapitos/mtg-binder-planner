@@ -67,7 +67,7 @@ export function ManaPool({ pool, onAdjust, onEmpty }: Props) {
         className="playtest-mana-pool__empty"
         onClick={onEmpty}
         disabled={total === 0}
-        title="Clear floating mana now — it also empties automatically at Next Turn"
+        title="Also empties automatically at Next Turn"
       >
         Empty
       </button>

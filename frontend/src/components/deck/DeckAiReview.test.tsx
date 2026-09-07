@@ -376,7 +376,7 @@ describe('the reading', () => {
     // No `card`, so the carousel resolves it — that resolver is what prefers a
     // printing the player already owns over Scryfall's default.
     expect(suggested?.card).toBeUndefined();
-    expect(suggested?.label).toBe('Suggested — not in this deck');
+    expect(suggested?.label).toBe('Suggested, not in this deck');
     // A deck card still carries its printing straight through, as before.
     expect(opened[0].entries.find((e) => e.name === 'Sol Ring')?.card).toBeTruthy();
   });

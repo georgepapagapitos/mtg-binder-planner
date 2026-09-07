@@ -1,8 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Tabs } from '../../components/Tabs';
 import { StackedBar } from '../../components/shared/MeterBar';
-import { OwnershipBadge } from '../../components/deck/OwnershipBadge';
-import { VerdictBadge } from '../../components/deck/VerdictBadge';
 import { CardPreview } from '../../components/CardPreview';
 import type { EnrichedCard } from '../../types';
 import {
@@ -18,6 +16,7 @@ import {
   CubeErrorBlock,
   cubeCardToEnriched,
   cubeRowKeyDown,
+  OwnRowBadge,
 } from './shared';
 
 type OwnFilter = 'all' | 'owned' | 'in-other-deck' | 'unowned';
@@ -204,7 +203,7 @@ export function ImportCube() {
                 className="cube-row cube-row-interactive"
                 role="button"
                 tabIndex={0}
-                aria-label={`${r.card.name} — open preview`}
+                aria-label={`Open preview for ${r.card.name}`}
                 onClick={() => setPreviewIndex(idx)}
                 onKeyDown={(e) => cubeRowKeyDown(e, idx, setPreviewIndex)}
               >
@@ -216,21 +215,7 @@ export function ImportCube() {
                 <div className="cube-row-body">
                   <span className="cube-row-title">
                     <span className="cube-row-name">{r.card.name}</span>
-                    {r.ownership === 'in-other-deck' ? (
-                      <VerdictBadge
-                        tone="neutral"
-                        label="In a deck"
-                        title="You own this, but it's currently in a deck"
-                      />
-                    ) : r.ownership === 'in-cube' ? (
-                      <VerdictBadge
-                        tone="neutral"
-                        label="In a cube"
-                        title="You own this, but it's reserved by a physical cube"
-                      />
-                    ) : (
-                      <OwnershipBadge owned={r.ownership === 'owned'} showUnowned />
-                    )}
+                    <OwnRowBadge own={r.ownership} showUnowned />
                   </span>
                   <span className="cube-row-reason">{r.card.typeLine}</span>
                 </div>

@@ -108,7 +108,7 @@ function RunningDeckBody({ commander }: BrewRunningDeckProps): JSX.Element {
           Picks ({total}/{nonlandTotal})
         </h3>
         {total === 0 ? (
-          <p className="brew-running-empty">Nothing added yet — your first picks show up here.</p>
+          <p className="brew-running-empty">Nothing added yet. Your first picks show up here.</p>
         ) : (
           <ul className="brew-running-list">
             {slots.map((slot) =>

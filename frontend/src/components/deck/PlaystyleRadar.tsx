@@ -90,10 +90,10 @@ export function PlaystyleRadar({ cards }: { cards: ScryfallCard[] }): JSX.Elemen
       <div className="playstyle-radar-root">
         <FewAxesFallback axes={axes} />
         <p className="playstyle-radar-caption">
-          Engine balance, not power — tap an axis to see its cards.{' '}
+          Engine balance, not power. Tap an axis to see its cards.{' '}
           <InfoTip
             label="playstyle radar"
-            text="Vertices are normalized to the deck's busiest axis, so the shape shows engine balance, not absolute power. Producers feed a resource; payoffs spend it."
+            text="Producers feed a resource; payoffs spend it. Vertices scale to your busiest axis."
             wide
           />
         </p>
@@ -177,7 +177,7 @@ export function PlaystyleRadar({ cards }: { cards: ScryfallCard[] }): JSX.Elemen
         {layout &&
           axes.map((axis, i) => {
             const v = layout.vertices[i];
-            const labelStr = `${axis.label} — ${axis.total} card${axis.total !== 1 ? 's' : ''}: ${axis.producers.length} producer${axis.producers.length !== 1 ? 's' : ''}, ${axis.payoffs.length} payoff${axis.payoffs.length !== 1 ? 's' : ''}. Show cards.`;
+            const labelStr = `${axis.label} · ${axis.total} card${axis.total !== 1 ? 's' : ''}: ${axis.producers.length} producer${axis.producers.length !== 1 ? 's' : ''}, ${axis.payoffs.length} payoff${axis.payoffs.length !== 1 ? 's' : ''}. Show cards.`;
             return (
               <button
                 key={axis.axis}
@@ -204,10 +204,10 @@ export function PlaystyleRadar({ cards }: { cards: ScryfallCard[] }): JSX.Elemen
 
       {/* ── Honesty caption ── */}
       <p className="playstyle-radar-caption">
-        Engine balance, not power — tap an axis to see its cards.{' '}
+        Engine balance, not power. Tap an axis to see its cards.{' '}
         <InfoTip
           label="playstyle radar"
-          text="Vertices are normalized to the deck's busiest axis, so the shape shows engine balance, not absolute power. Producers feed a resource; payoffs spend it."
+          text="Producers feed a resource; payoffs spend it. Vertices scale to your busiest axis."
           wide
         />
       </p>

@@ -250,6 +250,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Wrapper is out of the box tree so its OverflowMenu trigger button (styled
+   via triggerClassName="cube-saved-action" below) is the direct flex child,
+   matching every other action button in the row (sweep 3, E262: folded
+   Share/Rename/Delete into one kebab instead of 3 always-visible buttons). */
+.cube-saved-menu {
+  display: contents;
+}
 .cube-saved-action {
   display: flex;
   align-items: center;
@@ -271,11 +278,6 @@
 .cube-saved-action:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-}
-@media (hover: hover) and (pointer: fine) {
-  .cube-saved-delete:hover {
-    color: var(--err-text);
-  }
 }
 /* Active "physical cube" toggle + its meta tag share the cube identity color. */
 .cube-saved-action.is-physical {
@@ -928,8 +930,11 @@
   flex: none;
 }
 
-/* a11y (UX-cohesion sweep): keyboard focus-visible rings — parity with :hover. */
-.cube-saved-delete:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* "Available cards only" toggle: checkbox label + its InfoTip, as one row
+   (sweep 3: the mechanism explainer moved off a touch-unreachable `title`
+   attribute and into an InfoTip — see `AvailableToggle` in pages/cube/shared.tsx). */
+.cube-available-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }

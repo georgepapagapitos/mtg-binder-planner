@@ -55,7 +55,7 @@ export function WelcomeHero() {
 
         <h1 className="welcome-hero-headline">Plan your Magic collection.</h1>
         <p className="welcome-hero-tagline">
-          Import what you own, build decks around it, and track every game — no account required.
+          Import what you own, build decks around it, and track every game. No account required.
         </p>
 
         <form className="welcome-hero-search" role="search" onSubmit={handleSubmit}>
@@ -88,7 +88,7 @@ export function WelcomeHero() {
         </div>
       </div>
 
-      {art && <p className="welcome-hero-caption">{heroCardName} — art via Scryfall</p>}
+      {art && <p className="welcome-hero-caption">{heroCardName} · art via Scryfall</p>}
     </header>
   );
 }

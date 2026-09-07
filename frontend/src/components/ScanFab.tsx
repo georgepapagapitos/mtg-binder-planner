@@ -5,6 +5,7 @@ import { useCollectionStore } from '../store/collection';
 import { toast } from '../store/toasts';
 import { importScannedCards } from '../lib/scan-import';
 import { useScanQueueStore } from '../lib/use-scan-queue';
+import { fetchErrorMessage } from '../lib/import-review';
 
 import { userMessage } from '@/lib/user-error';
 const CardScanner = lazy(() => import('./CardScanner').then((m) => ({ default: m.CardScanner })));
@@ -46,7 +47,7 @@ export function ScanFab() {
         message:
           `Added ${added.toLocaleString()}${tail} scanned card${added === 1 ? '' : 's'}` +
           (fetchErrors > 0
-            ? ` · ${fetchErrors} couldn't be fetched — retry from the import page`
+            ? ` · ${fetchErrorMessage(fetchErrors, 'Retry from the import page.')}`
             : ''),
         tone: fetchErrors > 0 ? 'warn' : 'success',
       });

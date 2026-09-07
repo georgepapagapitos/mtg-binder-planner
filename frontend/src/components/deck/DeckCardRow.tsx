@@ -55,6 +55,10 @@ const ACT_VERB: Record<Change['type'], string> = { add: 'Add', cut: 'Cut', swap:
 
 export interface DeckCardRowProps {
   change: Change;
+  /** Root element. `li` inside a bare list; `div` when the caller already owns the
+   *  `<li>` (CoachFeed wraps rows to animate them out) — an `li` inside an `li` is
+   *  invalid HTML and React warns on every render. */
+  as?: 'li' | 'div';
   /** Threaded so the inclusion line reads "In N% of {commanderName} decks". */
   commanderName?: string;
   /** Tap the thumbnail/body → open the card carousel (the complement view). */
@@ -93,6 +97,7 @@ export interface DeckCardRowProps {
  */
 export function DeckCardRow({
   change,
+  as: Root = 'li',
   commanderName,
   onPreview,
   onPreviewOut,
@@ -156,7 +161,7 @@ export function DeckCardRow({
     );
 
   return (
-    <li className="deck-card-row">
+    <Root className="deck-card-row">
       {/* Only the incoming-card thumbnail is the preview affordance — tap opens
           the carousel, hover (desktop) floats the peek. The body is
           non-interactive text so a stray tap/hover doesn't trigger either. On a
@@ -277,6 +282,6 @@ export function DeckCardRow({
           {label}
         </button>
       )}
-    </li>
+    </Root>
   );
 }

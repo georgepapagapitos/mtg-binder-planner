@@ -17,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useMenuKeyboard } from '../lib/use-menu-keyboard';
@@ -165,6 +166,7 @@ import { getCardPrice, getCardByName, searchCards } from '../deck-builder/servic
 const fetchFixingLands = (identityKey: string): Promise<ScryfallCard[]> =>
   searchCards('t:land -t:basic', identityKey.split(''), { order: 'edhrec' }).then((r) => r.data);
 import type { WinConditionAnalysis } from '@/deck-builder/services/winConditions/types';
+import { getSyncState, onSyncedChange } from '@/lib/sync';
 
 /**
  * Build a one-line win-condition summary for the PowerHero Gameplan pillar.
@@ -215,6 +217,10 @@ export function DeckEditorPage() {
   const location = useLocation();
   const deck = useDecksStore((s) => s.decks.find((d) => d.id === id) ?? null);
   const decksHydrated = useDecksStore((s) => s.hydrated);
+  // A fresh device hydrates an EMPTY IndexedDB first; the deck only arrives with the
+  // first server pull. Treat that pull as part of loading, or a bookmarked deck reads
+  // as deleted for the seconds it takes (sweep-3 B6-01).
+  const syncing = useSyncExternalStore(onSyncedChange, () => getSyncState() === 'syncing');
   const updateDeck = useDecksStore((s) => s.updateDeck);
   const markArrivalsReviewed = useDecksStore((s) => s.markArrivalsReviewed);
   const renameDeck = useDecksStore((s) => s.renameDeck);
@@ -1264,7 +1270,7 @@ export function DeckEditorPage() {
 
   if (!id) return <Navigate to="/decks" replace />;
   if (!deck) {
-    if (!decksHydrated) {
+    if (!decksHydrated || syncing) {
       return (
         <div className="page-loader page-loader--message" role="status" aria-live="polite">
           <span className="spinner" aria-hidden="true" />

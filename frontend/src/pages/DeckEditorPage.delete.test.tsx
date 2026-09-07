@@ -394,6 +394,13 @@ function renderEditor({ justGenerated = false }: { justGenerated?: boolean } = {
   );
 }
 
+let mockSyncState: 'idle' | 'syncing' | 'ready' = 'idle';
+vi.mock('../lib/sync', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/sync')>()),
+  getSyncState: () => mockSyncState,
+  onSyncedChange: () => () => {},
+}));
+
 describe('DeckEditorPage — Delete in ⋮ overflow (UX-316)', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => localStorage.clear());
@@ -608,6 +615,17 @@ describe('DeckEditorPage — cold-load hydration gate (B6-01)', () => {
 
     expect(screen.getByText('Loading deck…')).toBeTruthy();
     expect(screen.queryByText('That deck no longer exists.')).toBeNull();
+  });
+
+  it('keeps the loading state while the first server pull is still in flight on a fresh device', () => {
+    mockDecks = [];
+    mockHydrated = true;
+    mockSyncState = 'syncing';
+    renderEditor();
+
+    expect(screen.getByText('Loading deck…')).toBeTruthy();
+    expect(screen.queryByText('That deck no longer exists.')).toBeNull();
+    mockSyncState = 'idle';
   });
 
   it('shows "no longer exists" once hydrated and the deck is genuinely absent', () => {

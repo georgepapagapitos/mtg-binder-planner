@@ -45,7 +45,7 @@ interface NonboHit {
 }
 
 const shutsOff = (labels: string) =>
-  `It shuts off the deck's own ${labels} engine — a hard nonbo with the plan.`;
+  `It shuts off the deck's own ${labels} engine. A hard nonbo with the plan.`;
 
 // ── Hard nonbos (warn) — continuous, symmetric effects ──
 
@@ -172,7 +172,7 @@ function wipeTension(
     opposes: [...opposes],
     severity: 'info',
     message: (labels) =>
-      `It sweeps the deck's own ${labels} board too — a one-sided effect would serve the plan better.`,
+      `It sweeps the deck's own ${labels} board too. A one-sided effect would serve the plan better.`,
   };
 }
 
@@ -198,7 +198,7 @@ function graveyardWipeTension(oracle: string): NonboHit | null {
     opposes: ['graveyard', 'mill'],
     severity: 'info',
     message: (labels) =>
-      `It exiles your own graveyard too — the deck's ${labels} engine loses its fuel when it fires.`,
+      `It exiles your own graveyard too. The deck's ${labels} engine loses its fuel when it fires.`,
   };
 }
 
@@ -390,8 +390,8 @@ export function qualifiedTriggerFindings(nonLandCards: ScryfallCard[]): Coherenc
       card: card.name,
       message:
         matching.length === 0
-          ? `Its ${label} trigger has no other matching creature in the deck, and ${tokenPhrase} — it'll rarely fire.`
-          : `Its ${label} trigger only matches ${matching.length} other creature${matching.length === 1 ? '' : 's'} in the deck, and ${tokenPhrase} — it'll fire rarely.`,
+          ? `Its ${label} trigger has no other matching creature in the deck, and ${tokenPhrase}. It'll rarely fire.`
+          : `Its ${label} trigger only matches ${matching.length} other creature${matching.length === 1 ? '' : 's'} in the deck, and ${tokenPhrase}. It'll fire rarely.`,
     });
   }
 

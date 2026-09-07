@@ -26,19 +26,23 @@ export interface PlanScore {
 }
 
 // ── Bands & copy ──────────────────────────────────────────────────────────────
+// UX-315 "One scoring vocabulary": band words are the cross-panel public
+// language (this bandLabel is shown next to the raw number on DeckIdentityCard
+// AND inside each SubScoreTile panel). "Dialed in" is the app's existing
+// build-health word (see NextBestMove.tsx's "Looks dialed in" empty state);
+// "Needs work" is its natural opposite. Collapsed from a five-word ad hoc
+// scale (Tuned/Healthy/Solid/Rough/Thin) to these two rather than borrowing
+// "Optimized"/"Exhibition", which are the Bracket system's own vocabulary for
+// a different, orthogonal concept (power level, not build health).
 export function bandFor(score: number): string {
-  if (score >= 90) return 'Tuned';
-  if (score >= 75) return 'Healthy';
-  if (score >= 60) return 'Solid';
-  if (score >= 40) return 'Rough';
-  return 'Thin';
+  return score >= 70 ? 'Dialed in' : 'Needs work';
 }
 
 export function headlineFor(score: number): string {
-  if (score >= 90) return 'Your deck is performing optimally.';
-  if (score >= 75) return 'Your deck is performing well, with a little room to grow.';
+  if (score >= 90) return "Your deck's dialed in.";
+  if (score >= 75) return 'Your deck plays well, with a little room to grow.';
   if (score >= 60) return 'Your deck is solid, with clear room for improvement.';
-  if (score >= 40) return 'Your deck has the foundation, but needs some tuning.';
+  if (score >= 40) return 'Your deck has the foundation. It needs some tuning.';
   return 'Your deck is missing key pieces of its plan.';
 }
 
@@ -75,7 +79,7 @@ export function computeStrategyFromEngine(input: StrategyEngineInput | null | un
   if (!input || !input.primaryLabel) {
     return {
       value: 50,
-      surface: 'No producer/payoff engine detected — strategy not scored.',
+      surface: 'No producer/payoff engine detected. Strategy not scored.',
       bandLabel: 'Unscored',
       partial: true,
     };
@@ -254,7 +258,7 @@ export function computePlanScore(input: PlanScoreInput): PlanScore {
   const byline =
     input.sampleSize && input.sampleSize > 0
       ? `Based on ${input.sampleSize.toLocaleString()} decklists.`
-      : 'Based on aggregated EDHREC data.';
+      : 'Based on EDHREC decklists.';
 
   return { overall, bandLabel, headline, byline, subscores, limitedData };
 }

@@ -192,7 +192,7 @@ export function answerCoverageFindings(
         kind: 'answer-coverage',
         severity: 'warn',
         answerClass: cls,
-        message: `Nothing here can remove an opposing ${cls} — a hole this color identity could fill.`,
+        message: `Nothing here can remove an opposing ${cls}.`,
       });
     } else if (
       covering.every((p) =>
@@ -213,16 +213,16 @@ export function answerCoverageFindings(
         kind: 'answer-coverage',
         severity: 'info',
         message: !modes.has('bounce')
-          ? `All ${n} ${cls} answer${n === 1 ? '' : 's'} here ${n === 1 ? 'is a' : 'are'} damage or fight effect${n === 1 ? '' : 's'} — one indestructible ${cls} blanks ${n === 1 ? 'it' : 'them all'}.`
+          ? `All ${n} ${cls} answer${n === 1 ? '' : 's'} here ${n === 1 ? 'is a' : 'are'} damage or fight effect${n === 1 ? '' : 's'}.`
           : !modes.has('damage-or-fight')
-            ? `All ${n} ${cls} answer${n === 1 ? '' : 's'} here bounce${n === 1 ? 's' : ''} — the threat comes right back.`
-            : `None of the ${n} ${cls} answers exiles or destroys — indestructible or recastable threats outlast them.`,
+            ? `All ${n} ${cls} answer${n === 1 ? '' : 's'} here bounce${n === 1 ? 's' : ''}.`
+            : `None of the ${n} ${cls} answers exiles or destroys.`,
       });
     } else if (covering.length === 1) {
       findings.push({
         kind: 'answer-coverage',
         severity: 'info',
-        message: `Only one answer to an opposing ${cls} — a single copy rarely lines up when it matters.`,
+        message: `Only one answer to an opposing ${cls}.`,
       });
     }
   }
@@ -231,7 +231,7 @@ export function answerCoverageFindings(
     findings.push({
       kind: 'answer-coverage',
       severity: 'info',
-      message: 'No graveyard interaction — reanimator and recursion strategies go unchecked.',
+      message: 'No graveyard interaction.',
     });
   }
   if (
@@ -241,14 +241,14 @@ export function answerCoverageFindings(
     findings.push({
       kind: 'answer-coverage',
       severity: 'info',
-      message: 'No stack interaction — blue is in the identity, but nothing can counter a spell.',
+      message: 'No stack interaction.',
     });
   }
   if (!profiles.some((p) => p.instantSpeed)) {
     findings.push({
       kind: 'answer-coverage',
       severity: 'info',
-      message: 'Every answer is sorcery-speed — the deck can only interact on its own turn.',
+      message: 'Every answer is sorcery-speed.',
     });
   }
 

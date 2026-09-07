@@ -484,7 +484,7 @@ describe('assembleBuildReport', () => {
     const report = assembleBuildReport({
       generated: makeGenerated({
         roleCapOverflowNote:
-          '2 cards pushed past its role cap to finish the deck (card draw pool was thin) — see Overbuilt roles below for the full total.',
+          '2 cards pushed past its role cap. The card draw pool was thin. See Overbuilt roles below for the full total.',
         roleTargets: { cardDraw: 18 },
         roleCounts: { cardDraw: 22 }, // over, but <1.5x and <4 over → no roleExcesses
       }),
@@ -494,7 +494,7 @@ describe('assembleBuildReport', () => {
 
     expect(report.roleExcesses).toBeUndefined();
     expect(report.roleCapOverflowNote).toBe(
-      '2 cards pushed past its role cap to finish the deck (card draw pool was thin).'
+      '2 cards pushed past its role cap. The card draw pool was thin.'
     );
   });
 
@@ -502,7 +502,7 @@ describe('assembleBuildReport', () => {
     const report = assembleBuildReport({
       generated: makeGenerated({
         roleCapOverflowNote:
-          '2 cards pushed past its role cap to finish the deck (ramp pool was thin) — see Overbuilt roles below for the full total.',
+          '2 cards pushed past its role cap. The ramp pool was thin. See Overbuilt roles below for the full total.',
         roleTargets: { ramp: 13 },
         roleCounts: { ramp: 25 }, // clears isRoleExcess -> roleExcesses renders
       }),
@@ -512,7 +512,7 @@ describe('assembleBuildReport', () => {
 
     expect(report.roleExcesses).toEqual([{ role: 'ramp', have: 25, want: 13 }]);
     expect(report.roleCapOverflowNote).toBe(
-      '2 cards pushed past its role cap to finish the deck (ramp pool was thin) — see Overbuilt roles below for the full total.'
+      '2 cards pushed past its role cap. The ramp pool was thin. See Overbuilt roles below for the full total.'
     );
   });
 
@@ -798,7 +798,7 @@ describe('assembleBuildReport', () => {
         selectedThemes: [theme('Aristocrats'), theme('Lifegain')],
       });
       expect(report.archetypeNote).toMatch(
-        /Role targets follow your first theme \(Aristocrats\); all selected themes shape the card pool\./
+        /Role targets follow Aristocrats; every theme you picked still shapes the pool\./
       );
     });
 
@@ -825,7 +825,7 @@ describe('buildArchetypeNote', () => {
       isLowConfidence: false,
       multiThemeSelected: false,
     });
-    expect(note).toBe("Built as Enchantress — from EDHREC's dominant theme for this commander.");
+    expect(note).toBe("Built as Enchantress, from EDHREC's dominant theme for this commander.");
   });
 
   it('names the split-strategy reason for the neutral tier', () => {
@@ -836,7 +836,7 @@ describe('buildArchetypeNote', () => {
       multiThemeSelected: false,
     });
     expect(note).toBe(
-      "Built as balanced Goodstuff — no single theme dominates this commander's EDHREC data."
+      "Built as balanced Goodstuff. No single theme dominates this commander's EDHREC data."
     );
   });
 
@@ -847,7 +847,7 @@ describe('buildArchetypeNote', () => {
       isLowConfidence: true,
       multiThemeSelected: false,
     });
-    expect(note).toMatch(/no EDHREC theme data to confirm it/);
+    expect(note).toMatch(/No EDHREC theme data confirms it/);
   });
 
   it('states the oracle-text read plainly when not low-confidence', () => {
@@ -857,7 +857,7 @@ describe('buildArchetypeNote', () => {
       isLowConfidence: false,
       multiThemeSelected: false,
     });
-    expect(note).toBe("Built as Voltron — from a read of the commander's card text.");
+    expect(note).toBe("Built as Voltron, from a read of the commander's card text.");
   });
 });
 

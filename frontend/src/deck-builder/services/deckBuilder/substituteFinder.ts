@@ -288,7 +288,7 @@ function buildSubstituteFactors(
   }
   if (cand.subtypeMatch && usedSubtype) {
     out.push({
-      text: `Same ${humanizeSubtype(usedSubtype)} — fills the slot like-for-like`,
+      text: `Same ${humanizeSubtype(usedSubtype)}: fills the slot like-for-like`,
       tone: 'pro',
     });
   }
@@ -334,10 +334,10 @@ function buildReason(
 ): string {
   const slot = wantedCmc != null ? `${wantedCmc}-mana ${roleLabel}` : roleLabel;
   if (similarTo) {
-    return `${usedName} fills the ${slot} slot — owned, a common substitute for ${similarTo}.`;
+    return `${usedName} fills the ${slot} slot. Owned, a common substitute for ${similarTo}.`;
   }
   const tail = subtypeMatch && usedSubtype ? `same ${humanizeSubtype(usedSubtype)}` : 'same role';
-  return `${usedName} fills the ${slot} slot — owned, ${tail}.`;
+  return `${usedName} fills the ${slot} slot. Owned, ${tail}.`;
 }
 
 /**

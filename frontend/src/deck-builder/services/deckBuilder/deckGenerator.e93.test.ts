@@ -147,7 +147,7 @@ describe('buildBracketPoolFallbackNote', () => {
     );
     expect(note).toContain('Mr. House, President and CEO + Die Roll');
     expect(note).toContain('bracket-5 (cEDH)');
-    expect(note).toMatch(/built from .*bracket-5 \(cEDH\).* instead/);
+    expect(note).toMatch(/Built from .*bracket-5 \(cEDH\).* instead/);
     expect(note).toContain('card permissions kept');
   });
 
@@ -159,7 +159,7 @@ describe('buildBracketPoolFallbackNote', () => {
       'theme',
       'Die Roll'
     );
-    expect(note).toContain('built from the main Die Roll page instead');
+    expect(note).toContain('Built from the main Die Roll page instead');
     expect(note).toContain('bracket-5 (cEDH) card permissions kept');
   });
 
@@ -172,7 +172,7 @@ describe('buildBracketPoolFallbackNote', () => {
       undefined
     );
     expect(note).not.toContain('+ undefined');
-    expect(note).toContain('built from the main commander page instead');
+    expect(note).toContain('Built from the main commander page instead');
   });
 
   // S1 ladder-cause-honesty: the note's existing sentence is pinned by the

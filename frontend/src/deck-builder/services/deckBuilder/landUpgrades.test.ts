@@ -40,7 +40,7 @@ describe('computeLandUpgrades', () => {
     expect(moves).toHaveLength(1);
     expect(moves[0].inName).toBe('Fetchable Dual');
     expect(moves[0].owned).toBe(false);
-    expect(moves[0].reason.toLowerCase()).toContain('acquir');
+    expect(moves[0].reason.toLowerCase()).toContain('worth picking up');
   });
 
   it('prefers an owned land over an unowned one of comparable merit', () => {

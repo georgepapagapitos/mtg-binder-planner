@@ -2668,4 +2668,42 @@ body:has(.playtest-page) {
     --pt-card-w: 56px;
     --pt-card-h: 78px;
   }
+
+  /* B6-05: the opening-hand sheet's own chrome (header, hint, two-line rule
+     toggles, footer) ate ~270px of a ~306px sheet, leaving the card row a
+     38px sliver — barely a name label, not a hand you can read to decide
+     Keep/Mulligan. Scoped to `.playtest-opening-sheet` since
+     `.card-picker-header`/`.card-picker-footer` are shared with every other
+     sheet built on this primitive. */
+  .playtest-opening-sheet .card-picker-header {
+    padding: var(--space-1) var(--space-3);
+    gap: 2px;
+  }
+
+  .playtest-opening-hint {
+    display: none;
+  }
+
+  .playtest-opening-variants {
+    margin: var(--space-1) var(--space-3);
+  }
+
+  /* Label only — the description ("Redraw a full seven...") is the one
+     droppable line here; the row keeps its real 44px touch target since the
+     whole row (not just the checkbox) is what you tap. */
+  .playtest-opening-variant {
+    padding: 0 var(--space-2);
+  }
+
+  .playtest-opening-variant__desc {
+    display: none;
+  }
+
+  .playtest-opening-stats {
+    font-size: var(--text-xs);
+  }
+
+  .playtest-opening-sheet .card-picker-footer {
+    padding: var(--space-1) var(--space-3);
+  }
 }

@@ -36,7 +36,7 @@ export function ReportDialog({ kind, targetId, onClose }: Props) {
     setError(null);
     try {
       await submitReport({ kind, targetId, reason: trimmed });
-      toast.show({ message: 'Report sent — thanks for flagging this.', tone: 'success' });
+      toast.show({ message: 'Report sent. Thanks for flagging this.', tone: 'success' });
       onClose();
     } catch (err) {
       setSubmitting(false);

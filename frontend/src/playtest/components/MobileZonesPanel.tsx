@@ -43,7 +43,7 @@ export function MobileZonesPanel({
         type="button"
         className={`playtest-zones-tab${open ? ' is-open' : ''}`}
         aria-expanded={open}
-        aria-label={open ? 'Hide other zones' : 'View other zones'}
+        aria-label={open ? 'Hide other zones' : 'Show other zones'}
         onClick={() => setOpen((v) => !v)}
       >
         <span>{open ? 'Hide' : 'Zones'}</span>
@@ -67,7 +67,10 @@ export function MobileZonesPanel({
                 ? [
                     { label: 'Shuffle', onClick: () => onShuffleLibrary() },
                     {
-                      label: 'Scry 3',
+                      // B6-08: the sheet opens with its own count stepper
+                      // (currently defaults to 1) — a fixed "Scry 3" here
+                      // would mislead about what actually happens.
+                      label: 'Scry',
                       onClick: () => {
                         setOpen(false);
                         onScry();

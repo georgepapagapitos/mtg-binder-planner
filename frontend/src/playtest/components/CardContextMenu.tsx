@@ -30,6 +30,9 @@ interface Props {
   phased?: boolean;
   variant?: 'floating' | 'sheet';
   onClose(): void;
+  /** Opens the shared CardPreview (B6-07). Omitted (no menu item) when this
+   *  card has no resolvable ScryfallCard to preview. */
+  onPreview?(): void;
   onTap(): void;
   onAddCounter(kind: string): void;
   onRemoveCounter(kind: string): void;
@@ -84,6 +87,7 @@ export function CardContextMenu({
   phased = false,
   variant = 'floating',
   onClose,
+  onPreview,
   onTap,
   onAddCounter,
   onRemoveCounter,
@@ -163,6 +167,11 @@ export function CardContextMenu({
   const items = (
     <>
       {Boolean(tax) && <div className="playtest-ctx-tax">Tax: +{tax}</div>}
+      {onPreview && (
+        <button type="button" className="playtest-ctx-action" onClick={onPreview}>
+          Preview card
+        </button>
+      )}
       <button type="button" className="playtest-ctx-action" onClick={onTap}>
         Tap / Untap
       </button>
@@ -194,13 +203,13 @@ export function CardContextMenu({
               {counters[k] ?? 0}
             </span>
             <CounterStep
-              label={`remove ${k}, currently ${counters[k] ?? 0}`}
+              label={`Remove ${k}, currently ${counters[k] ?? 0}`}
               onAdjust={() => onRemoveCounter(k)}
             >
               −
             </CounterStep>
             <CounterStep
-              label={`add ${k}, currently ${counters[k] ?? 0}`}
+              label={`Add ${k}, currently ${counters[k] ?? 0}`}
               onAdjust={() => onAddCounter(k)}
             >
               +
@@ -214,7 +223,7 @@ export function CardContextMenu({
             type="text"
             value={counterText}
             onChange={(e) => setCounterText(e.target.value)}
-            placeholder="Other counter (e.g. chapter)"
+            placeholder="chapter"
             maxLength={MAX_COUNTER_NAME}
             aria-label="Counter name"
             onKeyDown={(e) => {
@@ -225,7 +234,7 @@ export function CardContextMenu({
             type="button"
             disabled={!counterText.trim()}
             onClick={submitCounter}
-            aria-label="add counter"
+            aria-label="Add counter"
           >
             Add
           </button>
@@ -278,7 +287,7 @@ export function CardContextMenu({
               type="text"
               value={stickerText}
               onChange={(e) => setStickerText(e.target.value)}
-              placeholder="Add sticker (e.g. flying)"
+              placeholder="flying"
               maxLength={30}
               aria-label="Sticker text"
               onKeyDown={(e) => {
@@ -289,7 +298,7 @@ export function CardContextMenu({
               type="button"
               disabled={!stickerText.trim()}
               onClick={submitSticker}
-              aria-label="add sticker"
+              aria-label="Add sticker"
             >
               Add
             </button>
@@ -301,7 +310,7 @@ export function CardContextMenu({
             <button
               type="button"
               onClick={() => onRemoveSticker(i)}
-              aria-label={`remove sticker ${s}`}
+              aria-label={`Remove sticker ${s}`}
             >
               ×
             </button>

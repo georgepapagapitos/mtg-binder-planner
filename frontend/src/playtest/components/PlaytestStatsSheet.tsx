@@ -78,7 +78,7 @@ function HandStatsSection({
 
   if (hand.length === 0) {
     return (
-      <p className="playtest-stats-empty">Your hand is empty — draw cards to see hand stats.</p>
+      <p className="playtest-stats-empty">Your hand is empty. Draw cards to see hand stats.</p>
     );
   }
 
@@ -123,7 +123,7 @@ function HandStatsSection({
               keepable ? 'playtest-stats-verdict--keep' : 'playtest-stats-verdict--mulligan'
             }`}
           >
-            {keepable ? 'Keepable' : 'Consider mulliganing'}
+            {keepable ? 'Keepable' : 'Mulligan'}
           </span>
         </div>
       )}
@@ -530,8 +530,7 @@ function SimulateSection({ state, deck }: { state: PlaytestState; deck: Deck | u
   return (
     <div className="playtest-stats-rows">
       <p className="playtest-stats-sim-note">
-        Runs this deck's opener, land-drop, and assembly-clock models 1,000 times each — the
-        goldfishing reps you'd otherwise draw by hand.
+        1,000 goldfished games: opener, land drops, and kill turn.
       </p>
       <button type="button" className="btn" onClick={handleSimulate} disabled={running}>
         {running && <Loader2 className="playtest-stats-sim-spinner" aria-hidden />}
@@ -641,8 +640,7 @@ function SimulateSection({ state, deck }: { state: PlaytestState; deck: Deck | u
             ))}
           </div>
           <p className="playtest-stats-sim-note">
-            Draw-per-turn model: no mana curve of the spells themselves, just whether cumulative
-            lands drawn kept pace with the turn count.
+            Counts land drops only. Not whether you could afford to cast anything.
           </p>
 
           <div className="playtest-stats-sim">
@@ -677,15 +675,15 @@ function SimulateSection({ state, deck }: { state: PlaytestState; deck: Deck | u
             ) : (
               <p className="playtest-stats-sim-note">
                 {batch.primaryLabel
-                  ? `${batch.primaryLabel} doesn't win the moment it comes together, so there's no kill turn to predict — the estimate only applies to combos and alt-win cards.`
-                  : 'No win conditions detected — predictions unavailable.'}
+                  ? `${batch.primaryLabel} doesn't win on its own. No kill turn to predict.`
+                  : 'No win conditions to predict from yet.'}
               </p>
             )}
           </div>
 
           <p className="playtest-stats-sim-note">
-            These are goldfish simulations, not full games — the clock mulligans, draws, makes land
-            drops and spends mana, but no opponent plays and colors go unmodeled.
+            Goldfish simulations, not full games. There's no opponent, and color requirements aren't
+            modeled.
           </p>
         </>
       )}
@@ -732,7 +730,7 @@ function HistorySection({ deck }: { deck: Deck | undefined }) {
 
       {!hasEnoughForRates ? (
         <p className="playtest-stats-sim-note">
-          Play {sessionsToGo} more game{sessionsToGo === 1 ? '' : 's'} to unlock rate stats.
+          Play {sessionsToGo} more game{sessionsToGo === 1 ? '' : 's'} to see rate stats.
         </p>
       ) : (
         <>

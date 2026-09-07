@@ -81,7 +81,7 @@ describe('TableSignals', () => {
     [{ kind: 'roll', seat: 1, ts: 1, die: 'coin', value: 1 } satisfies GameSignal, 'Coin: tails'],
     [
       { kind: 'roll', seat: 1, ts: 1, die: 'first', value: 2 } satisfies GameSignal,
-      'Priya goes first!',
+      'Priya goes first',
     ],
   ])('renders %o as %s and auto-dismisses after 4s', async (signal, expected) => {
     render(<TableSignals />);

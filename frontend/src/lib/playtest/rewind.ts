@@ -33,7 +33,7 @@ function classification(verdict: RewindVerdict, reason: string): RewindClassific
 }
 
 const LOCKED_LIBRARY_LOOK =
-  "The library is hidden — taking a card off it means seeing (or choosing among) what was underneath. That can't be handed back.";
+  "The library is hidden. Taking a card off it means seeing, or choosing among, what was underneath. That can't be handed back.";
 
 /** Where a card *was*, not the zone map's iteration order — battlefield is
  *  checked separately since it isn't a key of `state.zones`. */
@@ -60,7 +60,7 @@ function moveToZoneVerdict(from: Zone | 'battlefield' | null): RewindClassificat
   if (from === 'library') return classification('locked', LOCKED_LIBRARY_LOOK);
   return classification(
     'consent',
-    'Moved between zones the table can already account for — nothing hidden was learned making the move, but where it landed is now public.'
+    'Moved between zones the table can already account for. Nothing hidden was learned making the move, but where it landed is now public.'
   );
 }
 
@@ -76,12 +76,12 @@ function moveToBattlefieldVerdict(from: Zone | 'battlefield' | null): RewindClas
   if (from === 'battlefield') {
     return classification(
       'free',
-      'Already on the battlefield — this is a reposition or a state tweak (tapped/face-down), not a new play.'
+      'Already on the battlefield. This is a reposition or a state tweak (tapped/face-down), not a new play.'
     );
   }
   return classification(
     'consent',
-    'A card entering play is public the instant it lands — the table watches it happen.'
+    'A card entering play is public the instant it lands. The table watches it happen.'
   );
 }
 
@@ -115,7 +115,7 @@ export function classifyAction(
     case 'MULLIGAN':
       return classification(
         'locked',
-        'A new hand was seen — the London mulligan draws a fresh seven before any bottoming happens.'
+        'A new hand was seen. The London mulligan draws a fresh seven before any bottoming happens.'
       );
 
     case 'SHUFFLE_LIBRARY':
@@ -127,13 +127,13 @@ export function classifyAction(
       // removed from a human's eyes.
       return classification(
         'locked',
-        'The library order changed and future draws depend on it — un-shuffling would hand back an ordering (and its knock-on draws) nobody is entitled to know in advance.'
+        'The library order changed, and future draws depend on it. Un-shuffling would hand back an ordering nobody is entitled to know in advance.'
       );
 
     case 'RESOLVE_TOP':
       return classification(
         'locked',
-        `${RESOLVE_TOP_VERB[action.mode]} looks at the top of the library — hidden information, seen.`
+        `${RESOLVE_TOP_VERB[action.mode]} looks at the top of the library, hidden information now seen.`
       );
 
     case 'MOVE_TO_ZONE':
@@ -143,7 +143,7 @@ export function classifyAction(
       return moveToBattlefieldVerdict(locateZone(current, action.cardId));
 
     case 'MOVE_BF_POSITION':
-      return classification('free', 'A drag on the mat — no zone or information changed.');
+      return classification('free', 'A drag on the mat. No zone or information changed.');
 
     case 'TAP':
       // Arguable: a tap is visible to the whole table, and can represent an
@@ -156,35 +156,35 @@ export function classifyAction(
       // that norm rather than the stricter "table saw it" reading.
       return classification(
         'free',
-        'Visible to the table, but reversible bookkeeping with nothing hidden riding on it — and the single most common misclick.'
+        "Visible to the table, but reversible bookkeeping with nothing hidden riding on it. It's also the single most common misclick."
       );
 
     case 'UNTAP_ALL':
-      return classification('free', 'Bulk version of TAP — same reasoning.');
+      return classification('free', 'Bulk version of TAP. Same reasoning.');
 
     case 'SET_COUNTER':
       return classification(
         'free',
-        "A permanent's counter tally is tracked, not enforced — adjusting it back costs nothing."
+        "A permanent's counter tally is tracked, not enforced. Adjusting it back costs nothing."
       );
 
     case 'ADD_STICKER':
     case 'REMOVE_STICKER':
       return classification(
         'free',
-        "A free-text label on a card — purely the player's own bookkeeping."
+        "A free-text label on a card. Purely the player's own bookkeeping."
       );
 
     case 'CREATE_TOKEN':
       return classification(
         'consent',
-        'A new object enters a shared, visible zone — the table sees it appear.'
+        'A new object enters a shared, visible zone. The table sees it appear.'
       );
 
     case 'CLONE_BF_CARDS':
       return classification(
         'consent',
-        'Copies land on the shared battlefield — visible to everyone, even though nothing hidden was learned making them.'
+        'Copies land on the shared battlefield, visible to everyone. Nothing hidden was learned making them.'
       );
 
     case 'ATTACH':
@@ -207,14 +207,14 @@ export function classifyAction(
     case 'TOGGLE_PHASED':
       return classification(
         'free',
-        'A personal "doesn\'t interact right now" flag — bookkeeping, not a zone or information change.'
+        'A personal "doesn\'t interact right now" flag. Bookkeeping, not a zone or information change.'
       );
 
     case 'ADJUST_MANA':
     case 'EMPTY_MANA_POOL':
       return classification(
         'free',
-        'Floating-mana tally is display bookkeeping — this app never spends it against a cost.'
+        "Floating-mana tally is display bookkeeping. It's never spent against a cost."
       );
 
     case 'SET_CARD_IMAGE':
@@ -224,7 +224,7 @@ export function classifyAction(
       // completeness, matching the reducer's own "not really history" stance.
       return classification(
         'free',
-        'Cosmetic async art patch — the reducer never records it in undo history to begin with.'
+        "Cosmetic async art patch. It's never recorded in undo history to begin with."
       );
 
     case 'NEXT_TURN':
@@ -242,7 +242,7 @@ export function classifyAction(
       // reason (the history was destroyed, not that someone learned a secret).
       return classification(
         'locked',
-        'Clears the undo history outright — there is no prior state left to rewind to, regardless of consent.'
+        "Clears the undo history outright. There's no prior state left to rewind to, regardless of consent."
       );
 
     case 'UNDO':
@@ -252,7 +252,7 @@ export function classifyAction(
       // information, so it carries none of the `locked` weight itself.
       return classification(
         'free',
-        'Only ever restores a state that already happened once this session — reveals nothing new.'
+        'Only ever restores a state that already happened once this session. Reveals nothing new.'
       );
 
     case 'ADJUST_LIFE':
@@ -270,13 +270,13 @@ export function classifyAction(
       // counters as bookkeeping rather than with life/damage.
       return classification(
         'free',
-        'Not wired to any loss condition in this app — tracked the same as a permanent counter.'
+        'Not wired to any loss condition here. Tracked the same as a permanent counter.'
       );
 
     case 'SET_DESIGNATION':
       return classification(
         'consent',
-        "A table-wide designation (Monarch/Initiative/City's Blessing) — everyone sees who holds it."
+        "A table-wide designation (Monarch/Initiative/City's Blessing). Everyone sees who holds it."
       );
   }
 }

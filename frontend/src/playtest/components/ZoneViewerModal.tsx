@@ -4,6 +4,9 @@ import { useEscapeKey } from '@/lib/use-escape-key';
 import { useSheetExit } from '@/lib/use-sheet-exit';
 import { normalizeForSearch } from '@/lib/normalize-search';
 import { SearchPill } from '@/components/SearchPill';
+import { CardPreview } from '@/components/CardPreview';
+import { scryfallToEnrichedCard } from '@/lib/scryfall-to-enriched';
+import type { ScryfallCard } from '@/deck-builder/types';
 import type { PlaytestCard, Zone } from '@/lib/playtest';
 import { MOVE_DESTINATIONS, destinationKey } from '../lib/zones';
 
@@ -13,6 +16,10 @@ interface Props {
   onClose(): void;
   onMove(cardId: string, to: Zone | 'battlefield', toIndex?: number): void;
   onShuffleAfter?(): void;
+  /** Lookup for the full ScryfallCard behind each PlaytestCard — powers the
+   *  tap-to-preview wiring (B6-07), same lookup `PlaytestBoard` already
+   *  builds for `OpeningHandSheet`. */
+  cardLookup?: Map<string, ScryfallCard>;
 }
 
 interface ViewerDestination {
@@ -30,17 +37,46 @@ const DESTINATIONS: ViewerDestination[] = [
   ...MOVE_DESTINATIONS.slice(1), // graveyard, exile, library (top/bottom), command
 ];
 
-export function ZoneViewerModal({ zone, cards, onClose, onMove, onShuffleAfter }: Props) {
+export function ZoneViewerModal({
+  zone,
+  cards,
+  onClose,
+  onMove,
+  onShuffleAfter,
+  cardLookup,
+}: Props) {
   const { isClosing, beginClose, onAnimationEnd } = useSheetExit(onClose, 'binder-sheet-slide-out');
   useLockBodyScroll();
   useEscapeKey(beginClose);
   const [filter, setFilter] = useState('');
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const visible = useMemo(() => {
     const nq = normalizeForSearch(filter);
     if (!nq) return cards;
     return cards.filter((c) => normalizeForSearch(c.name).includes(nq));
   }, [cards, filter]);
+
+  // B6-07: same projection OpeningHandSheet builds for CardPreview — only
+  // cards with a resolvable ScryfallCard can be previewed, so `previewIndex`
+  // indexes into this filtered array, not `visible` directly.
+  const previewable = useMemo(() => {
+    if (!cardLookup) return [];
+    const out: { cardId: string; enriched: ReturnType<typeof scryfallToEnrichedCard> }[] = [];
+    for (const c of visible) {
+      const scry = cardLookup.get(c.id);
+      if (scry) out.push({ cardId: c.id, enriched: scryfallToEnrichedCard(scry) });
+    }
+    return out;
+  }, [visible, cardLookup]);
+  const previewCards = useMemo(() => previewable.map((p) => p.enriched), [previewable]);
+  const previewLabels = useMemo(() => previewable.map(() => zone), [previewable, zone]);
+  const previewPages = useMemo(() => previewable.map(() => 1), [previewable]);
+
+  function openPreview(cardId: string) {
+    const idx = previewable.findIndex((p) => p.cardId === cardId);
+    if (idx >= 0) setPreviewIndex(idx);
+  }
 
   return (
     <div className="card-picker-root" role="presentation" onClick={() => beginClose()}>
@@ -74,6 +110,7 @@ export function ZoneViewerModal({ zone, cards, onClose, onMove, onShuffleAfter }
                 card={c}
                 destinations={DESTINATIONS.filter((d) => d.key !== zone)}
                 onMove={onMove}
+                onPreview={cardLookup?.has(c.id) ? openPreview : undefined}
               />
             ))}
           </ul>
@@ -86,6 +123,20 @@ export function ZoneViewerModal({ zone, cards, onClose, onMove, onShuffleAfter }
           </div>
         )}
       </div>
+
+      {previewIndex !== null && previewCards[previewIndex] && (
+        <CardPreview
+          source="playtest"
+          cards={previewCards}
+          index={previewIndex}
+          binderName={zone}
+          sectionLabels={previewLabels}
+          pageNumbers={previewPages}
+          totalPages={1}
+          onIndexChange={setPreviewIndex}
+          onClose={() => setPreviewIndex(null)}
+        />
+      )}
     </div>
   );
 }
@@ -94,6 +145,9 @@ interface ZoneCardProps {
   card: PlaytestCard;
   destinations: ViewerDestination[];
   onMove(cardId: string, to: Zone | 'battlefield', toIndex?: number): void;
+  /** B6-07: tap the card face to open `CardPreview`. Omitted (no button,
+   *  plain image) when this card has no resolvable ScryfallCard. */
+  onPreview?(cardId: string): void;
 }
 
 /**
@@ -103,21 +157,34 @@ interface ZoneCardProps {
  * layout/paint for the ~90-card case entirely off-screen without a
  * virtualization library.
  */
-function ZoneCard({ card: c, destinations, onMove }: ZoneCardProps) {
+function ZoneCard({ card: c, destinations, onMove, onPreview }: ZoneCardProps) {
   const [imgError, setImgError] = useState(false);
+  const face =
+    c.imageUrl && !imgError ? (
+      <img
+        src={c.imageUrl}
+        alt={c.name}
+        draggable={false}
+        loading="lazy"
+        decoding="async"
+        onError={() => setImgError(true)}
+      />
+    ) : (
+      <div className="playtest-zone-card__placeholder">{c.name}</div>
+    );
   return (
     <li className="playtest-zone-card">
-      {c.imageUrl && !imgError ? (
-        <img
-          src={c.imageUrl}
-          alt={c.name}
-          draggable={false}
-          loading="lazy"
-          decoding="async"
-          onError={() => setImgError(true)}
-        />
+      {onPreview ? (
+        <button
+          type="button"
+          className="playtest-zone-card__preview"
+          onClick={() => onPreview(c.id)}
+          aria-label={`${c.name}: preview`}
+        >
+          {face}
+        </button>
       ) : (
-        <div className="playtest-zone-card__placeholder">{c.name}</div>
+        face
       )}
       <div className="playtest-zone-card__name">{c.name}</div>
       <div className="playtest-zone-card__actions">

@@ -10,6 +10,11 @@ interface Props {
   mode: TakebackMode;
   onSelect(mode: TakebackMode): void;
   onClose(): void;
+  /** Solo play has nobody to ask — `resolveTakebackPlan` already applies an
+   *  'ask' verdict immediately when `!online` (see lib/takeback.ts's "nobody
+   *  to ask" branch); B6-15 asks that the picker say so instead of promising
+   *  a table vote that never happens locally. */
+  online: boolean;
 }
 
 /**
@@ -20,7 +25,7 @@ interface Props {
  * `resolveTakebackPlan` (lib/takeback.ts) blocks `locked` before `mode` is
  * even consulted — there is no mode value that could reach it.
  */
-export function TakebackModePicker({ mode, onSelect, onClose }: Props) {
+export function TakebackModePicker({ mode, onSelect, onClose, online }: Props) {
   const { isClosing, beginClose, onAnimationEnd } = useSheetExit(onClose, 'binder-sheet-slide-out');
   useLockBodyScroll();
   useEscapeKey(beginClose);
@@ -28,6 +33,13 @@ export function TakebackModePicker({ mode, onSelect, onClose }: Props) {
   function select(next: TakebackMode) {
     onSelect(next);
     beginClose();
+  }
+
+  function description(m: TakebackMode): string {
+    if (m === 'ask' && !online) {
+      return 'Solo play has nobody to ask, so this takes back immediately, like Free.';
+    }
+    return TAKEBACK_MODE_DESCRIPTION[m];
   }
 
   return (
@@ -45,9 +57,8 @@ export function TakebackModePicker({ mode, onSelect, onClose }: Props) {
         <div className="card-picker-header">
           <h2 className="card-picker-title">Takeback rule</h2>
           <p className="playtest-takeback-picker__intro">
-            Steps nobody but you saw always take back free. This decides what happens to the ones
-            the table already saw — hidden information is never returned, no matter what you pick
-            here.
+            Steps nobody but you saw always take back free. This only covers steps the table already
+            saw. Hidden information never returns.
           </p>
         </div>
         <fieldset className="playtest-takeback-picker__list" aria-label="Takeback rule">
@@ -68,9 +79,7 @@ export function TakebackModePicker({ mode, onSelect, onClose }: Props) {
                   <span className="playtest-takeback-picker__row-label">
                     {TAKEBACK_MODE_LABEL[m]}
                   </span>
-                  <span className="playtest-takeback-picker__row-desc">
-                    {TAKEBACK_MODE_DESCRIPTION[m]}
-                  </span>
+                  <span className="playtest-takeback-picker__row-desc">{description(m)}</span>
                 </span>
                 {active && (
                   <Check

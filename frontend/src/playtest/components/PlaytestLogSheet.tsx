@@ -83,7 +83,7 @@ export function PlaytestLogSheet({ log, table, onClose }: Props) {
               </ol>
             )
           ) : log.length === 0 ? (
-            <p className="playtest-log-empty">Nothing yet — play some cards.</p>
+            <p className="playtest-log-empty">Nothing yet. Play some cards.</p>
           ) : (
             groups.map((group) => (
               <section key={`${group.turn}-${group.entries[0].seq}`} className="playtest-log-turn">

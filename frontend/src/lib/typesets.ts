@@ -101,6 +101,6 @@ export function isValidTypeSet(id: string): boolean {
 
 /** Stylesheet URL for a set; null when it needs no webfont or is the default. */
 export function typeSetHref(id: string): string | null {
-  if (id === DEFAULT_TYPESET) return null; // already linked in index.html
+  if (id === DEFAULT_TYPESET) return null; // self-hosted in styles/fonts.css
   return TYPESETS.find((t) => t.id === id)?.href ?? null;
 }

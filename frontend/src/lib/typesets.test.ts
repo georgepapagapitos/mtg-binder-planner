@@ -60,10 +60,12 @@ describe('typesets', () => {
 });
 
 /**
- * index.html hard-codes three things the registry also knows: the set id list
+ * index.html hard-codes two things the registry also knows: the set id list
  * and the default (in the pre-paint script, which must run before any module
- * loads and so can't import from here) and the default set's font <link>.
- * Drift is silent and ugly — a first paint in faces that were never
+ * loads and so can't import from here). The default set's faces are the third
+ * coordination point: they are self-hosted in styles/fonts.css rather than
+ * linked from Google, so that file must declare every family the default set
+ * names. Drift is silent and ugly — a first paint in faces that were never
  * downloaded — so pin all three.
  */
 describe('typesets ↔ index.html', () => {
@@ -78,16 +80,23 @@ describe('typesets ↔ index.html', () => {
     expect(indexHtml()).toContain(`var DEFAULT_TYPESET = '${DEFAULT_TYPESET}'`);
   });
 
-  it('the static <link> preloads exactly the default set families', () => {
-    const html = indexHtml();
+  it('styles/fonts.css self-hosts exactly the default set families, and index.html links no Google Fonts', () => {
+    const fontsCss = readFileSync(
+      fileURLToPath(new URL('../styles/fonts.css', import.meta.url)),
+      'utf8'
+    );
     const defaultHref = TYPESETS.find((t) => t.id === DEFAULT_TYPESET)?.href;
-    // A default set with no webfont (e.g. `plain`) would need no link at all.
+    // A default set with no webfont (e.g. `plain`) would need no faces at all.
     if (!defaultHref) return;
     for (const family of new URL(defaultHref).searchParams.getAll('family')) {
-      // "Vollkorn:wght@400;500" → "Vollkorn"
-      const name = family.split(':')[0];
-      expect(html, `index.html <link> is missing the default set's ${name}`).toContain(name);
+      // "Vollkorn:wght@400;500" → "Vollkorn"; the URL form is "Archivo+Narrow".
+      const name = family.split(':')[0].replace(/\+/g, ' ');
+      expect(fontsCss, `styles/fonts.css has no @font-face for ${name}`).toContain(
+        `font-family: '${name}'`
+      );
     }
+    // The whole point of self-hosting: no third-party font origin on first paint.
+    expect(indexHtml()).not.toContain('fonts.googleapis.com');
   });
 });
 

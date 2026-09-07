@@ -15,7 +15,8 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#111830" />
     <link rel="icon" type="image/svg+xml" href="/sc-icon.svg" />
-    <link rel="apple-touch-icon" href="/sc-icon.svg" />
+    <!-- iOS ignores SVG touch icons; Android reads manifest.webmanifest. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>SpellControl — Organize MTG binders, build decks &amp; track games</title>
     <meta
       name="description"
@@ -47,28 +48,24 @@
       content="Plan your physical Magic: The Gathering collection. Import, organize into rule-based binders, build decks, and track multiplayer games."
     />
     <meta name="twitter:image" content="https://spellcontrol.com/og-image.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Faces for the DEFAULT type set only (codex: Marcellus / Eczar /
-         Archivo Narrow / IBM Plex Mono). Every other set's stylesheet is
-         injected at runtime by store/typeset.ts, so a user on a non-default set
-         never pays for these. Keep in lockstep with DEFAULT_TYPESET in
-         lib/typesets.ts and the `--font-*` fallbacks in styles/tokens.css. -->
-    <!-- media="print" + onload swap: the font CSS downloads without blocking
-         first paint (it was the landing's longest render-blocking request);
-         display=swap already paints fallback text until the faces land. -->
+    <!-- The default type set's faces are self-hosted (styles/fonts.css, files in
+         public/fonts/). Preload the two above-the-fold faces so the first paint
+         doesn't wait on the CSS bundle to discover them. Every other type set
+         is injected from Google Fonts at runtime by store/typeset.ts. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Eczar:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Marcellus&display=swap"
-      rel="stylesheet"
-      media="print"
-      onload="this.media='all'"
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/fonts/eczar-400-700-latin.woff2"
     />
-    <noscript>
-      <link
-        href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Eczar:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Marcellus&display=swap"
-        rel="stylesheet"
-      />
-    </noscript>
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/fonts/marcellus-400-latin.woff2"
+    />
     <script>
       // Set data-theme + data-scheme synchronously so the right [data-theme]
       // and [data-scheme] CSS rules apply on first paint. Mirrors
@@ -114,15 +111,7 @@
         // load — i.e. after this document is parsed — so without this the
         // first paint would use the default faces and then jump.
         // Keep TYPESETS + DEFAULT_TYPESET in sync with lib/typesets.ts.
-        var TYPESETS = [
-          'folio',
-          'codex',
-          'grimoire',
-          'almanac',
-          'workshop',
-          'broadsheet',
-          'plain',
-        ];
+        var TYPESETS = ['folio', 'codex', 'grimoire', 'almanac', 'workshop', 'broadsheet', 'plain'];
         var DEFAULT_TYPESET = 'codex';
         var ts = DEFAULT_TYPESET;
         try {

@@ -9,8 +9,6 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { useCenteredSlide } from '../lib/use-centered-slide';
-import { useMaxBoundaryScroll } from '../lib/use-max-boundary-scroll';
 
 export interface SnapCarouselHandle {
   /** Scroll slide `index` to the center of the track. */
@@ -37,24 +35,37 @@ interface Props {
   nextLabel?: string;
 }
 
-// Placeholder ↔ full slide swaps are DOM mutations inside a snap scroller,
-// and Chrome re-snaps on those — mid-gesture that yanks a trackpad swipe. The
-// render window therefore follows `index` only once the scroller has been
-// quiet this long. The ±windowRadius buffer keeps the deferral invisible.
-// The same quiet period bounds `is-scrolling` on the track (see CSS): slide
-// content animations pause while the track moves so a pan is a pure
-// compositor translate instead of a per-frame repaint of every animating
-// skeleton / foil overlay in the window.
-const WINDOW_SETTLE_MS = 150;
+// The scroller is "quiet" once no scroll event has arrived for this long.
+// Only then does the render window move (placeholder ↔ full slide swaps are
+// DOM mutations inside a snap scroller, and Chrome re-snaps on those — never
+// mid-gesture) and `is-scrolling` come off the track (CSS pauses slide
+// content animations while it is on, so a pan is a pure compositor scroll).
+const SETTLE_MS = 150;
+
+/**
+ * Index of the slide whose center is nearest `viewCenter`, walking outward
+ * from `from`. Centers are sorted, so the walk is O(distance moved) and never
+ * scans the whole list — a collection preview can have thousands of slides.
+ */
+export function nearestSlide(centers: readonly number[], viewCenter: number, from: number): number {
+  if (centers.length === 0) return 0;
+  const d = (k: number) => Math.abs(centers[k] - viewCenter);
+  let i = Math.min(Math.max(from, 0), centers.length - 1);
+  while (i < centers.length - 1 && d(i + 1) < d(i)) i++;
+  while (i > 0 && d(i - 1) < d(i)) i--;
+  return i;
+}
 
 /**
  * The one centered scroll-snap carousel behind both card-inspect sheets
- * (`CardPreview`, `BinderPagePreview`): native swipe, arrow keys, prev/next
- * buttons, centered-slide tracking, render windowing, and edge spacers that
- * are measured from the real first/last slide so the first and last snap
- * points sit exactly at the scroll extremes — there is no slack to swipe
- * into past either end. Styling stays with the caller via `className` /
- * `slideClassName`; this owns behavior and structure only.
+ * (`CardPreview`, `BinderPagePreview`). Swiping is native scroll-snap; this
+ * never writes `scrollLeft` during a gesture. Slide geometry is measured once
+ * per layout (mount, resize, count change) into a list of slide centers, and
+ * the centered slide is then plain arithmetic on `scrollLeft` — deterministic,
+ * no observer guessing. Edge spacers are measured from the real first/last
+ * slide so the first and last snap points sit exactly at the scroll extremes.
+ * Styling stays with the caller via `className` / `slideClassName`; this owns
+ * behavior and structure only.
  */
 export const SnapCarousel = forwardRef<SnapCarouselHandle, Props>(function SnapCarousel(
   {
@@ -76,8 +87,11 @@ export const SnapCarousel = forwardRef<SnapCarouselHandle, Props>(function SnapC
   const slideRefs = useRef<Array<HTMLDivElement | null>>([]);
   const beforeRef = useRef<HTMLDivElement>(null);
   const afterRef = useRef<HTMLDivElement>(null);
+  const centers = useRef<number[]>([]);
   const indexRef = useRef(index);
   indexRef.current = index;
+  const onIndexChangeRef = useRef(onIndexChange);
+  onIndexChangeRef.current = onIndexChange;
 
   const scrollTo = (i: number, behavior: ScrollBehavior = 'smooth') => {
     slideRefs.current[i]?.scrollIntoView({ inline: 'center', block: 'nearest', behavior });
@@ -85,51 +99,32 @@ export const SnapCarousel = forwardRef<SnapCarouselHandle, Props>(function SnapC
   useImperativeHandle(ref, () => ({ scrollTo }));
 
   const [windowCenter, setWindowCenter] = useState(index);
-  const settleTimer = useRef(0);
-  const settle = () => {
-    window.clearTimeout(settleTimer.current);
-    settleTimer.current = window.setTimeout(() => {
-      setWindowCenter(indexRef.current);
-      trackRef.current?.classList.remove('is-scrolling');
-    }, WINDOW_SETTLE_MS);
-  };
-  // `settle` only reads refs, so both effects are safe to key narrowly.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(settle, [index]);
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-    const onScroll = () => {
-      track.classList.add('is-scrolling');
-      settle();
-    };
-    track.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      track.removeEventListener('scroll', onScroll);
-      window.clearTimeout(settleTimer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackRef]);
 
-  // Edge spacers: (content width − edge slide width) / 2, minus the flex gap
-  // that separates spacer from slide. Measured rather than CSS-derived because
-  // the first/last slide can be narrower than the rest (a lone-page binder
-  // spread) and the gap is per-carousel — the old cqw formulas left the first
-  // snap point an offset (up to a full gap) inside the track.
+  // Geometry. Spacers: (content width − edge slide width) / 2 − gap, so scroll
+  // 0 / scroll max are the first / last snap points. Then every slide's center
+  // in scroll coordinates (the leading spacer sits at the track's padding-left
+  // when scrollLeft is 0). Never runs per scroll event.
   const measure = () => {
     const track = trackRef.current;
-    const first = slideRefs.current[0];
-    const last = slideRefs.current[count - 1];
-    if (!track || !first || !last) return;
+    const before = beforeRef.current;
+    const slides = slideRefs.current;
+    const first = slides[0];
+    const last = slides[count - 1];
+    if (!track || !before || !first || !last) return;
     const cs = getComputedStyle(track);
-    const inner =
-      track.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    const padLeft = parseFloat(cs.paddingLeft) || 0;
+    const inner = track.clientWidth - padLeft - (parseFloat(cs.paddingRight) || 0);
     const gap = parseFloat(cs.columnGap) || 0;
     const px = (w: number) => `${Math.max(0, (inner - w) / 2 - gap)}px`;
-    if (beforeRef.current) beforeRef.current.style.flexBasis = px(first.offsetWidth);
+    before.style.flexBasis = px(first.offsetWidth);
     if (afterRef.current) afterRef.current.style.flexBasis = px(last.offsetWidth);
+    const origin = before.offsetLeft - padLeft;
+    centers.current = slides
+      .slice(0, count)
+      .map((el) => (el ? el.offsetLeft + el.offsetWidth / 2 - origin : 0));
   };
   useLayoutEffect(() => {
+    slideRefs.current.length = count;
     measure();
     const track = trackRef.current;
     if (!track || typeof ResizeObserver === 'undefined') return;
@@ -146,8 +141,39 @@ export const SnapCarousel = forwardRef<SnapCarouselHandle, Props>(function SnapC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useCenteredSlide(trackRef, slideRefs, onIndexChange, [count]);
-  useMaxBoundaryScroll(trackRef);
+  // The one scroll listener: derive the centered slide, mark the track as
+  // moving, and (re)arm the settle timer. Nothing here writes to the scroller.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    let timer = 0;
+    const settle = () => {
+      setWindowCenter(indexRef.current);
+      track.classList.remove('is-scrolling');
+    };
+    const onScroll = () => {
+      track.classList.add('is-scrolling');
+      const i = nearestSlide(
+        centers.current,
+        track.scrollLeft + track.clientWidth / 2,
+        indexRef.current
+      );
+      if (i !== indexRef.current) onIndexChangeRef.current(i);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(settle, SETTLE_MS);
+    };
+    track.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      track.removeEventListener('scroll', onScroll);
+      window.clearTimeout(timer);
+    };
+  }, [trackRef]);
+
+  // A parent-driven index change with no scroll behind it still moves the window.
+  useEffect(() => {
+    const t = window.setTimeout(() => setWindowCenter(index), SETTLE_MS);
+    return () => window.clearTimeout(t);
+  }, [index]);
 
   useEffect(() => {
     if (!keysEnabled) return;

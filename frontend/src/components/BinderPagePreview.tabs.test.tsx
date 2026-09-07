@@ -32,14 +32,6 @@ vi.mock('../lib/use-lock-body-scroll', () => ({
   useLockBodyScroll: () => {},
 }));
 
-vi.mock('../lib/use-centered-slide', () => ({
-  useCenteredSlide: () => {},
-}));
-
-vi.mock('../lib/use-max-boundary-scroll', () => ({
-  useMaxBoundaryScroll: () => {},
-}));
-
 vi.mock('../lib/use-swipe-down-dismiss', () => ({
   useSwipeDownDismiss: () => ({ isDragging: false, touchHandlers: {} }),
 }));

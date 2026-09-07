@@ -2,22 +2,26 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createRef, useRef } from 'react';
-import { SnapCarousel, type SnapCarouselHandle } from './SnapCarousel';
+import { SnapCarousel, nearestSlide, type SnapCarouselHandle } from './SnapCarousel';
 
 beforeAll(() => {
   // happy-dom has no layout: stub the scroll/observe APIs the carousel uses.
   Element.prototype.scrollIntoView = vi.fn();
-  globalThis.IntersectionObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-    takeRecords() {
-      return [];
-    }
-    root = null;
-    rootMargin = '';
-    thresholds = [];
-  } as unknown as typeof IntersectionObserver;
+});
+
+describe('nearestSlide', () => {
+  const centers = [100, 300, 500, 700];
+  it('picks the slide whose center is closest to the view center', () => {
+    expect(nearestSlide(centers, 90, 0)).toBe(0);
+    expect(nearestSlide(centers, 210, 0)).toBe(1);
+    expect(nearestSlide(centers, 690, 0)).toBe(3);
+    expect(nearestSlide(centers, 310, 3)).toBe(1);
+  });
+  it('clamps at the edges and tolerates an empty list', () => {
+    expect(nearestSlide(centers, -500, 2)).toBe(0);
+    expect(nearestSlide(centers, 5000, 0)).toBe(3);
+    expect(nearestSlide([], 50, 4)).toBe(0);
+  });
 });
 
 function Harness({

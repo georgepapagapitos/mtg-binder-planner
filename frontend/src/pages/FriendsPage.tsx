@@ -14,7 +14,7 @@ export function FriendsPage() {
   return (
     <>
       <SocialHubTabs />
-      <div className="friends-page">
+      <div className="friends-page social-page-shell">
         <header className="binder-hero">
           <div>
             <h1 id="friends-page-heading-title" className="binder-hero-name">

@@ -555,3 +555,41 @@
   color: var(--text-muted);
   letter-spacing: 0.04em;
 }
+
+/* ── Phone: art-free header (E264) ──────────────────────────────────────────
+   On a phone the Stats tab's first screen was the page hero's art and then
+   this card's art band before any data. Below the mobile breakpoint the band
+   drops its art layers and collapses to its content: the identity arc (which
+   keeps the commander portrait as a glyph), name, commander, format. The art
+   returns at ≥601px where the band has room beside the data. */
+@media (max-width: 600px) {
+  .deck-identity-card-art-band {
+    min-height: 0;
+  }
+
+  .deck-identity-card-art-layer,
+  .deck-identity-card-art-fade,
+  .deck-identity-card-color-banner {
+    display: none;
+  }
+
+  .deck-identity-card-art-content {
+    padding: var(--space-2) var(--space-4) 0;
+  }
+
+  .deck-identity-card-arc-wrap {
+    margin-bottom: 0;
+  }
+
+  /* The sparkline sits under the deck name here; the body has no row for it. */
+  .deck-identity-card-title-row .deck-identity-card-sparkline-wrap {
+    margin-top: 2px;
+  }
+
+  /* One step tighter than desktop: the phone card is a column of short rows,
+     and the desktop gap read as dead space between them. */
+  .deck-identity-card-body {
+    padding: var(--space-2) var(--space-4) var(--space-3);
+    gap: var(--space-2);
+  }
+}

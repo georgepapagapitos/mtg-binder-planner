@@ -133,7 +133,7 @@ export function ListRuleEditor({ list, onClose }: Props) {
         <div className="card-picker-header">
           <h2 className="card-picker-title">Rule for {list.name}</h2>
           <p className="add-card-sheet-hint">
-            Cards from your collection that match this rule appear in the list automatically — new
+            Cards from your collection that match this rule appear in the list automatically. New
             imports included.
           </p>
         </div>
@@ -179,6 +179,7 @@ export function ListRuleEditor({ list, onClose }: Props) {
               )
             }
             isNewBinder={false}
+            emptyGroupMatchesNothing
           />
         </div>
 

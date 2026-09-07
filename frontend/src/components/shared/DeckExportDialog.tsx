@@ -63,7 +63,7 @@ export function DeckExportDialog({ text, format, onFormatChange, title, onClose 
   const handleNativeShare = async () => {
     try {
       await Share.share({
-        title: `${title} — decklist`,
+        title: `${title} · decklist`,
         text,
         dialogTitle: 'Share decklist',
       });

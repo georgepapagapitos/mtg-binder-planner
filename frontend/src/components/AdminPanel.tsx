@@ -1,5 +1,5 @@
 import { formatBytes } from '../lib/format-bytes';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   listUsers,
   deleteUser,
@@ -11,6 +11,7 @@ import {
 } from '../lib/admin-api';
 import { toast } from '../store/toasts';
 import { Modal } from './Modal';
+import { OverflowMenu } from './OverflowMenu';
 
 import { userMessage } from '@/lib/user-error';
 const REPORT_KIND_LABEL: Record<AdminReportRow['kind'], string> = {
@@ -45,6 +46,35 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [pendingHide, setPendingHide] = useState<AdminReportRow | null>(null);
   const [hiding, setHiding] = useState(false);
+
+  // The users table scrolls horizontally on narrow viewports. Publish its
+  // overflow state as `data-overflow` so the stylesheet can fade the edge with
+  // more columns behind it (the Tabs.tsx scroll-strip idiom): without the cue
+  // the actions column past the right edge read as clipped layout.
+  const usersScrollRef = useRef<HTMLDivElement | null>(null);
+  const usersTableMounted = !loading && !error && users.length > 0;
+  useLayoutEffect(() => {
+    const el = usersScrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      let next = 'none';
+      if (max > 1) {
+        const atStart = el.scrollLeft <= 1;
+        const atEnd = el.scrollLeft >= max - 1;
+        next = atStart ? 'end' : atEnd ? 'start' : 'both';
+      }
+      if (el.dataset.overflow !== next) el.dataset.overflow = next;
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro?.disconnect();
+    };
+  }, [usersTableMounted]);
 
   // Refreshes the list (used after mount and after a successful delete). The
   // *initial* load goes through the useEffect below directly to avoid a
@@ -179,7 +209,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
       <section className="settings-card" aria-labelledby="settings-admin-title">
         <header className="settings-card-header">
           <h2 id="settings-admin-title" className="settings-card-title">
-            Admin — manage users
+            Manage users
           </h2>
           <p className="settings-card-hint">
             Visible because your role is <strong>admin</strong>. Other users won't see this card.
@@ -199,7 +229,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
             <div className="settings-row-hint">No users yet.</div>
           )}
           {!loading && !error && users.length > 0 && (
-            <div className="admin-users-table-scroll">
+            <div className="admin-users-table-scroll" ref={usersScrollRef}>
               <table className="admin-users-table">
                 <thead>
                   <tr>
@@ -219,14 +249,15 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
                         <td>{u.username}</td>
                         <td>
                           {u.displayName ? (
-                            <span
-                              title={
-                                [u.bio, u.avatarCardName ? `Avatar: ${u.avatarCardName}` : null]
-                                  .filter(Boolean)
-                                  .join(' · ') || undefined
-                              }
-                            >
+                            <span className="admin-profile-cell">
                               {u.displayName}
+                              {(u.bio || u.avatarCardName) && (
+                                <span className="admin-profile-detail settings-row-hint">
+                                  {[u.bio, u.avatarCardName ? `Avatar: ${u.avatarCardName}` : null]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </span>
+                              )}
                             </span>
                           ) : (
                             <span className="settings-row-hint">—</span>
@@ -238,27 +269,22 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
                         <td>{formatDate(u.createdAt)}</td>
                         <td>{formatBytes(u.dataBytes)}</td>
                         <td>
-                          <div className="admin-row-actions">
-                            <button
-                              type="button"
-                              className="pill-btn pill-btn-danger"
-                              aria-label={`Clear profile for ${u.username}`}
-                              onClick={() => setPendingClear(u)}
-                            >
-                              Clear profile
-                            </button>
-                            <button
-                              type="button"
-                              className="pill-btn pill-btn-danger"
-                              disabled={isSelf}
-                              title={
-                                isSelf ? "You can't delete your own account here." : 'Delete user'
-                              }
-                              onClick={() => setPending(u)}
-                            >
-                              Delete
-                            </button>
-                          </div>
+                          <OverflowMenu
+                            ariaLabel={`Actions for ${u.username}`}
+                            items={[
+                              {
+                                label: 'Clear profile',
+                                danger: true,
+                                onClick: () => setPendingClear(u),
+                              },
+                              {
+                                label: isSelf ? "Can't delete your own account here" : 'Delete',
+                                danger: true,
+                                disabled: isSelf,
+                                onClick: () => setPending(u),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
@@ -314,7 +340,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
             </h2>
             <p className="choice-dialog-body">
               This clears <strong>{pendingClear.username}</strong>'s display name, bio, and avatar.
-              They can set a new profile any time — this only removes what's there now.
+              They can set a new profile any time. This only removes what's there now.
             </p>
             <div className="choice-dialog-actions admin-modal-actions">
               <button
@@ -428,7 +454,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
           <p className="choice-dialog-body">
             {pendingHide.kind === 'profile'
               ? 'This hides the profile page and unpublishes every deck this account has published.'
-              : 'This unpublishes the deck immediately — its public link stops working for everyone, including the owner.'}
+              : 'This unpublishes the deck immediately. Its public link stops working for everyone, including the owner.'}
           </p>
           <div className="choice-dialog-actions admin-modal-actions">
             <button

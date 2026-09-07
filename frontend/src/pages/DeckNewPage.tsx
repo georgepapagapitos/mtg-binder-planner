@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Zap } from 'lucide-react';
+import { ArrowRight, Zap } from 'lucide-react';
 import { ImportDeckDialog } from '../components/deck/ImportDeckDialog';
 import { BackLink } from '../components/BackLink';
 import { useDeckBuilderStore } from '@/deck-builder/store';
@@ -162,6 +162,10 @@ export function DeckNewPage() {
 
   const [showImport, setShowImport] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<DeckFormat>(prefill?.format ?? 'commander');
+  // Below 600px the format grid claims most of the first screen before the
+  // page's own first instruction (pick a commander); collapse it to the
+  // active pill + a disclosure so Commander search fits in the first screen.
+  const [formatExpanded, setFormatExpanded] = useState(false);
   // Radios group by shared `name` — scope each group to this page instance.
   const visibilityGroup = useId();
   const formatGroup = useId();
@@ -174,6 +178,7 @@ export function DeckNewPage() {
   const applyFormat = useCallback(
     (fmt: DeckFormat) => {
       setSelectedFormat(fmt);
+      setFormatExpanded(false);
       updateCustomizationStore({
         mtgFormat: fmt === 'paupercommander' ? 'paupercommander' : 'commander',
       });
@@ -339,7 +344,7 @@ export function DeckNewPage() {
   const displayNameSubstep = (
     <section className="deck-builder-section deck-builder-actions">
       <p className="deck-builder-actions-hint">
-        Publishing shows your display name on the deck page — set one to continue.
+        Publishing shows your display name on the deck page. Set one to continue.
       </p>
       <div className="field">
         <label htmlFor="deck-new-display-name">Display name</label>
@@ -398,14 +403,14 @@ export function DeckNewPage() {
           {formatConfig.hasCommander ? (
             <>
               {isPdh
-                ? 'Pick an uncommon creature to lead, then generate a deck of commons, start blank and add cards by hand, or '
-                : 'Pick a commander, then generate a deck from EDHREC data, start blank and add cards by hand, or '}
+                ? 'Pick an uncommon creature to lead, then generate a deck, start from scratch, or '
+                : 'Pick a commander, then generate a deck, start from scratch, or '}
             </>
           ) : (
-            <>Create a {formatConfig.label} deck and add cards manually, or </>
+            <>Create a {formatConfig.label} deck and add cards, or </>
           )}
           <button type="button" className="btn-link" onClick={() => setShowImport(true)}>
-            import an existing deck list.
+            import one you already have.
           </button>
         </p>
       </header>
@@ -430,8 +435,7 @@ export function DeckNewPage() {
             </p>
           )}
           <p className="combo-seed-banner-hint">
-            These cards are pinned as must-includes below — generation will do everything it can to
-            seat all of them.
+            These cards are pinned as must-includes below. Generation seats them first.
           </p>
         </section>
       )}
@@ -440,8 +444,18 @@ export function DeckNewPage() {
         <ImportDeckDialog onClose={() => setShowImport(false)} format={selectedFormat} />
       )}
 
-      <section className="deck-builder-section">
+      <section
+        className={`deck-builder-section deck-new-format-section${
+          formatExpanded ? ' is-expanded' : ''
+        }`}
+      >
         <h2 className="deck-builder-section-title">Format</h2>
+        <div className="deck-new-format-summary">
+          <span className="deck-new-format-summary-active">{formatConfig.label}</span>
+          <button type="button" className="btn-link" onClick={() => setFormatExpanded(true)}>
+            Change format
+          </button>
+        </div>
         <fieldset className="format-pill-row" aria-label="Deck format">
           {(Object.keys(DECK_FORMAT_CONFIGS) as DeckFormat[]).map((fmt) => {
             const cfg = DECK_FORMAT_CONFIGS[fmt];
@@ -487,8 +501,8 @@ export function DeckNewPage() {
           <div className="guided-cta-text">
             <strong>Prefer to pick every card?</strong>
             <span>
-              Brew mode walks the deck slot by slot — ramp, draw, removal, wipes, your theme,
-              finishers — dealing you a hand of candidates to add or pass at each stop.
+              Brew mode builds the deck slot by slot: ramp, draw, removal, wipes, your theme,
+              finishers. Each stop deals you a hand of candidates to add or pass.
             </span>
           </div>
           <button
@@ -498,7 +512,7 @@ export function DeckNewPage() {
               navigate('/decks/new/brew', commander ? { state: { commander } } : undefined)
             }
           >
-            Start brewing →
+            Start brewing <ArrowRight width={14} height={14} aria-hidden />
           </button>
         </section>
       )}

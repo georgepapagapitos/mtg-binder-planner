@@ -309,15 +309,15 @@ export function buildLandCountNote(params: {
     : `for ${/^[AEIOU]/i.test(label) ? 'an' : 'a'} ${label} deck`;
   const deliveredClause =
     params.finalLandCount !== params.resolvedLandCount
-      ? `; delivered ${params.finalLandCount} after post-tune deck adjustments`
+      ? ` Delivered ${params.finalLandCount} after post-tune deck adjustments.`
       : '';
   const nonBasicClause =
     params.effectiveNonBasicLandCount != null &&
     params.nonBasicLandCount != null &&
     params.effectiveNonBasicLandCount > params.nonBasicLandCount
-      ? `; nonbasic land budget raised to ${params.effectiveNonBasicLandCount} to match the higher land count`
+      ? ` Nonbasic land budget raised to ${params.effectiveNonBasicLandCount} to match the higher land count.`
       : '';
-  return `Auto-tuned to ${params.resolvedLandCount} lands ${archetypeText} (${params.edhrecRampCount} planned ramp slots, avg CMC ${params.finalAvgCmc.toFixed(1)})${deliveredClause}${nonBasicClause} — set land count explicitly under Customize to override.`;
+  return `Auto-tuned to ${params.resolvedLandCount} lands ${archetypeText} (${params.edhrecRampCount} ramp slots, avg CMC ${params.finalAvgCmc.toFixed(1)}).${deliveredClause}${nonBasicClause} Set an explicit count under Customize to override.`;
 }
 
 /**
@@ -347,22 +347,22 @@ export function buildOverBudgetNote(params: {
 
   if (params.finalTotal <= params.deckBudget) {
     if (swaps > 0) {
-      return `Deck totals ${sym}${params.finalTotal.toFixed(2)} — landed under your ${sym}${params.deckBudget} budget after ${swaps} ${swapWord}.`;
+      return `Deck totals ${sym}${params.finalTotal.toFixed(2)}. ${swaps} ${swapWord} kept it under your ${sym}${params.deckBudget} budget.`;
     }
     return undefined;
   }
 
   const over = params.finalTotal - params.deckBudget;
   const substitutionClause = swaps > 0 ? ` after ${swaps} ${swapWord}` : '';
-  // Semicolon-join the "why stuck" reason onto the same sentence (it explains
-  // the number just stated); the older combo-skip disclosure reads better as
-  // its own sentence, and only ever applies when convergence never ran.
+  // The "why stuck" reason gets its own sentence (capitalized, since the
+  // source strings are lowercase fragments); the older combo-skip disclosure
+  // reads the same way, and only ever applies when convergence never ran.
   const tail = params.residualReason
-    ? `; ${params.residualReason}.`
+    ? `. ${params.residualReason.charAt(0).toUpperCase()}${params.residualReason.slice(1)}.`
     : params.comboBudgetSkipCount > 0
       ? '. Some combo upgrades were skipped to stay as close as possible.'
       : '.';
-  return `Deck totals ${sym}${params.finalTotal.toFixed(2)} — ${sym}${over.toFixed(2)} over your ${sym}${params.deckBudget} budget${substitutionClause}${tail}`;
+  return `Deck totals ${sym}${params.finalTotal.toFixed(2)}, ${sym}${over.toFixed(2)} over your ${sym}${params.deckBudget} budget${substitutionClause}${tail}`;
 }
 
 // ─── Role-cap gate for backfill paths outside cardPicking.ts/scryfallFill.ts ──
@@ -438,7 +438,7 @@ export function buildRoleCapOverflowNote(
   const total = entries.reduce((s, [, n]) => s + n, 0);
   if (total === 0) return undefined;
   const [dominantRole] = entries.sort((a, b) => b[1] - a[1]);
-  return `${total} card${total === 1 ? '' : 's'} pushed past its role cap to finish the deck (${ROLE_DISPLAY[dominantRole[0]]} pool was thin) — see Overbuilt roles below for the full total.`;
+  return `${total} card${total === 1 ? '' : 's'} pushed past its role cap. The ${ROLE_DISPLAY[dominantRole[0]]} pool was thin. See Overbuilt roles below for the full total.`;
 }
 
 /**
@@ -466,7 +466,7 @@ export function resolvePriceSanity(
  */
 export function buildPriceSanityNote(decidedCount: number): string | undefined {
   if (decidedCount <= 0) return undefined;
-  return `Preferred ${decidedCount} cheaper near-equivalent${decidedCount === 1 ? '' : 's'} over premium picks — set budget preference to "expensive" to disable.`;
+  return `Preferred ${decidedCount} cheaper near-equivalent${decidedCount === 1 ? '' : 's'} over premium picks. Set budget preference to "expensive" to disable.`;
 }
 
 /**
@@ -558,7 +558,7 @@ export function buildBracketPriceDisclosureNote(params: {
   if (typeof targetBracket !== 'number' || targetBracket > 2) return undefined;
   if (finalTotal <= BRACKET_PRICE_DISCLOSURE_THRESHOLD) return undefined;
   const sym = currency === 'EUR' ? '€' : '$';
-  return `Bracket ${targetBracket} constrains power, not price — this build optimizes card quality (${sym}${finalTotal.toFixed(2)}). Set a budget to cap cost.`;
+  return `Bracket ${targetBracket} constrains power, not price. This build optimizes card quality (${sym}${finalTotal.toFixed(2)}). Set a budget to cap cost.`;
 }
 
 /**
@@ -591,7 +591,7 @@ export function buildWipeAsymmetryNote(
       `${oneSidedWipeCount} of the deck's ${totalWipeCount} ${noun} ${verb} your own board`
     );
   }
-  return `Own board matters for this plan — ${clauses.join(' and ')}.`;
+  return `This plan protects your own board: ${clauses.join(' and ')}.`;
 }
 
 /**
@@ -627,7 +627,7 @@ export function countFinalWipeAsymmetry(
  */
 export function buildQualifiedPayoffGateNote(overflowCount: number): string | undefined {
   if (overflowCount <= 0) return undefined;
-  return `Seated ${overflowCount} color/type-qualified payoff${overflowCount === 1 ? '' : 's'} the deck can't fully feed — nothing better cleared every other gate.`;
+  return `Kept ${overflowCount} payoff${overflowCount === 1 ? '' : 's'} the deck can't fully feed yet. Nothing stronger qualified.`;
 }
 
 /**
@@ -712,10 +712,10 @@ export function buildLandSqueezeTrimNote(
   const wildcardList = wildcardsKept.join(', ');
 
   if (landDriven > 0 && wildcardCount > 0) {
-    return `Auto-tuning the land count to ${finalLandCount} took ${landDriven} spell slot${landDriven === 1 ? '' : 's'}, and ${wildcardCount} stronger leftover card${wildcardCount === 1 ? '' : 's'} (${wildcardList}) claimed ${wildcardCount} more — reconciled by cutting the ${cutNames.length} lowest-value picks: ${cutList}.`;
+    return `Raising lands to ${finalLandCount} cost ${landDriven} spell slot${landDriven === 1 ? '' : 's'}. ${wildcardCount} stronger card${wildcardCount === 1 ? '' : 's'} (${wildcardList}) bumped ${cutNames.length} weaker pick${cutNames.length === 1 ? '' : 's'}: ${cutList}.`;
   }
   if (landDriven > 0) {
-    return `Auto-tuning the land count to ${finalLandCount} took ${landDriven} spell slot${landDriven === 1 ? '' : 's'} — reconciled by cutting the ${cutNames.length === 1 ? 'lowest-value pick' : 'lowest-value picks'}: ${cutList}.`;
+    return `Raising lands to ${finalLandCount} cost ${landDriven} spell slot${landDriven === 1 ? '' : 's'}. Cut the ${cutNames.length === 1 ? 'lowest-value pick' : 'lowest-value picks'}: ${cutList}.`;
   }
   // landDriven <= 0 (including the defensive negative case — wildcardsKept
   // can't exceed cutNames.length without landDriven going negative, which
@@ -725,9 +725,9 @@ export function buildLandSqueezeTrimNote(
     // Only reachable post-reconcileLandSqueezeDisclosure: a downstream repair
     // restored every originally-cut incumbent while the kept wildcards stayed
     // genuine adds — nothing left to name as "displaced".
-    return `${wildcardCount} stronger leftover card${wildcardCount === 1 ? '' : 's'} (${wildcardList}) added, with no incumbent cut needed.`;
+    return `${wildcardCount} stronger card${wildcardCount === 1 ? '' : 's'} (${wildcardList}) added, nothing needed to be cut.`;
   }
-  return `${wildcardCount} stronger leftover card${wildcardCount === 1 ? '' : 's'} (${wildcardList}) displaced the deck's ${cutNames.length === 1 ? 'lowest-value pick' : 'lowest-value picks'}: ${cutList}.`;
+  return `${wildcardCount} stronger card${wildcardCount === 1 ? '' : 's'} (${wildcardList}) replaced ${cutNames.length === 1 ? 'the lowest-value pick' : 'the lowest-value picks'}: ${cutList}.`;
 }
 
 /**
@@ -748,7 +748,7 @@ export function buildComboCompletionNote(newlyComplete: DetectedCombo[]): string
   return newlyComplete.map((combo) => {
     const cards = combo.cards.join(' + ');
     const results = combo.results.length > 0 ? combo.results.join(', ') : 'a combo finish';
-    return `${cards} — produces ${results}`;
+    return `${cards}: produces ${results}`;
   });
 }
 
@@ -881,7 +881,7 @@ export function assembleCardProvenance(params: {
     } else if (card.isStapleRock) {
       cardProvenance[card.name] = 'Auto-included staple mana rock';
     } else if (wildcardNames.has(card.name)) {
-      cardProvenance[card.name] = 'Earned a flex slot on deck-wide value';
+      cardProvenance[card.name] = 'A wildcard pick for its overall power';
     } else if (card.isThemeSynergyCard) {
       cardProvenance[card.name] = themeProvenanceLabel;
     } else if (params.boostProvenance.has(card.name)) {
@@ -889,8 +889,7 @@ export function assembleCardProvenance(params: {
     } else if ((params.cardInclusionMap?.[card.name] ?? 0) > 0) {
       cardProvenance[card.name] = 'EDHREC staple for this commander';
     } else {
-      cardProvenance[card.name] =
-        'Added from a Scryfall search — the EDHREC pool ran short for this slot';
+      cardProvenance[card.name] = 'Filled in by a broader card search for this slot';
     }
   }
   return cardProvenance;
@@ -1408,9 +1407,11 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // reason so a forced pick that gets dropped (off-color, capped, not on Arena,
   // unresolvable) is never silent — see BuildReportPanel.
   if (skippedMustIncludes.length > 0) {
-    mustIncludeSkippedNote = `Couldn't include ${skippedMustIncludes.length} of your must-include ${
+    const headline = `Couldn't include ${skippedMustIncludes.length} of your must-include ${
       skippedMustIncludes.length === 1 ? 'card' : 'cards'
-    }: ${skippedMustIncludes.map((s) => `${s.name} (${s.reason})`).join('; ')}.`;
+    }.`;
+    const perCard = skippedMustIncludes.map((s) => `${s.name}: ${s.reason}.`).join(' ');
+    mustIncludeSkippedNote = `${headline} ${perCard}`;
   }
 
   // Emergent combo-completion disclosure baseline: snapshot combo
@@ -4296,8 +4297,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   const archetypeBlendSeated = summarizeSeatedBlend(
     state.archetypeBlendNames,
     [...nonLandCards, ...categories.lands],
-    state.archetypeBlendTheme,
-    state.archetypeBlendCommanderDecks
+    state.archetypeBlendTheme
   );
 
   return {

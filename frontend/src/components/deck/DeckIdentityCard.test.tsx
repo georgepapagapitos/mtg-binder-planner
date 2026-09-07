@@ -106,12 +106,12 @@ describe('DeckIdentityCard', () => {
     renderCard();
     expect(hasText(/^✓ ?All clear$/)).toBe(true);
     expect(hasText(/^2 of 2 checks pass$/)).toBe(true);
-    expect(hasText(/^82 · Healthy$/)).toBe(true);
+    expect(hasText(/^Healthy$/)).toBe(true);
     expect(
       screen.getByText('Your deck is performing well, with a little room to grow.')
     ).toBeTruthy();
     // curve (48) is the weakest non-partial subscore.
-    expect(hasText(/^soft spot: Curve — Rough$/)).toBe(true);
+    expect(hasText(/^soft spot: Curve · Rough$/)).toBe(true);
   });
 
   it('shows "N to fix" with named shortfalls (first 3) and "+k more" when over three', () => {
@@ -165,9 +165,9 @@ describe('DeckIdentityCard', () => {
       { bandLabel: 'Solid', limitedData: true }
     );
     renderCard({ planScore: plan });
-    expect(hasText(/^70 · Solid · limited data$/)).toBe(true);
+    expect(hasText(/^Solid · limited data$/)).toBe(true);
     // curve (64) is the weakest of the non-partial entries; the partial strategy (50) is ignored.
-    expect(hasText(/^soft spot: Curve — Solid$/)).toBe(true);
+    expect(hasText(/^soft spot: Curve · Solid$/)).toBe(true);
     expect(hasText(/soft spot: Strategy/)).toBe(false);
   });
 
@@ -200,7 +200,7 @@ describe('DeckIdentityCard', () => {
       { id: 'ramp', label: 'Ramp count', status: 'warn', detail: '4 / 10' },
     ];
     renderCard({ validation: makeValidation(checks), onNavigate: vi.fn() });
-    const btn = screen.getByRole('button', { name: /Ramp count 4 \/ 10 — go to Tune/i });
+    const btn = screen.getByRole('button', { name: /Ramp count 4 \/ 10, go to Tune/i });
     expect(btn).toBeTruthy();
   });
 

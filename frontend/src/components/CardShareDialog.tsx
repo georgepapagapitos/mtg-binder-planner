@@ -33,7 +33,7 @@ export function CardShareDialog({ name, imageUrl, onClose }: Props) {
       toast.show({ message: done, tone: 'success' });
       onClose();
     } catch {
-      toast.show({ message: "Couldn't do that — the card art didn't load.", tone: 'warn' });
+      toast.show({ message: "Couldn't do that. The card art didn't load.", tone: 'warn' });
       setBusy(null);
     }
   };

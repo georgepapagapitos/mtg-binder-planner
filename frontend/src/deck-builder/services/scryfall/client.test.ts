@@ -203,7 +203,7 @@ describe('getCardById', () => {
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => artCard }));
 
-    await expect(getCardById('art-1')).rejects.toThrow(/non-playable/);
+    await expect(getCardById('art-1')).rejects.toThrow(/can't be played/);
   });
 });
 
@@ -317,7 +317,7 @@ describe('user-facing failure messages', () => {
     );
 
     await expect(searchCards('t:zzzzoffline', [])).rejects.toThrow(
-      /Couldn't reach Scryfall — check your connection/
+      /Couldn't reach Scryfall\. Check your connection/
     );
   });
 
@@ -724,5 +724,61 @@ describe('scryfallFetch 429 handling (F26)', () => {
     const card = await pending;
     expect(card.id).toBe('f26-recovered');
     expect(calls).toBe(2);
+  });
+});
+
+describe('429 storm amplification', () => {
+  beforeEach(() => {
+    gate.offline = false;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  // A throttled batch is "no answer", not "these names don't exist". Retrying
+  // its names one by one turned one blocked batch of 75 into 75 single-card
+  // `unique=prints` searches fired into the active cooldown.
+  it('does not retry the names of a throttled batch one by one', async () => {
+    vi.useFakeTimers();
+    let searchCalls = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).includes('/cards/search')) searchCalls += 1;
+      return new Response('rate limited', { status: 429, headers: { 'Retry-After': '60' } });
+    });
+
+    const pending = getCardsByNames(['Storm Batch A', 'Storm Batch B', 'Storm Batch C']);
+    await vi.runAllTimersAsync();
+    expect((await pending).size).toBe(0);
+    expect(searchCalls).toBe(0);
+  });
+
+  it('shares one request between concurrent lookups of the same name', async () => {
+    const name = 'Storm Dedupe Forest';
+    const live = makeCard({ id: 'dedupe-hit', name, layout: 'normal', prices: { usd: '0.10' } });
+    let namedCalls = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.startsWith('/api/cards/named'))
+        return { ok: true, json: async () => ({ card: null }) };
+      if (url.includes('/cards/named')) {
+        namedCalls += 1;
+        return { ok: true, json: async () => live };
+      }
+      return { ok: false, status: 404, statusText: 'Not Found' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [a, b, c] = await Promise.all([
+      getCardByName(name),
+      getCardByName(name),
+      getCardByName(name),
+    ]);
+
+    expect(namedCalls).toBe(1);
+    expect([a.id, b.id, c.id]).toEqual(['dedupe-hit', 'dedupe-hit', 'dedupe-hit']);
+    // Each caller still gets its own copy — deck-generation flags must not leak
+    // between two callers that happened to share the request.
+    expect(a).not.toBe(b);
   });
 });

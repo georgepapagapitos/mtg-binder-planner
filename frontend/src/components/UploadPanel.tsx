@@ -43,6 +43,7 @@ import {
   mergeImportResults,
   removeUnresolvedName,
   importReviewHeadline,
+  fetchErrorMessage,
 } from '../lib/import-review';
 import { useCardsWithTags, bindersUseTags } from '../lib/card-tags';
 import { Modal } from './Modal';
@@ -86,7 +87,7 @@ const JSON_MIME_TYPES = ['application/json'];
 const IMPORT_FORMAT_EXAMPLES = (
   <>
     <p className="info-tip-lead">
-      Every export is auto-detected from its columns — no need to pick a format:
+      Every export is auto-detected from its columns. No need to pick a format:
     </p>
     <ul className="info-tip-list">
       <li>
@@ -394,7 +395,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
     ];
     if (totals.unresolvedCount > 0) parts.push(`${totals.unresolvedCount} unresolved`);
     if (allFetchErrors.length > 0) {
-      parts.push(`${allFetchErrors.length} couldn't be fetched — retry below`);
+      parts.push(fetchErrorMessage(allFetchErrors.length, 'Retry below.'));
     }
     if (allMalformedRows.length > 0) {
       parts.push(`${allMalformedRows.length} rows couldn't be read`);
@@ -403,7 +404,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
       parts.push(`${totals.skippedUnownedCount} unowned rows skipped`);
     }
     if (totals.clampedCount > 0) {
-      parts.push(`${totals.clampedCount} rows over the copy limit — capped`);
+      parts.push(`${totals.clampedCount} rows over the copy limit, capped`);
     }
     if (mode === 'binder' && binderName) parts.push(`binder "${binderName}" created`);
     if (p.proxy) parts.push('marked as proxies');
@@ -437,7 +438,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
       parts.push(`${result.unresolvedNames.length} unresolved`);
     }
     if (result.fetchErrors.length > 0) {
-      parts.push(`${result.fetchErrors.length} couldn't be fetched — retry below`);
+      parts.push(fetchErrorMessage(result.fetchErrors.length, 'Retry below.'));
     }
     if (result.malformedRows.length > 0) {
       parts.push(`${result.malformedRows.length} rows couldn't be read`);
@@ -449,7 +450,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
     }
     if (result.clampedRows > 0) {
       parts.push(
-        `${result.clampedRows} row${result.clampedRows !== 1 ? 's' : ''} over the copy limit — capped`
+        `${result.clampedRows} row${result.clampedRows !== 1 ? 's' : ''} over the copy limit, capped`
       );
     }
     if (mode === 'binder' && binderName) {
@@ -765,8 +766,10 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
             <div className="import-review-section import-review-section--warn" role="alert">
               <div className="unresolved-summary">
                 <span>
-                  {fetchErrors.length} card{fetchErrors.length !== 1 ? 's' : ''} couldn't be fetched
-                  — the card service was unreachable. They were <strong>not</strong> imported.
+                  {fetchErrorMessage(
+                    fetchErrors.length,
+                    "The card service was unreachable, so they weren't imported."
+                  )}
                 </span>
                 <span className="fetch-error-actions">
                   <button className="btn-link" onClick={() => setShowFetchErrors((v) => !v)}>
@@ -797,7 +800,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
               <div className="unresolved-summary">
                 <span>
                   {malformedRows.length} row{malformedRows.length !== 1 ? 's' : ''} couldn't be read
-                  at all — they were <strong>not</strong> imported.
+                  at all. They weren't imported.
                 </span>
                 <span className="fetch-error-actions">
                   <button className="btn-link" onClick={() => setShowMalformed((v) => !v)}>
@@ -827,9 +830,9 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
             <div className="import-review-section import-review-section--warn">
               <div className="unresolved-summary">
                 <span>
-                  {unresolvedNames.length} card{unresolvedNames.length !== 1 ? 's' : ''} couldn't be
-                  matched to Scryfall data. Fix them inline below, or leave them — they'll stay in
-                  your collection without images or metadata.
+                  {unresolvedNames.length} card{unresolvedNames.length !== 1 ? 's' : ''} didn't
+                  match Scryfall. Fix them below, or leave them as bare entries with no image or
+                  price.
                 </span>
                 <button className="btn-link" onClick={() => setShowUnresolved((v) => !v)}>
                   {showUnresolved ? 'Hide list' : 'Show list'}
@@ -883,7 +886,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
                   className="btn import-upload-btn"
                   onClick={handlePickDrive}
                   disabled={isLoading || driveBusy}
-                  title="Browse your Google Drive and pick a card list — Sheets are exported to CSV automatically"
+                  title="Browse Google Drive for a card list"
                 >
                   {driveBusy ? (
                     <span className="spinner" />
@@ -898,7 +901,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
                 className="btn import-upload-btn"
                 onClick={handlePickFile}
                 disabled={isLoading}
-                title="Upload one or more CSV/TSV files (ManaBox, Archidekt, Moxfield, Deckbox, etc.)"
+                title="Upload CSV or TXT files"
               >
                 {isLoading ? (
                   <span className="spinner" />
@@ -920,7 +923,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
           </div>
 
           <p className="import-card-desc">
-            Paste a card list or upload CSVs — each card is matched to Scryfall and routed into your
+            Paste a card list or upload CSVs. Each card is matched to Scryfall and routed into your
             binders.
           </p>
 
@@ -963,6 +966,9 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
               <label className="import-link-label" htmlFor={linkInputId}>
                 Google Sheets or Drive link
               </label>
+              <p className="import-link-hint">
+                Set sharing to “Anyone with the link”, then paste it here.
+              </p>
               <div className="import-link-row">
                 <input
                   id={linkInputId}
@@ -987,7 +993,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
                   className="btn import-link-btn"
                   onClick={handleFetchLink}
                   disabled={isLoading || linkBusy || !linkUrl.trim()}
-                  title="Fetch a card list from a Google Sheet, or from a file in Drive. The link has to be shared with anyone who has it."
+                  title="Fetch the card list from this link"
                 >
                   {linkBusy ? (
                     <span className="spinner" />
@@ -1012,7 +1018,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
               <InfoTip
                 label="marking an import as proxies"
                 ariaLabel="What does marking an import as proxies do?"
-                text="Proxy copies count as owned in your collection and binders, but carry no market value — their cost, if any, still counts toward what you paid."
+                text="Proxy copies count as owned in your collection and binders, but carry no market value. Their cost, if any, still counts toward what you paid."
               />
             </span>
           </label>
@@ -1144,7 +1150,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
                   className="upload-action upload-action-danger"
                   onClick={() => setConfirmingDeleteImports(true)}
                   disabled={isLoading}
-                  title="Remove the selected imports and all cards they added"
+                  title="Remove the selected imports"
                 >
                   <Trash2 width={14} height={14} strokeWidth={1.6} aria-hidden />
                   <span>Delete selected ({selectedHistoryIds.size})</span>
@@ -1156,7 +1162,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
                     className="upload-action"
                     onClick={handlePickBackup}
                     disabled={isLoading}
-                    title="Restore from a previously exported backup (replaces current data)"
+                    title="Restore from backup"
                   >
                     <RotateCcw width={14} height={14} strokeWidth={1.6} aria-hidden />
                     <span>Restore</span>
@@ -1456,7 +1462,7 @@ function ImportModeDialog({
           <span className="choice-dialog-option-desc">
             {existingCount > 0
               ? isReimport
-                ? 'Keeps the existing cards AND adds another full copy of this import — duplicates stack.'
+                ? 'Keep the existing cards and add another full copy of this import. Duplicates will stack.'
                 : 'Keep existing cards and append the new ones. Duplicates will stack.'
               : hasBinders
                 ? 'Import these cards into your collection. They will be routed through your binder rules.'
@@ -1516,7 +1522,7 @@ function ImportModeDialog({
             </span>
             <span className="choice-dialog-option-desc">
               {isReimport
-                ? 'Wipe the current collection and load this import fresh — refreshes it with no duplicates.'
+                ? 'Wipe the current collection and load this import fresh, with no duplicates.'
                 : 'Wipe the current collection and start fresh with the imported cards.'}
             </span>
           </button>
@@ -1558,7 +1564,7 @@ function ReimportGateDialog({
         This looks like a re-import
       </h2>
       <p className="choice-dialog-warning" role="alert">
-        These cards closely match an import you already made —{' '}
+        These cards closely match an import you already made:{' '}
         <strong>{prettyImportName(entry.name, entry.format)}</strong> (
         {entry.count.toLocaleString()} cards, {formatRelative(entry.addedAt)}). Merging will add a{' '}
         <strong>second copy of every card</strong>. To refresh it instead, choose{' '}
@@ -1615,10 +1621,10 @@ function prettyImportName(name: string, format: string): string {
 function formatImportProgressMessage(p: ImportProgressState): string {
   const batch = `batch ${p.chunkIndex} of ${p.totalChunks}`;
   if (p.totalFiles && p.totalFiles > 1 && p.fileLabel) {
-    return `Importing ${p.fileLabel} (file ${p.fileIndex} of ${p.totalFiles}) — ${batch}…`;
+    return `Importing ${p.fileLabel} (file ${p.fileIndex} of ${p.totalFiles}) · ${batch}…`;
   }
-  if (p.fileLabel) return `Importing ${p.fileLabel} — ${batch}…`;
-  return `Importing your collection — ${batch}…`;
+  if (p.fileLabel) return `Importing ${p.fileLabel} · ${batch}…`;
+  return `Importing your collection · ${batch}…`;
 }
 
 function formatRelative(timestamp: number): string {

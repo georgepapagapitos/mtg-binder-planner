@@ -167,13 +167,13 @@ describe('resistanceRespond — played events', () => {
     }
     expect([...seen.keys()].sort()).toEqual(['bounce', 'counter', 'destroy']);
     expect(seen.get('counter')!.message).toBe(
-      `Opponent casts ${seen.get('counter')!.spellName} — ${bigThreat.name} is countered`
+      `Opponent casts ${seen.get('counter')!.spellName}: ${bigThreat.name} is countered`
     );
     expect(seen.get('destroy')!.message).toBe(
-      `Opponent casts ${seen.get('destroy')!.spellName} — ${bigThreat.name} is destroyed`
+      `Opponent casts ${seen.get('destroy')!.spellName}: ${bigThreat.name} is destroyed`
     );
     expect(seen.get('bounce')!.message).toBe(
-      `Opponent casts ${seen.get('bounce')!.spellName} — ${bigThreat.name} is returned to hand`
+      `Opponent casts ${seen.get('bounce')!.spellName}: ${bigThreat.name} is returned to hand`
     );
   });
 
@@ -292,7 +292,7 @@ describe('resistanceRespond — turnStart / board wipe', () => {
     );
     expect(first.response?.effect).toBe('wipe');
     expect(first.response?.message).toBe(
-      `Opponent casts ${first.response?.spellName} — the board is wiped`
+      `Opponent casts ${first.response?.spellName}: the board is wiped`
     );
     expect(first.state.wipesUsed).toBe(1);
     // Every later turnStart, regardless of board size, never wipes again

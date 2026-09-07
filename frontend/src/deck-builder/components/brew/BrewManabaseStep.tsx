@@ -1,4 +1,5 @@
 import { useMemo, useState, type JSX } from 'react';
+import { ArrowRight } from 'lucide-react';
 import './BrewManabaseStep.css';
 import '@/styles/deck-builder-skeleton.css';
 import { useCardThumb } from '@/lib/card-thumbs';
@@ -79,8 +80,8 @@ export function BrewManabaseStep({ onAccept }: BrewManabaseStepProps): JSX.Eleme
       <header className="brew-slot-header">
         <h2 id="brew-manabase-heading">Manabase</h2>
         <p className="brew-slot-purpose">
-          Your commander's colors, built into a land base — nonbasics EDHREC players actually run,
-          then basics split to match your color pips. Review it, tweak the count, or take it as-is.
+          A land base built from your color pips, using the nonbasics EDHREC players actually run.
+          Tweak the count or take it as-is.
         </p>
       </header>
 
@@ -136,7 +137,7 @@ export function BrewManabaseStep({ onAccept }: BrewManabaseStepProps): JSX.Eleme
           onClick={onAccept}
           disabled={landPlanLoading || !landPlan}
         >
-          Looks good — save my deck →
+          Looks good, save my deck <ArrowRight width={14} height={14} aria-hidden />
         </button>
       </div>
     </section>

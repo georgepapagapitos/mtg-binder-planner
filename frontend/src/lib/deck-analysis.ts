@@ -152,7 +152,7 @@ function landsMessageFor(
     return `Add ${suggested - count} to reach the ~${suggested} this deck's curve suggests (${basis}).`;
   }
   if (count > range[1]) {
-    return `${count - suggested} over the ~${suggested} this deck's curve suggests (${basis}). Consider swapping for spells.`;
+    return `${count - suggested} over the ~${suggested} this deck's curve suggests (${basis}). Swap for spells.`;
   }
   return `In range of the ~${suggested} this deck's curve suggests (${basis}).`;
 }
@@ -164,10 +164,10 @@ function messageFor(role: string, count: number, range: [number, number]): strin
     if (role === 'lands') {
       return `${delta} below the floor of ${lo} for this format.`;
     }
-    return `Add ${delta}${count + 1 < hi ? `–${hi - count}` : ''} more — ${lo}–${hi} is healthy.`;
+    return `Add ${delta}${count + 1 < hi ? `–${hi - count}` : ''} more. ${lo}–${hi} is healthy.`;
   }
   if (count > hi) {
-    return `${count - hi} over the typical ceiling of ${hi}. Consider trimming for flex slots.`;
+    return `${count - hi} over the typical ceiling of ${hi}. Trim for flex slots.`;
   }
   return `In the healthy ${lo}–${hi} range.`;
 }
@@ -226,13 +226,13 @@ function buildCurve(cards: ScryfallCard[]): CurveAnalysis {
   // ~2.5 suggests a fast deck (or a misclassified land base), above ~3.8
   // suggests a top-heavy deck likely to brick on opening hands.
   let verdict: CurveAnalysis['verdict'] = 'curve-ok';
-  let message = `Average mana value ${averageCmc.toFixed(2)} — comfortable middle.`;
+  let message = `Average mana value ${averageCmc.toFixed(2)}: comfortable middle.`;
   if (averageCmc >= 3.8) {
     verdict = 'top-heavy';
-    message = `Average mana value ${averageCmc.toFixed(2)} — top-heavy. Expect slow starts.`;
+    message = `Average mana value ${averageCmc.toFixed(2)}: top-heavy. Expect slow starts.`;
   } else if (averageCmc > 0 && averageCmc < 2.5) {
     verdict = 'low-curve';
-    message = `Average mana value ${averageCmc.toFixed(2)} — fast deck. Make sure threats stay relevant late.`;
+    message = `Average mana value ${averageCmc.toFixed(2)}: fast deck. Make sure threats stay relevant late.`;
   }
   return { buckets, averageCmc, peak, verdict, message };
 }

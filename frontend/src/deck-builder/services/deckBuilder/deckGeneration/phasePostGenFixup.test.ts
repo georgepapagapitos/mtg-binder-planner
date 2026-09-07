@@ -202,8 +202,7 @@ describe('postGenFixupPhase', () => {
       {
         cut: 'Filler',
         added: 'Rampant Growth',
-        reason:
-          'Critical role gap: Ramp was running 0 vs its 4-card target after earlier swaps — swapped Filler for Rampant Growth.',
+        reason: 'Swapped Filler for Rampant Growth to close a ramp gap.',
       },
     ]);
     expect(state.categories.creatures.some((c) => c.name === 'Filler')).toBe(false);
@@ -271,8 +270,7 @@ describe('postGenFixupPhase', () => {
     expect(result.fixupRepairs).toContainEqual({
       cut: 'Overfull Filler',
       added: 'Swords to Plowshares',
-      reason:
-        'Dead curve slot: no cards at 1 mana — swapped Overfull Filler for Swords to Plowshares.',
+      reason: 'Swapped Overfull Filler for Swords to Plowshares to fill your 1-mana curve.',
     });
   });
 

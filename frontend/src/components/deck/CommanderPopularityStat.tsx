@@ -66,7 +66,7 @@ export function CommanderPopularityStat({
         {variant === 'card' && (
           <InfoTip
             label="platform decks"
-            text="Decks built and published on SpellControl with this commander — updates nightly."
+            text="Decks built and published on SpellControl with this commander. Updates nightly."
           />
         )}
       </p>

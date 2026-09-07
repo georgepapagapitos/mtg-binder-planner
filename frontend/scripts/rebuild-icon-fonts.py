@@ -31,8 +31,15 @@ SOURCES = {
 
 
 def fix_bboxes(font):
-    """Recalculate every glyph bbox in place; return how many were wrong."""
+    """Recalculate every glyph bbox in place; return how many were wrong.
+
+    The hmtx left side bearing must move with xMin: TrueType rasterizers place
+    the outline so that xMin lands on the lsb, so a real xMin next to the old
+    placeholder lsb (0) shifts every glyph left by xMin — that is what put the
+    mana-cost numerals and pips off-centre in their circles (#1670 regression).
+    """
     glyf = font['glyf']
+    hmtx = font['hmtx']
     wrong = 0
     for name in font.getGlyphOrder():
         glyph = glyf[name]
@@ -40,8 +47,10 @@ def fix_bboxes(font):
             continue
         stored = (glyph.xMin, glyph.yMin, glyph.xMax, glyph.yMax)
         glyph.recalcBounds(glyf)
-        if stored != (glyph.xMin, glyph.yMin, glyph.xMax, glyph.yMax):
+        advance, lsb = hmtx[name]
+        if stored != (glyph.xMin, glyph.yMin, glyph.xMax, glyph.yMax) or lsb != glyph.xMin:
             wrong += 1
+        hmtx[name] = (advance, glyph.xMin)
     return wrong
 
 

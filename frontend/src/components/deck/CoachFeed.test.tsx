@@ -94,6 +94,12 @@ function makeProps(over: Partial<CoachFeedProps> = {}): CoachFeedProps {
 }
 
 describe('CoachFeed', () => {
+  it('never nests a list item inside a feed row (the row wrapper owns the <li>)', () => {
+    const { container } = render(<CoachFeed {...makeProps()} />);
+    expect(container.querySelectorAll('.coach-feed-rows > li').length).toBeGreaterThan(0);
+    expect(container.querySelector('li li')).toBeNull();
+  });
+
   it('renders rows from every source and the filter chips with counts', () => {
     render(<CoachFeed {...makeProps()} />);
     expect(screen.getByText('Cultivate')).toBeTruthy();
@@ -436,7 +442,7 @@ describe('CoachFeed', () => {
     expect(screen.getByText('Cultivate')).toBeTruthy();
     expect(screen.getByText('Squirrel Nest')).toBeTruthy();
 
-    const chip = screen.getByRole('button', { name: /Off-meta picks — 1/ });
+    const chip = screen.getByRole('button', { name: /Off-meta picks, 1/ });
     expect(chip.textContent).toContain('Off-meta');
     expect(chip.textContent).toContain('1');
 

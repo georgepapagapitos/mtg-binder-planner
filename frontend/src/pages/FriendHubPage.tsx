@@ -39,6 +39,7 @@ import { SearchPill } from '../components/SearchPill';
 import { SortMenu, type SortMenuOption } from '../components/SortMenu';
 import { useSharedFilters } from '../components/share/use-shared-filters';
 import { SharedEmptyState } from '../components/share/SharedEmptyState';
+import { EmptyStateMark } from '../components/shared/EmptyStateMark';
 import type { ShareKind } from '../lib/shared-types';
 
 import { userMessage } from '@/lib/user-error';
@@ -381,7 +382,7 @@ export function FriendHubPage() {
 
   if (status === 'guest') {
     return (
-      <div className="friend-hub">
+      <div className="friend-hub social-page-shell">
         <BackLink to="/friends" label="Friends" />
         <div className="friends-signin-prompt">
           <p className="friends-signin-title">Sign in to view shared content</p>
@@ -421,11 +422,15 @@ export function FriendHubPage() {
   ];
 
   return (
-    <div className={`friend-hub${tab === 'collection' ? ' friend-hub--wide' : ''}`}>
+    <div
+      className={`friend-hub social-page-shell${tab === 'collection' ? ' friend-hub--wide' : ''}`}
+    >
       <BackLink to="/friends" label="Friends" />
-      <h1 className="friend-hub-heading">{heading}</h1>
-      {hasDisplayName && <p className="friend-hub-handle">{handle}</p>}
-      <p className="friend-hub-sub">Shared with friends</p>
+      <header className="binder-hero">
+        <h1 className="binder-hero-name">{heading}</h1>
+        {hasDisplayName && <p className="binder-hero-meta">{handle}</p>}
+        <p className="binder-hero-meta">Shared with friends</p>
+      </header>
 
       <Tabs
         ariaLabel="Friend hub views"
@@ -488,8 +493,8 @@ export function FriendHubPage() {
               <>
                 <p className="friend-hub-radar-lede">
                   {radar.length === 1
-                    ? `1 card on your want list — ${who} has it`
-                    : `${radar.length} cards on your want list — ${who} has these`}
+                    ? `1 card on your want list. ${who} has it.`
+                    : `${radar.length} cards on your want list. ${who} has these.`}
                 </p>
                 <ul
                   className="friend-hub-radar-strip"
@@ -501,7 +506,7 @@ export function FriendHubPage() {
                 </ul>
                 <button
                   type="button"
-                  className="btn friend-hub-radar-propose"
+                  className="btn btn-primary friend-hub-radar-propose"
                   onClick={() => setComposing({})}
                 >
                   Propose a trade
@@ -542,8 +547,8 @@ export function FriendHubPage() {
                     ? `1 card you own is on ${who}'s want list`
                     : `${wantRadar.length} cards you own are on ${who}'s want list`}
                   {spareMatches > 0
-                    ? ` — ${spareMatches} you can spare`
-                    : ' — every copy is in a deck or cube'}
+                    ? `. ${spareMatches} you can spare.`
+                    : '. Every copy is in a deck or cube.'}
                 </p>
                 <ul
                   className="friend-hub-radar-strip"
@@ -555,7 +560,7 @@ export function FriendHubPage() {
                 </ul>
                 <button
                   type="button"
-                  className="btn friend-hub-radar-propose"
+                  className="btn btn-primary friend-hub-radar-propose"
                   onClick={() => setComposing({})}
                 >
                   Propose a trade
@@ -585,12 +590,16 @@ export function FriendHubPage() {
         {loading ? (
           <HubSkeleton />
         ) : sharesList.length === 0 ? (
-          <p className="friends-empty" role="status">
-            {ownerUsername
-              ? `${hasDisplayName ? identity!.primary : handle} hasn't`
-              : "This person hasn't"}{' '}
-            shared anything with friends yet.
-          </p>
+          <div className="empty-state" role="status">
+            <EmptyStateMark />
+            <p className="empty-state-tagline">
+              {ownerUsername
+                ? `${hasDisplayName ? identity!.primary : handle} hasn't`
+                : "This person hasn't"}{' '}
+              shared anything with friends yet.
+            </p>
+            <p className="empty-state-hint">Check back after their next share.</p>
+          </div>
         ) : (
           KIND_ORDER.map((kind) => {
             const rows = sharesList.filter((s) => s.kind === kind);
@@ -617,7 +626,7 @@ export function FriendHubPage() {
         hidden={tab !== 'collection'}
       >
         <p className="friend-hub-collection-contract">
-          What {who} owns — never quantities or values.
+          What {who} owns, never quantities or values.
         </p>
 
         {collectionError ? (
@@ -661,9 +670,9 @@ export function FriendHubPage() {
               <p className="friend-hub-search-note" role="status">
                 {friendSearchResult.ignored.join(', ')}{' '}
                 {friendSearchResult.ignored.length === 1 ? "isn't" : "aren't"} searchable in this
-                collection — its card data doesn't carry what{' '}
+                collection: its card data doesn't carry what{' '}
                 {friendSearchResult.ignored.length === 1 ? 'it' : 'they'} read. The rest of your
-                search still applied.
+                search still ran.
               </p>
             )}
 

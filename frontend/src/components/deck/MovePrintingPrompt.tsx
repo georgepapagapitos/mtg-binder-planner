@@ -47,7 +47,7 @@ export function MovePrintingPrompt({
       </h2>
       <p className="choice-dialog-body">
         {consequence}
-        {swap && ` Or swap — send your ${swap.returnSetName} copy back so nothing goes short.`}
+        {swap && ` Or swap: send your ${swap.returnSetName} copy back so nothing goes short.`}
       </p>
       <div className="choice-dialog-actions">
         <button type="button" className="btn" onClick={onCancel}>

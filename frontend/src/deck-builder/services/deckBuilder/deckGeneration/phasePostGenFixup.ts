@@ -159,7 +159,6 @@ export function postGenFixupPhase(
           MAX_FIXUP_SWAPS - fixupSwaps
         );
         const roleLabel = ROLE_LABEL[role];
-        const capitalizedRoleLabel = roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1);
         for (let i = 0; i < swapsForRole; i++) {
           const weak = findWeakestCard((card) => getCardRole(card.name) !== role);
           if (!weak) break;
@@ -170,7 +169,7 @@ export function postGenFixupPhase(
           fixupRepairs.push({
             cut: weak.card.name,
             added: replacement.name,
-            reason: `Critical role gap: ${capitalizedRoleLabel} was running ${current} vs its ${target}-card target after earlier swaps — swapped ${weak.card.name} for ${replacement.name}.`,
+            reason: `Swapped ${weak.card.name} for ${replacement.name} to close a ${roleLabel} gap.`,
           });
           if (swapCandidates) {
             const key = `type:${(getFrontFaceTypeLine(weak.card) || 'unknown').split(' ')[0].toLowerCase()}`;
@@ -220,7 +219,7 @@ export function postGenFixupPhase(
               fixupRepairs.push({
                 cut: weak.card.name,
                 added: replacement.name,
-                reason: `Dead curve slot: no cards at ${targetCmc} mana — swapped ${weak.card.name} for ${replacement.name}.`,
+                reason: `Swapped ${weak.card.name} for ${replacement.name} to fill your ${targetCmc}-mana curve.`,
               });
               if (swapCandidates) {
                 const key = `type:${(getFrontFaceTypeLine(weak.card) || 'unknown').split(' ')[0].toLowerCase()}`;

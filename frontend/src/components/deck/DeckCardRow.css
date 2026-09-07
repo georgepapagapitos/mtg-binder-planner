@@ -52,21 +52,23 @@
   overflow: hidden;
   background: transparent;
   cursor: pointer;
-  /* Dim + slightly desaturate the card leaving the deck. */
-  opacity: 0.5;
-  filter: grayscale(0.35);
+  /* Dim + slightly desaturate the card leaving the deck. Kept light enough
+     that the card is still recognisable at 2rem (E264: at 0.5 it read as a
+     grey ghost, not the card you are cutting). */
+  opacity: 0.72;
+  filter: grayscale(0.25);
   transition: opacity var(--motion-fast) ease;
 }
 
 /* Inspectable on hover/focus — undo the dim so the card you're about to read
    reads clearly. */
 .deck-card-row-out:not(:disabled):focus-visible {
-  opacity: 0.85;
+  opacity: 1;
   filter: grayscale(0);
 }
 @media (hover: hover) and (pointer: fine) {
   .deck-card-row-out:not(:disabled):hover {
-    opacity: 0.85;
+    opacity: 1;
     filter: grayscale(0);
   }
 }

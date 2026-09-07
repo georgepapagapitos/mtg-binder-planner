@@ -635,7 +635,7 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
       expect(names).toContain('On-Color Enabler'); // the legal enabler DID get added
       const repair = (deck.coherenceRepairs ?? []).find((r) => r.added === 'On-Color Enabler');
       expect(repair).toBeDefined();
-      expect(repair!.reason).toMatch(/completes 2 near-miss combos/);
+      expect(repair!.reason).toMatch(/Completes 2 more combos/);
     } finally {
       mockedFetch.mockImplementation(realFetch);
       clearGenerationCache();
@@ -1019,7 +1019,7 @@ describe('generateDeck — land-squeeze reconciliation (E88, iter-7 Slice B)', (
       // only the guarantees E88 itself makes.)
       expect(names.length).toBe(99);
       expect(deck.landSqueezeTrimNote).toBeDefined();
-      expect(deck.landSqueezeTrimNote).toMatch(/^Auto-tuning the land count to \d+/);
+      expect(deck.landSqueezeTrimNote).toMatch(/^Raising lands to \d+/);
       // The protected piece survived...
       expect(names).toContain('Creature_31');
       // ...while the next-worst, unprotected filler was cut instead.

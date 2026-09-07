@@ -1552,6 +1552,28 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Scroll-edge fade: AdminPanel sets `data-overflow` to the edge(s) with
+   columns behind them (the Tabs.tsx `.sc-tabs[data-overflow]` idiom, same
+   gutter-sized fade), so a table that fits is untouched and the edge you have
+   scrolled to stays crisp. */
+.admin-users-table-scroll[data-overflow='end'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent 100%);
+}
+
+.admin-users-table-scroll[data-overflow='start'] {
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--space-6));
+}
+
+.admin-users-table-scroll[data-overflow='both'] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--space-6),
+    #000 calc(100% - var(--space-6)),
+    transparent 100%
+  );
+}
+
 .admin-users-table {
   width: 100%;
   min-width: 26rem;
@@ -1612,12 +1634,19 @@
   gap: var(--space-2);
 }
 
-/* Actions cell of a table row: the per-row buttons (Clear profile, Delete)
-   sit side by side, right-aligned to match the cell's own text-align. */
-.admin-row-actions {
+/* Profile cell: the display name, plus a bio/avatar-card caption on its own
+ * line when present — visible rather than a hover-only title= (B2-15), which
+ * never fires on touch and is invisible to a screen reader either way. */
+.admin-profile-cell {
   display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+}
+
+.admin-profile-detail {
+  max-width: 22rem;
+  white-space: normal;
 }
 
 /* Reports section: loading skeleton rows shown while GET /api/admin/reports

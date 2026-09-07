@@ -103,7 +103,7 @@ export function buildRoleDeficitNotes(
       .slice(0, MAX_DEFICIT_EXAMPLES);
 
     if (candidates.length === 0) {
-      notes.push(`${headline} — the EDHREC pool had no further ${roleLabel} to offer.`);
+      notes.push(`${headline}. The EDHREC pool had no further ${roleLabel} to offer.`);
       continue;
     }
     const examples = candidates
@@ -113,9 +113,7 @@ export function buildRoleDeficitNotes(
           : `${c.name} (${Math.round(c.inclusion)}%)`
       )
       .join(' and ');
-    notes.push(
-      `${headline} — pool options like ${examples} were outcompeted at pick time by higher-ranked synergy and package picks.`
-    );
+    notes.push(`${headline}. ${examples} lost out to stronger synergy picks for this deck.`);
   }
 
   return notes.length > 0 ? notes : undefined;

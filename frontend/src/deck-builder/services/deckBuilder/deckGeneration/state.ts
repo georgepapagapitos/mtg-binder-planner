@@ -136,8 +136,6 @@ export interface GenerationState {
   archetypeBlendNames: string[];
   /** E221: the theme whose tag page was blended in, for the disclosure. */
   archetypeBlendTheme: string | undefined;
-  /** E221: the commander page's own deck count — the sample the note cites. */
-  archetypeBlendCommanderDecks: number | undefined;
   themeOverlapCounts: Map<string, number>;
   roleTargets: Record<RoleKey, number> | null;
   roleTargetBreakdown: Record<RoleKey, RoleTargetBreakdown> | undefined;
@@ -228,7 +226,6 @@ export function createState(context: GenerationContext): GenerationState {
     bracketPoolFallbackNote: undefined,
     archetypeBlendNames: [],
     archetypeBlendTheme: undefined,
-    archetypeBlendCommanderDecks: undefined,
     themeOverlapCounts: new Map<string, number>(),
     roleTargets: null,
     roleTargetBreakdown: undefined,

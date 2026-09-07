@@ -1037,8 +1037,8 @@ async function webPushInner(
     toast.show({
       message:
         typeof navigator !== 'undefined' && !navigator.onLine
-          ? "You're offline — changes can't be saved."
-          : "Change couldn't be saved. Please try again.",
+          ? "You're offline. Changes can't be saved."
+          : "Couldn't save that change. Try again.",
       tone: 'error',
     });
     pushError = true;

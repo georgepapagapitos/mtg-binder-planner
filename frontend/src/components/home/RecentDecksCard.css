@@ -38,14 +38,31 @@
   }
 }
 
-.home-recent-deck-name {
+.home-recent-deck-name-group {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.home-recent-deck-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-sm);
   font-weight: 500;
+}
+
+/* Relative "updated Nd ago" caption (B2-11) — the dev account's decks share a
+   name, so the row needs SOME distinguishing detail beyond the name itself;
+   `deck.updatedAt` is already computed, so this is free. */
+.home-recent-deck-updated {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 .home-recent-deck-cost {

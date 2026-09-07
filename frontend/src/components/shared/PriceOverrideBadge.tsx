@@ -38,8 +38,8 @@ export function PriceOverrideBadge({
       aria-label={active ? 'Manually priced' : `Manually priced in ${overrideCurrency}`}
       title={
         active
-          ? "Manually priced — overrides Scryfall's market price"
-          : `Manually priced in ${overrideCurrency} — switch display currency to see it`
+          ? "Manually priced, overrides Scryfall's market price"
+          : `Manually priced in ${overrideCurrency}. Switch display currency to see it.`
       }
     />
   );

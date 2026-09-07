@@ -34,13 +34,18 @@ export interface SimilarCardsStripProps {
   enabled: boolean;
 }
 
-/** Build a human-readable reason line for a SimilarCandidate row. */
-function buildReason(c: SimilarCandidate, group: 'owned' | 'discovery'): string {
+/** Build a human-readable reason line for a SimilarCandidate row.
+ *  `Plays like {card}` always names the anchor card — never a pronoun. */
+function buildReason(
+  c: SimilarCandidate,
+  group: 'owned' | 'discovery',
+  anchorName: string
+): string {
   if (group === 'owned' && (c.freeCount ?? 0) > 0) {
     return `${c.freeCount} free in your collection`;
   }
   if (c.sharedAxes.length > 0) {
-    return `Plays like this — shares your ${c.sharedAxes[0]} engine`;
+    return `Plays like ${anchorName}, shares your ${c.sharedAxes[0]} engine`;
   }
   return 'Similar role & curve';
 }
@@ -48,7 +53,7 @@ function buildReason(c: SimilarCandidate, group: 'owned' | 'discovery'): string 
 /** Build the INCOMING add-Change for a SimilarCandidate. The caller promotes it
  *  to a real `type:'swap'` against the focused card via `toSwapAgainst`, so the
  *  row renders the trade (focused card → this candidate) in <DeckCardRow>. */
-function toChange(c: SimilarCandidate, group: 'owned' | 'discovery'): Change {
+function toChange(c: SimilarCandidate, group: 'owned' | 'discovery', anchorName: string): Change {
   return {
     id: `similar:${group}:${c.name}`,
     type: 'add',
@@ -58,7 +63,7 @@ function toChange(c: SimilarCandidate, group: 'owned' | 'discovery'): Change {
     ownership: c.ownership,
     inclusion: c.inclusion,
     imageUrl: c.card.image_uris?.normal,
-    reason: buildReason(c, group),
+    reason: buildReason(c, group, anchorName),
     cmc: c.card.cmc,
     typeLine: c.card.type_line,
   };
@@ -119,7 +124,7 @@ export function SimilarCardsStrip({
             {owned.map((c) => (
               <DeckCardRow
                 key={`owned:${c.name}`}
-                change={toSwapAgainst(toChange(c, 'owned'), target.name)}
+                change={toSwapAgainst(toChange(c, 'owned', target.name), target.name)}
                 commanderName={commanderName}
                 actLabel="Swap in"
                 onAct={() => onSwap(c.name)}
@@ -141,7 +146,7 @@ export function SimilarCardsStrip({
               {discovery.map((c) => (
                 <DeckCardRow
                   key={`discovery:${c.name}`}
-                  change={toSwapAgainst(toChange(c, 'discovery'), target.name)}
+                  change={toSwapAgainst(toChange(c, 'discovery', target.name), target.name)}
                   commanderName={commanderName}
                   actLabel="Swap in"
                   onAct={() => onSwap(c.name)}

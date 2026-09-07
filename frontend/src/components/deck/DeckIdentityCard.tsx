@@ -1,5 +1,4 @@
 import { useId, useState, useEffect, lazy, Suspense, type JSX } from 'react';
-import { useAnimatedNumber } from '@/lib/use-animated-number';
 import { ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import './DeckIdentityCard.css';
 import type { ScryfallCard } from '@/deck-builder/types';
@@ -16,6 +15,7 @@ import type { LaneId } from '@/lib/deck-change';
 import { COLOR_INFO } from '../../lib/colors';
 import { ColorPip } from '../shared/ManaSymbol';
 import { useCardThumb } from '@/lib/card-thumbs';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { InfoTip } from '@/components/InfoTip';
 import { SelectMenu, type SelectOption } from '@/components/SelectMenu';
 import type { Archetype } from '@/deck-builder/types';
@@ -51,11 +51,6 @@ export interface DeckIdentityCardProps {
   analysisState: 'pending' | 'ready' | 'error';
   /** E162: retries a failed/stalled first analysis. Passed only when analysisState is 'error'. */
   onRetryAnalysis?: () => void;
-  /**
-   * Session-scoped reveal key. When provided, plays a 0→target reveal tween
-   * the first time this key is seen. Pass null/undefined to skip the reveal.
-   */
-  revealKey?: string | null;
   validation: ValidationResult;
   planScore: PlanScore | null;
   /**
@@ -286,23 +281,11 @@ export function DeckIdentityCard({
   averageCmc,
   onNavigate,
   cards = [],
-  revealKey,
 }: DeckIdentityCardProps): JSX.Element {
   // Playstyle expander: collapsed by default; lazy-mounts PlaystyleRadar on first expand
   const [playstyleOpen, setPlaystyleOpen] = useState(false);
   // Track whether it has ever been opened — once true, the Suspense boundary stays mounted
   const [playstyleEverOpened, setPlaystyleEverOpened] = useState(false);
-
-  // Animate the build health number only — everything else (bandLabel, headline,
-  // softSpot) is text and stays static. Suppressed while analysis is pending since
-  // planScore is absent then; the reveal fires once it arrives via revealKey.
-  const planScoreOverall = planScore
-    ? Math.max(0, Math.min(100, Math.round(planScore.overall)))
-    : 0;
-  const { display: planScoreDisplay } = useAnimatedNumber(planScoreOverall, {
-    revealMs: 600,
-    revealKey: revealKey ? `${revealKey}:build-health` : null,
-  });
 
   // Commander-popularity stat (social W4): SpellControl's own threshold-gated
   // platform count, blended with EDHREC's numDecks (threaded in via the
@@ -363,6 +346,12 @@ export function DeckIdentityCard({
   // Fallback via CDN thumb when art_crop not directly available on the card object
   const cdnThumb = useCardThumb(artCrop ? undefined : commanderName, 'normal');
   const artUrl = artCrop ?? cdnThumb;
+  // Phone header (E264): the art band is gone below the mobile breakpoint
+  // (DeckIdentityCard.css), and the curve sparkline joins the name and
+  // commander in the header instead of taking its own row below the identity
+  // line, so the stats panels start within the first screen.
+  const phone = useMediaQuery('(max-width: 600px)');
+  const sparkline = <CurveSparkline manaCurve={manaCurve} averageCmc={averageCmc} />;
 
   // Color identity (union of commander + partner)
   const colorIdentity = [
@@ -439,7 +428,7 @@ export function DeckIdentityCard({
               </span>
             )}
             <h2 className="deck-identity-card-deck-name">{deckName}</h2>
-            <span className="deck-identity-card-format">{formatLabel}</span>
+            {phone ? sparkline : <span className="deck-identity-card-format">{formatLabel}</span>}
           </div>
         </div>
       </div>
@@ -486,8 +475,8 @@ export function DeckIdentityCard({
           variant="card"
         />
 
-        {/* Sparkline */}
-        <CurveSparkline manaCurve={manaCurve} averageCmc={averageCmc} />
+        {/* Sparkline (in the header on phones) */}
+        {!phone && sparkline}
 
         {/* ── Playstyle expander ── */}
         <div className="deck-identity-card-playstyle">
@@ -550,7 +539,7 @@ export function DeckIdentityCard({
                           type="button"
                           className="deck-identity-card-shortfall-btn"
                           onClick={() => onNavigate(lane)}
-                          aria-label={`${label} — go to Tune`}
+                          aria-label={`${label}, go to Tune`}
                         >
                           <span className="deck-identity-card-shortfall-text">{label}</span>
                           <ArrowRight
@@ -612,8 +601,7 @@ export function DeckIdentityCard({
               <div className="deck-identity-card-pillar">
                 <span className="deck-identity-card-eyebrow">Build health</span>
                 <p className="deck-identity-card-band">
-                  <strong className="deck-identity-card-band-num">{planScoreDisplay}</strong> ·{' '}
-                  {planScore.bandLabel}
+                  <strong className="deck-identity-card-band-num">{planScore.bandLabel}</strong>
                   {planScore.limitedData && (
                     <span className="deck-identity-card-limited"> · limited data</span>
                   )}
@@ -621,7 +609,7 @@ export function DeckIdentityCard({
                 <p className="deck-identity-card-headline">{planScore.headline}</p>
                 {softSpot && (
                   <p className="deck-identity-card-softspot">
-                    soft spot: {SUBSCORE_LABEL[softSpot.key]} — {softSpot.bandLabel}
+                    soft spot: {SUBSCORE_LABEL[softSpot.key]} · {softSpot.bandLabel}
                   </p>
                 )}
               </div>

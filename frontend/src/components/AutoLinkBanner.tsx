@@ -24,9 +24,8 @@ export function AutoLinkBanner() {
   return (
     <div className="auto-link-banner" role="status" aria-live="polite">
       <div className="auto-link-banner-text">
-        <strong>Google sign-in linked.</strong> We connected this Google account to your existing
-        SpellControl account{username ? ` (@${username})` : ''}. If that wasn&apos;t you, unlink it
-        below.
+        <strong>Google sign-in linked.</strong> Your Google account now signs in to
+        {username ? ` @${username}` : ' your account'}. If that wasn&apos;t you, unlink it below.
       </div>
       <div className="auto-link-banner-actions">
         <button

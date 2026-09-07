@@ -18,6 +18,7 @@ import { cmdDamageFillRatio, cmdDamageToLethal } from '../../lib/cmd-damage';
 import { useTapAndHold } from '../../lib/tap-and-hold';
 import { useAuth } from '../../store/auth';
 import { usePlayStore } from '../../store/play';
+import { ConfirmDialog } from '../ConfirmDialog';
 import { GameRecap } from './GameRecap';
 import './OnlineGameView.css';
 
@@ -131,6 +132,17 @@ export function OnlineGameView({ game, errorMessage, onEnd, onLeave, onRematch }
   const isHost = game.hostUserId != null && game.hostUserId === user?.id;
   const hostName = game.players.find((p) => p.userId === game.hostUserId)?.name ?? 'the host';
   const opponents = game.players.filter((p) => p.seat !== mySeat?.seat);
+
+  // Leaving as the host deletes the session for everyone still at the table
+  // (backend deletes the row unconditionally on host-leave, any status but
+  // finished) — confirm before that fires. A finished table's "Close" and a
+  // non-host's "Leave" are both non-destructive to anyone but the leaver, so
+  // they skip the dialog.
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const handleLeave = () => {
+    if (isHost) setConfirmLeave(true);
+    else onLeave?.();
+  };
   const activePlayer =
     game.activeSeat != null ? (game.players.find((p) => p.seat === game.activeSeat) ?? null) : null;
   const turnLabel = activePlayer
@@ -191,13 +203,31 @@ export function OnlineGameView({ game, errorMessage, onEnd, onLeave, onRematch }
               </button>
             )}
             {onLeave && (
-              <button type="button" className="btn ogv-header-btn" onClick={onLeave}>
+              <button type="button" className="btn ogv-header-btn" onClick={handleLeave}>
                 Leave
               </button>
             )}
           </div>
         )}
       </header>
+
+      {confirmLeave && (
+        <ConfirmDialog
+          title="End the table for everyone?"
+          body={
+            opponents.length > 0
+              ? `Leaving ends the game for ${opponents.length === 1 ? 'the other player' : `all ${opponents.length} other players`} still seated.`
+              : 'Leaving ends the game.'
+          }
+          confirmLabel="End table"
+          danger
+          onConfirm={() => {
+            setConfirmLeave(false);
+            onLeave?.();
+          }}
+          onCancel={() => setConfirmLeave(false)}
+        />
+      )}
 
       <HoldBanners
         onlineRequests={onlineRequests}
@@ -545,7 +575,7 @@ function HoldBanner({
     >
       <span className="ogv-hold-dot" aria-hidden="true" />
       <span className="ogv-hold-text">
-        <strong>{holder?.name ?? 'A player'}</strong> holds — responding…
+        <strong>{holder?.name ?? 'A player'}</strong> has the table on hold.
       </span>
       {mine && (
         <button
@@ -887,7 +917,7 @@ function HoldControl({
         await raiseGameRequest('hold', { summary: '' });
       }
     } catch (err) {
-      setError(userMessage(err, "Couldn't reach the table — try again."));
+      setError(userMessage(err, "Couldn't reach the table. Try again."));
     } finally {
       setBusy(false);
     }
@@ -1037,14 +1067,14 @@ function FinishedPanel({
             <span className="ogv-finished-sub">wins the game</span>
           </>
         ) : (
-          <span className="ogv-finished-sub">Game over — no winner</span>
+          <span className="ogv-finished-sub">Game over. No winner.</span>
         )}
       </div>
       <GameRecap game={game} />
       <div className="ogv-finished-actions">
         {onRematch && (
           <button type="button" className="btn btn-primary" onClick={onRematch}>
-            Rematch — same players
+            Rematch · same players
           </button>
         )}
         {onLeave && (

@@ -272,11 +272,11 @@ export function computeSessionAggregates(
   };
 }
 
-/** "Turn 8 kill" / "Turn 5 — game ended" for the end-of-session summary's headline. */
+/** "Turn 8 kill" / "Turn 5: game ended" for the end-of-session summary's headline. */
 export function sessionHeadline(record: PlaytestSessionRecord): string {
   return record.killTurn !== null
     ? `Turn ${record.killTurn} kill`
-    : `Turn ${record.turns} — game ended`;
+    : `Turn ${record.turns}: game ended`;
 }
 
 /**

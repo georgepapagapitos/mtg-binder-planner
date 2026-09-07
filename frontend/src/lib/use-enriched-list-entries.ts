@@ -49,6 +49,13 @@ interface Resolved {
 export function useEnrichedListEntries(entries: ListEntry[]): {
   rows: EnrichedListRow[];
   loading: boolean;
+  /** True once `loading` has held for a while — long enough that a silent
+   *  skeleton reads as broken rather than slow (e.g. Scryfall rate-limit
+   *  backoff). Lets the view swap in a retry affordance instead of leaving
+   *  the player staring at an unchanging spinner. */
+  loadingLong: boolean;
+  /** Re-runs resolution from scratch for the current `entries`. */
+  retry: () => void;
 } {
   const ids = useMemo(
     () => [...new Set(entries.map((e) => e.scryfallId).filter(Boolean))].sort(),
@@ -68,6 +75,7 @@ export function useEnrichedListEntries(entries: ListEntry[]): {
     byId: new Map(),
     byName: new Map(),
   });
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     // Empty list → nothing to resolve; the initial state's empty key already
@@ -100,9 +108,24 @@ export function useEnrichedListEntries(entries: ListEntry[]): {
     return () => {
       cancelled = true;
     };
-  }, [key, ids, names, entries]);
+  }, [key, ids, names, entries, retryToken]);
 
   const ready = resolved.key === key;
+  const loading = !ready && (ids.length > 0 || names.length > 0);
+
+  // Flips once loading has run long enough that it reads as stuck rather
+  // than slow (e.g. Scryfall rate-limit backoff on the id/name batch). Reset
+  // lives in the cleanup, not the effect body, so a fresh loading cycle
+  // (a new key, or `retry()`) never inherits a stale `true` from the last one.
+  const [loadingLong, setLoadingLong] = useState(false);
+  useEffect(() => {
+    if (!loading) return;
+    const t = window.setTimeout(() => setLoadingLong(true), 5000);
+    return () => {
+      window.clearTimeout(t);
+      setLoadingLong(false);
+    };
+  }, [loading, key, retryToken]);
 
   const rows = useMemo<EnrichedListRow[]>(() => {
     if (!ready) return [];
@@ -140,5 +163,5 @@ export function useEnrichedListEntries(entries: ListEntry[]): {
     });
   }, [ready, entries, resolved]);
 
-  return { rows, loading: !ready && (ids.length > 0 || names.length > 0) };
+  return { rows, loading, loadingLong, retry: () => setRetryToken((n) => n + 1) };
 }

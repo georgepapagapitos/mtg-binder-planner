@@ -9,7 +9,19 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import { createPortal } from 'react-dom';
+import { useMenuKeyboard } from '../lib/use-menu-keyboard';
+import { computePopoverPlacement, getSafeViewport } from '../lib/popover-placement';
 import { haptics } from '../lib/haptics';
 import { scryfallArtCrop } from '../lib/offline/slim-to-scryfall';
 import { useCardsWithTags, bindersUseTags } from '../lib/card-tags';
@@ -154,6 +166,7 @@ import { getCardPrice, getCardByName, searchCards } from '../deck-builder/servic
 const fetchFixingLands = (identityKey: string): Promise<ScryfallCard[]> =>
   searchCards('t:land -t:basic', identityKey.split(''), { order: 'edhrec' }).then((r) => r.data);
 import type { WinConditionAnalysis } from '@/deck-builder/services/winConditions/types';
+import { getSyncState, onSyncedChange } from '@/lib/sync';
 
 /**
  * Build a one-line win-condition summary for the PowerHero Gameplan pillar.
@@ -183,8 +196,8 @@ const DECK_EDITOR_SHORTCUTS = [
   { keys: ['/'], description: 'Open card search' },
   { keys: ['a'], description: 'Open Coach tab (suggestions)' },
   { keys: ['c'], description: 'Open Power tab with combos' },
-  { keys: ['Cmd/Ctrl', 'Z'], description: 'Undo last edit' },
-  { keys: ['Cmd/Ctrl', 'Shift+Z'], description: 'Redo last edit' },
+  { keys: ['Cmd/Ctrl+Z'], description: 'Undo last edit' },
+  { keys: ['Cmd/Ctrl+Shift+Z'], description: 'Redo last edit' },
 ];
 
 // "Owned only" Coach toggle — persisted here (the page owns the state) so both
@@ -203,6 +216,11 @@ export function DeckEditorPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const deck = useDecksStore((s) => s.decks.find((d) => d.id === id) ?? null);
+  const decksHydrated = useDecksStore((s) => s.hydrated);
+  // A fresh device hydrates an EMPTY IndexedDB first; the deck only arrives with the
+  // first server pull. Treat that pull as part of loading, or a bookmarked deck reads
+  // as deleted for the seconds it takes (sweep-3 B6-01).
+  const syncing = useSyncExternalStore(onSyncedChange, () => getSyncState() === 'syncing');
   const updateDeck = useDecksStore((s) => s.updateDeck);
   const markArrivalsReviewed = useDecksStore((s) => s.markArrivalsReviewed);
   const renameDeck = useDecksStore((s) => s.renameDeck);
@@ -1252,6 +1270,14 @@ export function DeckEditorPage() {
 
   if (!id) return <Navigate to="/decks" replace />;
   if (!deck) {
+    if (!decksHydrated || syncing) {
+      return (
+        <div className="page-loader page-loader--message" role="status" aria-live="polite">
+          <span className="spinner" aria-hidden="true" />
+          <span className="page-loader-message">Loading deck…</span>
+        </div>
+      );
+    }
     return (
       <div className="deck-editor-missing">
         <p>That deck no longer exists.</p>
@@ -1648,7 +1674,7 @@ export function DeckEditorPage() {
       return;
     }
     pushToast({
-      message: `${card.name} released — the copy is now free.`,
+      message: `${card.name} released. The copy is now free.`,
       tone: 'success',
       actionLabel: 'Undo',
       onAction: () => undoEdit(deck.id),
@@ -2900,7 +2926,7 @@ export function DeckEditorPage() {
               type="button"
               className="btn deck-editor-action-btn"
               onClick={() => setTokensOpen(true)}
-              title="Tokens this deck makes — prep them before you play"
+              title="Prep this deck's tokens before you play."
             >
               <Coins width={14} height={14} strokeWidth={2} aria-hidden />
               Tokens
@@ -2912,7 +2938,7 @@ export function DeckEditorPage() {
               type="button"
               className="btn deck-editor-action-btn"
               onClick={() => setPullListOpen(true)}
-              title="Where every card lives — pull this deck from your binders"
+              title="Pull this deck's cards from your binders."
             >
               <ListChecks width={14} height={14} strokeWidth={2} aria-hidden />
               Pull list
@@ -2935,6 +2961,7 @@ export function DeckEditorPage() {
             onResync={() => setResyncOpen(true)}
             onFeedback={() => setFeedbackOpen(true)}
             onPrimer={() => setPrimerOpen(true)}
+            onBuildReport={deck.buildReport ? () => setShowBuildReport(true) : undefined}
             onTokens={deckTokens.length > 0 ? () => setTokensOpen(true) : undefined}
             onPullList={hasPullSlots ? () => setPullListOpen(true) : undefined}
             onUndo={canUndoEdit ? () => undoEdit(deck.id) : undefined}
@@ -2966,6 +2993,7 @@ export function DeckEditorPage() {
             onResync={() => setResyncOpen(true)}
             onFeedback={() => setFeedbackOpen(true)}
             onPrimer={() => setPrimerOpen(true)}
+            onBuildReport={deck.buildReport ? () => setShowBuildReport(true) : undefined}
             onPlaytest={() => navigate(`/decks/${deck.id}/playtest`)}
             onTokens={deckTokens.length > 0 ? () => setTokensOpen(true) : undefined}
             onPullList={hasPullSlots ? () => setPullListOpen(true) : undefined}
@@ -3408,7 +3436,7 @@ export function DeckEditorPage() {
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${deck.name}"?`}
-          body="This cannot be undone."
+          body="This can't be undone."
           confirmLabel="Delete"
           danger
           onConfirm={handleConfirmDelete}
@@ -3543,7 +3571,7 @@ export function DeckEditorPage() {
           subtitle={
             replaceOptions.anyRelated
               ? `Replace a card with ${pendingAdd}?`
-              : `Make room for ${pendingAdd} — cut a weak card?`
+              : `Cut a weak card to make room for ${pendingAdd}?`
           }
           actionVerb="Replace"
           subject={{ name: pendingAdd, label: "The card you're adding" }}
@@ -3734,6 +3762,7 @@ function DeckEditorOverflowMenu({
   onResync,
   onFeedback,
   onPrimer,
+  onBuildReport,
   onPlaytest,
   onTokens,
   onPullList,
@@ -3762,6 +3791,9 @@ function DeckEditorOverflowMenu({
   onFeedback: () => void;
   /** Opens the primer (strategy notes) editor sheet. */
   onPrimer: () => void;
+  /** Reopens the one-shot generation Build Report (B6-06). Present only when
+   *  the deck has one — a hand-built deck never got one to reopen. */
+  onBuildReport?: () => void;
   onPlaytest?: () => void;
   /** Present only when the deck makes tokens. */
   onTokens?: () => void;
@@ -3774,24 +3806,59 @@ function DeckEditorOverflowMenu({
   undoLabel?: string | null;
   redoLabel?: string | null;
 }) {
+  // Portal + fixed-position placement (B6-02): the panel used to be
+  // `position: absolute; right: 0` inside a wrapper no wider than the 44px
+  // kebab button, so a right-aligned panel wider than that wrapper computed a
+  // negative `left` and clipped off the left edge of the viewport at 360px.
+  // Portaling to <body> and computing coordinates from the trigger's real
+  // screen position (same primitives as OverflowMenu/SelectMenu/ToolbarPopover)
+  // clamps it into the safe viewport regardless of the wrapper's own width.
+  // useMenuKeyboard also replaces the hand-rolled mousedown/Escape listeners
+  // with real menu semantics (B6-13): arrow-key nav, Home/End, Escape/Tab
+  // return focus to the trigger, pointerdown (not mousedown) dismiss.
   const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [panelPos, setPanelPos] = useState<{
+    top?: number;
+    bottom?: number;
+    left?: number;
+    right?: number;
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', onKey);
-    };
+  const { closeAndReturnFocus } = useMenuKeyboard({
+    open,
+    onClose: () => setOpen(false),
+    panelRef,
+    triggerRef: buttonRef,
+  });
+
+  useLayoutEffect(() => {
+    if (!open || !panelRef.current || !buttonRef.current) return;
+    const anchorRect = buttonRef.current.getBoundingClientRect();
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const placement = computePopoverPlacement(
+      anchorRect,
+      { width: panelRect.width, height: panelRect.height },
+      getSafeViewport(),
+      'right',
+      4
+    );
+    setPanelPos({
+      top: placement.top,
+      bottom: placement.bottom,
+      left: placement.left,
+      right: placement.right,
+    });
   }, [open]);
+
+  const handleToggle = () => {
+    if (!open && buttonRef.current) {
+      const r = buttonRef.current.getBoundingClientRect();
+      setPanelPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    }
+    setOpen((v) => !v);
+  };
 
   // Sectioned groups (E181): a flat 12-13 row list read as an undifferentiated
   // wall. Undo/Redo stay unlabelled at top (existing convention) and Delete
@@ -3815,6 +3882,7 @@ function DeckEditorOverflowMenu({
     { key: 'primer', label: 'Primer', onClick: onPrimer },
     onExport && { key: 'export', label: 'Export', onClick: onExport },
     { key: 'feedback', label: 'Get feedback', onClick: onFeedback },
+    onBuildReport && { key: 'build-report', label: 'Build report', onClick: onBuildReport },
   ].filter((r): r is Row => !!r);
 
   const renderRow = (row: Row) => (
@@ -3824,7 +3892,7 @@ function DeckEditorOverflowMenu({
       role="menuitem"
       className="deck-editor-overflow-item"
       onClick={() => {
-        setOpen(false);
+        closeAndReturnFocus();
         row.onClick();
       }}
     >
@@ -3841,71 +3909,86 @@ function DeckEditorOverflowMenu({
     );
 
   return (
-    <div className="deck-editor-overflow" ref={wrapperRef}>
+    <div className="deck-editor-overflow">
       <button
+        ref={buttonRef}
         type="button"
         className="deck-editor-overflow-btn"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Deck actions"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
       >
         <MoreVertical width={20} height={20} strokeWidth={2.2} aria-hidden />
       </button>
-      {open && (
-        <div className="deck-editor-overflow-panel" role="menu">
-          {onUndo && (
-            <button
-              type="button"
-              role="menuitem"
-              className="deck-editor-overflow-item"
-              onClick={() => {
-                setOpen(false);
-                onUndo();
-              }}
-            >
-              Undo{undoLabel ? ` ${undoLabel}` : ''}
-            </button>
-          )}
-          {onRedo && (
-            <button
-              type="button"
-              role="menuitem"
-              className="deck-editor-overflow-item"
-              onClick={() => {
-                setOpen(false);
-                onRedo();
-              }}
-            >
-              Redo{redoLabel ? ` ${redoLabel}` : ''}
-            </button>
-          )}
-          {(onUndo || onRedo) && (
-            <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
-          )}
-          {quickActions.length > 0 && (
-            <>
-              {renderSection('Quick actions', quickActions)}
-              <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
-            </>
-          )}
-          {renderSection('Text tools', textTools)}
-          <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
-          {renderSection('Deck actions', deckActions)}
-          <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
-          <button
-            type="button"
-            role="menuitem"
-            className="deck-editor-overflow-item deck-editor-overflow-item--danger"
-            onClick={() => {
-              setOpen(false);
-              onDelete();
+      {open &&
+        panelPos &&
+        createPortal(
+          <div
+            ref={panelRef}
+            className="deck-editor-overflow-panel"
+            role="menu"
+            style={{
+              position: 'fixed',
+              top: panelPos.top,
+              bottom: panelPos.bottom,
+              left: panelPos.left,
+              right: panelPos.right,
             }}
           >
-            Delete
-          </button>
-        </div>
-      )}
+            {onUndo && (
+              <button
+                type="button"
+                role="menuitem"
+                className="deck-editor-overflow-item"
+                onClick={() => {
+                  closeAndReturnFocus();
+                  onUndo();
+                }}
+              >
+                Undo{undoLabel ? ` ${undoLabel}` : ''}
+              </button>
+            )}
+            {onRedo && (
+              <button
+                type="button"
+                role="menuitem"
+                className="deck-editor-overflow-item"
+                onClick={() => {
+                  closeAndReturnFocus();
+                  onRedo();
+                }}
+              >
+                Redo{redoLabel ? ` ${redoLabel}` : ''}
+              </button>
+            )}
+            {(onUndo || onRedo) && (
+              <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
+            )}
+            {quickActions.length > 0 && (
+              <>
+                {renderSection('Quick actions', quickActions)}
+                <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
+              </>
+            )}
+            {renderSection('Text tools', textTools)}
+            <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
+            {renderSection('Deck actions', deckActions)}
+            <div className="deck-editor-overflow-divider" role="separator" aria-hidden />
+            <button
+              type="button"
+              role="menuitem"
+              className="deck-editor-overflow-item deck-editor-overflow-item--danger"
+              onClick={() => {
+                closeAndReturnFocus();
+                onDelete();
+              }}
+            >
+              Delete
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

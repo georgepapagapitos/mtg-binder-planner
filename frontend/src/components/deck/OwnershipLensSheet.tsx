@@ -127,7 +127,9 @@ export function OwnershipLensSheet({ id, lens, missingCardPrices, onClose }: Pro
         )}
 
         {!hasMissing && !hasOwnedSummary && (
-          <p className="card-picker-empty">Nothing to show yet.</p>
+          <p className="card-picker-empty">
+            Nothing to show yet. Add cards to this deck to see what you own and what's missing.
+          </p>
         )}
 
         <div className="card-picker-footer">

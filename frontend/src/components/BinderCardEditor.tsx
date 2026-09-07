@@ -135,9 +135,9 @@ export function BinderCardEditor({ binder, allCards, onClose }: Props) {
 
   return (
     <>
-      <Modal className="modal" label={`Edit cards — ${binder.def.name}`} onClose={onClose}>
+      <Modal className="modal" label={`Edit cards: ${binder.def.name}`} onClose={onClose}>
         <div className="modal-header">
-          <h2>Edit cards — {binder.def.name}</h2>
+          <h2>Edit cards: {binder.def.name}</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
             ×
           </button>
@@ -145,7 +145,7 @@ export function BinderCardEditor({ binder, allCards, onClose }: Props) {
 
         {binder.def.mode === 'manual' && (
           <p className="binder-card-editor-manual-hint">
-            Manual mode — only pinned cards appear in this binder
+            Manual mode. Only pinned cards appear in this binder.
           </p>
         )}
 
@@ -302,7 +302,7 @@ function CardsTab({
                 </button>
                 {showPinExplain && (
                   <p className="binder-card-editor-pin-explain">
-                    Pinned to this binder — would otherwise file to{' '}
+                    Pinned to this binder. Would otherwise file to{' '}
                     {nextMatch ? nextMatch.name : 'Uncategorized'}.{' '}
                     <button
                       type="button"

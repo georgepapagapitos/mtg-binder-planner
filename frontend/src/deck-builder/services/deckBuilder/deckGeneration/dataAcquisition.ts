@@ -219,7 +219,7 @@ export function buildBracketPoolFallbackNote(
   // genuine fetch failure appends the distinction (a thrown fetch never got
   // to prove itself thin — it just never resolved).
   const causeSuffix = cause === 'fetch-failed' ? " (the page couldn't be fetched)" : '';
-  return `EDHREC has too little data on ${missingLabel} for ${subject} — built from ${usedLabel} instead, with ${bracketPhrase} card permissions kept${causeSuffix}.`;
+  return `EDHREC has too little data on ${missingLabel} for ${subject}. Built from ${usedLabel} instead, with ${bracketPhrase} card permissions kept${causeSuffix}.`;
 }
 
 /**
@@ -246,7 +246,7 @@ export async function retryOnce<T>(fn: () => Promise<T>, isOk?: (value: T) => bo
  *  the #1 cause of a "random-looking" deck out of an RNG-free generator. */
 export function buildTaggerIntegrityNote(taggerAvailable: boolean): string | undefined {
   if (taggerAvailable) return undefined;
-  return "Card-role data couldn't be loaded, so role targets and balance limits weren't enforced on this build. Regenerate to retry with full data.";
+  return 'Role targets and balance limits went unenforced on this build. Regenerate to retry with full data.';
 }
 
 /** S1 generation-integrity disclosure: the EDHREC combo fetch genuinely
@@ -259,7 +259,7 @@ export function buildComboIntegrityNote(
   comboCountSetting: number
 ): string | undefined {
   if (!fetchFailed || comboCountSetting <= 0) return undefined;
-  return "Combo data couldn't be loaded — combo detection and combo seeding were skipped on this build.";
+  return 'Combo detection and combo seeding were skipped on this build.';
 }
 
 /** S1 generation-integrity disclosure: the EDHREC substitute-ranking index
@@ -271,7 +271,7 @@ export function buildSubstituteIntegrityNote(
   collectionMode: boolean
 ): string | undefined {
   if (substituteIndexAvailable || !collectionMode) return undefined;
-  return "The substitute-ranking index couldn't be loaded — replacement picks used the built-in heuristic.";
+  return 'Replacement picks used a simpler heuristic this time.';
 }
 
 // ---- Fast regeneration cache ----
@@ -492,8 +492,8 @@ export async function acquireCardPoolPhase(
         relaxedNote:
           altPool.relaxedNote ??
           (mode === 'art-theme'
-            ? 'No cards matched that motif in your colors — we built by function instead.'
-            : 'That pool came up empty — we filled the deck by function instead.'),
+            ? 'No cards matched that motif in your colors. Built by function instead.'
+            : 'That pool came up empty. Filled the deck by function instead.'),
       };
     }
   }
@@ -829,7 +829,6 @@ async function applyArchetypeBlend(state: GenerationState): Promise<void> {
     // it reaches the report (summarizeSeatedBlend).
     state.archetypeBlendNames = injectedNames;
     state.archetypeBlendTheme = theme.name;
-    state.archetypeBlendCommanderDecks = commanderNumDecks;
     logger.debug(
       `[DeckGen] E221: blended ${injectedNames.length} cards from "${theme.slug}"` +
         `${tagPage.colorSlug ? `/${tagPage.colorSlug}` : ' (unfiltered)'} at w=${weight.toFixed(2)}`

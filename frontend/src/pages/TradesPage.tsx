@@ -138,7 +138,7 @@ function TradesPageBody() {
 
   if (status === 'guest') {
     return (
-      <div className="trades-page">
+      <div className="trades-page social-page-shell social-page-shell--wide">
         <header className="binder-hero">
           <div className="settings-page-hero-text">
             <h1 className="binder-hero-name">Trades</h1>
@@ -179,7 +179,7 @@ function TradesPageBody() {
   const noMatches = searchable && query.trim() !== '' && visible.length === 0;
 
   return (
-    <div className="trades-page">
+    <div className="trades-page social-page-shell social-page-shell--wide">
       <header className="binder-hero">
         <div className="settings-page-hero-text">
           <h1 className="binder-hero-name">Trades</h1>
@@ -205,7 +205,7 @@ function TradesPageBody() {
           <EmptyStateMark />
           <p className="empty-state-tagline">No trades yet.</p>
           <p className="empty-state-hint">
-            Open a friend's hub to see what they have and propose one — it shows up here for both of
+            Open a friend's hub to see what they have and propose one. It shows up here for both of
             you until it's answered.
           </p>
           <Link to="/friends" className="btn btn-primary">

@@ -50,6 +50,25 @@ describe('PlayPage tabs', () => {
   });
 });
 
+describe('Local setup — seat name field (B7-05)', () => {
+  it('seeds the name field empty, not a live "Player N" value', () => {
+    renderPage();
+    const seat1 = screen.getByRole('textbox', { name: 'Player 1 name' }) as HTMLInputElement;
+    expect(seat1.value).toBe('');
+    expect(seat1.placeholder).toBe('Player 1');
+  });
+
+  it('falls back to "Player N" for a seat left blank, without concatenating a typed name', () => {
+    renderPage();
+    const seat2 = screen.getByRole('textbox', { name: 'Player 2 name' }) as HTMLInputElement;
+    fireEvent.change(seat2, { target: { value: 'Bob' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }));
+    expect(screen.getByText('Player 1')).toBeTruthy();
+    expect(screen.getByText('Bob')).toBeTruthy();
+    expect(screen.queryByText(/Player 1\w/)).toBeNull();
+  });
+});
+
 describe('PlayPage rules button', () => {
   it('opens the rules reference sheet', () => {
     renderPage();

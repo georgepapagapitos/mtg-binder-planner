@@ -127,6 +127,14 @@ body:has(.playtest-page) {
   margin-right: var(--space-2);
 }
 
+/* B6-04: hidden everywhere `.playtest-page__header` already covers back-
+   navigation — shown only in the short-landscape tier below, where it folds
+   into this row instead. */
+.playtest-actionbar__back {
+  display: none;
+  flex-shrink: 0;
+}
+
 .playtest-actionbar button {
   background: var(--surface-raised);
   border: 0.5px solid var(--border);
@@ -152,6 +160,17 @@ body:has(.playtest-page) {
 .playtest-actionbar__reset {
   margin-left: auto;
   border-color: var(--err-border) !important;
+}
+
+/* E262: Draw and Next turn are the two actions taken every single turn — an
+   accent tint singles them out from the bar's otherwise equal-weight buttons
+   without restructuring it. Same accent shape as the active-state rules
+   below, just always-on rather than conditional. */
+.playtest-actionbar button.playtest-actionbar__primary {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* Resistance entry — armed state reads like the accented turn chip so the
@@ -1044,6 +1063,17 @@ body:has(.playtest-page) {
   width: 100%;
   border-radius: var(--radius);
   display: block;
+}
+
+/* B6-07: the tap-to-preview wrapper around the card face — reset to a plain
+   block so it inherits the same layout as the un-wrapped image/placeholder. */
+.playtest-zone-card__preview {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
 }
 
 .playtest-zone-card__placeholder {
@@ -2566,5 +2596,217 @@ body:has(.playtest-page) {
 @media (pointer: coarse) {
   .playtest-life-panel__step {
     min-height: 44px;
+  }
+}
+
+/* ── Short landscape (B6-04) ──────────────────────────────────────────────
+   A phone in landscape (e.g. 780×360) puts every chrome row shoulder to
+   shoulder above the hand, and the battlefield — the actual game — got
+   squeezed to ~19px (5% of the viewport). Placed last so it wins over the
+   ≤1023px tier above wherever both apply (same specificity, later wins);
+   `orientation: landscape` keeps a merely-short *portrait* phone (which has
+   width to spare, not height) out of this. Target: battlefield keeps at
+   least 40% of viewport height. */
+@media (max-height: 420px) and (orientation: landscape) {
+  /* The standalone header is an entire 44px+-touch-target row on its own
+     (back button) for two facts (deck name, "Playtest") the ActionBar's
+     folded-in `.playtest-actionbar__back` below already carries — cut the
+     row, not the touch target. */
+  .playtest-page__header {
+    display: none;
+  }
+
+  .playtest-actionbar__back {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Presence rail: keep name + life (the "who's alive" glance), drop the
+     per-opponent battlefield mini-cards — the single biggest per-entry cost
+     — and floor entries lower than the ≥1023px tier's 44px touch target
+     (a read-mostly rail, not a row of controls). */
+  .playtest-main > .opponent-rail {
+    padding: 2px var(--space-2);
+  }
+
+  .opponent-rail--presence .opponent-entry {
+    min-height: 0;
+  }
+
+  .opponent-rail--presence .opponent-entry__trigger {
+    padding: 2px var(--space-2);
+  }
+
+  .opponent-entry__battlefield {
+    display: none;
+  }
+
+  /* Never wrap to a second row — scroll horizontally instead, same trade
+     Tabs/deck-builder-tabs.css already makes for a strip that can't fit. */
+  .playtest-actionbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px var(--space-2);
+  }
+
+  .playtest-actionbar button {
+    padding: 3px var(--space-2);
+    flex-shrink: 0;
+  }
+
+  .playtest-life-strip,
+  .playtest-mana-pool {
+    padding: 2px var(--space-2);
+  }
+
+  .playtest-hand {
+    min-height: 72px;
+    padding: var(--space-1) var(--space-3);
+  }
+
+  body:has(.playtest-page) {
+    --pt-card-w: 56px;
+    --pt-card-h: 78px;
+  }
+
+  /* E264: the hand is a 44px drawer strip here (HandDrawer.tsx) — count plus
+     the first few names as chips — and opens as a sheet over the battlefield,
+     which keeps the ~100px the always-open strip used to take. */
+  .playtest-hand-drawer {
+    flex-shrink: 0;
+    border-top: 0.5px solid var(--border);
+    background: var(--surface);
+  }
+
+  .playtest-hand-drawer.is-over {
+    background: var(--accent-light);
+  }
+
+  .playtest-hand-drawer__toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    background: none;
+    border: 0;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .playtest-hand-drawer__toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  .playtest-hand-drawer__chips {
+    display: flex;
+    gap: var(--space-1);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .playtest-hand-drawer__chip {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 10rem;
+    padding: 2px var(--space-2);
+    border: 0.5px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-raised);
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .playtest-hand-drawer__chip--more {
+    flex-shrink: 0;
+  }
+
+  .playtest-hand-drawer__chevron {
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  /* The sheet reuses `.playtest-hand` for its cards (same droppable, same
+     drag source) but lays them out as a wrapping grid so every card in hand
+     is on screen at once, one size up from the strip's. */
+  .playtest-hand-sheet .playtest-hand {
+    flex: 1;
+    min-height: 0;
+    align-items: flex-start;
+    padding: var(--space-2) var(--space-3);
+    border-top: 0;
+    overflow-y: auto;
+  }
+
+  .playtest-hand-sheet .playtest-hand__label {
+    display: none;
+  }
+
+  .playtest-hand-sheet .playtest-hand__cards {
+    flex-wrap: wrap;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .playtest-hand-sheet .playtest-card--sm {
+    width: 88px;
+    height: 123px;
+  }
+
+  .playtest-hand-sheet__empty {
+    margin: 0;
+    padding: var(--space-4) var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .playtest-hand-sheet .card-picker-header,
+  .playtest-hand-sheet .card-picker-footer {
+    padding: var(--space-1) var(--space-3);
+  }
+
+  /* B6-05: the opening-hand sheet's own chrome (header, hint, two-line rule
+     toggles, footer) ate ~270px of a ~306px sheet, leaving the card row a
+     38px sliver — barely a name label, not a hand you can read to decide
+     Keep/Mulligan. Scoped to `.playtest-opening-sheet` since
+     `.card-picker-header`/`.card-picker-footer` are shared with every other
+     sheet built on this primitive. */
+  .playtest-opening-sheet .card-picker-header {
+    padding: var(--space-1) var(--space-3);
+    gap: 2px;
+  }
+
+  .playtest-opening-hint {
+    display: none;
+  }
+
+  .playtest-opening-variants {
+    margin: var(--space-1) var(--space-3);
+  }
+
+  /* Label only — the description ("Redraw a full seven...") is the one
+     droppable line here; the row keeps its real 44px touch target since the
+     whole row (not just the checkbox) is what you tap. */
+  .playtest-opening-variant {
+    padding: 0 var(--space-2);
+  }
+
+  .playtest-opening-variant__desc {
+    display: none;
+  }
+
+  .playtest-opening-stats {
+    font-size: var(--text-xs);
+  }
+
+  .playtest-opening-sheet .card-picker-footer {
+    padding: var(--space-1) var(--space-3);
   }
 }

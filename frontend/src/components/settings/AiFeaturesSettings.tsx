@@ -53,14 +53,14 @@ export function AiFeaturesSettings() {
       <SettingsSection
         id="settings-ai-title"
         title="Read the deck"
-        hint="Sends the deck you're viewing — card names and your deck's computed stats — to Anthropic to generate written analysis. Your collection is never sent."
+        hint="Sends this deck to Anthropic for analysis: card names and your deck's stats. Your collection is never sent."
       >
         <SettingsRow
           label="AI deck analysis"
           hint={
             status.optIn
               ? `Nothing is sent unless you press an AI button. ${status.limit} requests per day · used today: ${status.used}.`
-              : 'Off. Nothing is ever sent while this is off.'
+              : 'Off. Nothing is ever sent.'
           }
           actions={
             <button type="button" className="btn" onClick={() => void toggle()} disabled={busy}>

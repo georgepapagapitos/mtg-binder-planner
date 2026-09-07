@@ -57,8 +57,8 @@ export function SortEditor({
       {!compact && (
         <p className="muted sort-editor-intro">
           The first sort splits the binder into section headers; later sorts order cards within each
-          section. Up to {MAX_SORTS} rules — treatment, finish, and name are applied automatically
-          as tie-breakers after yours.
+          section. Up to {MAX_SORTS} rules. Treatment, finish, and name break ties automatically
+          after yours.
         </p>
       )}
       <div className="sort-editor-list">
@@ -103,7 +103,7 @@ export function SortEditor({
                 type="button"
                 className="sort-editor-dir"
                 aria-label={`Sort ${i + 1} direction: ${dirLabel}. Activate to reverse.`}
-                title={`${dirLabel} — click to reverse`}
+                title={`${dirLabel}, click to reverse`}
                 onClick={() =>
                   onSortsChange(
                     sorts.map((x, j) =>

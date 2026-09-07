@@ -71,8 +71,8 @@ export function OfflineModeSettings(): React.ReactElement | null {
           Card data
         </h2>
         <p className="settings-card-hint">
-          The card catalog and combo data are kept on this device so search, deck generation, and
-          combo matching work offline. It refreshes in the background.
+          Card and combo data are kept on this device, so search, deck generation, and combos work
+          offline. Refreshes automatically in the background.
         </p>
       </header>
       <div className="settings-card-body">
@@ -80,6 +80,9 @@ export function OfflineModeSettings(): React.ReactElement | null {
           <div className="settings-row-text">
             <div className="settings-row-label">Status</div>
             <div className="settings-row-value">{statusText}</div>
+            <div className="settings-row-hint">
+              Checks the server for newer card data and downloads it now.
+            </div>
           </div>
           <div className="settings-row-actions">
             <button
@@ -87,23 +90,31 @@ export function OfflineModeSettings(): React.ReactElement | null {
               className="btn btn-quiet"
               onClick={() => void sync()}
               disabled={syncing}
-              title="Check the server for newer card data and download it now."
             >
               {syncing ? 'Refreshing…' : 'Refresh card data now'}
             </button>
-            {hasData && (
+          </div>
+        </div>
+        {hasData && (
+          <div className="settings-row">
+            <div className="settings-row-text">
+              <div className="settings-row-label">Cached card data</div>
+              <div className="settings-row-hint">
+                Wipes the local card catalog. It re-downloads the next time you sign in.
+              </div>
+            </div>
+            <div className="settings-row-actions">
               <button
                 type="button"
                 className="btn btn-quiet"
                 onClick={() => void clear()}
                 disabled={syncing}
-                title="Wipe the local card catalog. It will re-download on next sign-in."
               >
                 Clear cached card data
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

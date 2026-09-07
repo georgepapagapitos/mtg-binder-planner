@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from 'react';
 import { InfoTip } from '../InfoTip';
 import type { BracketEstimation } from '@/deck-builder/services/deckBuilder/bracketEstimator';
 import { bracketLabel } from '@/deck-builder/services/deckBuilder/bracketEstimator';
+import { formatBracketLabel } from '@/lib/format-bracket-label';
 import type { ScryfallCard } from '@/deck-builder/types';
 import { useCardCarousel } from './useCardCarousel';
 import { MeterBar } from '../shared/MeterBar';
@@ -29,31 +30,30 @@ const ELEVATE_BUMP_THRESHOLD = 66;
 const ELEVATE_CEDH_THRESHOLD = 80;
 
 const HARD_FLOOR_TIP =
-  'A hard floor is a deterministic signal — Game Changers, mass land denial, infinite combos, stax, or extra-turn cards — that forces a MINIMUM bracket. No amount of tuning can drop the deck below it; the only way down is to cut the offending cards.';
+  'A hard floor is a deterministic signal (Game Changers, mass land denial, infinite combos, stax, or extra-turn cards) that forces a MINIMUM bracket. No amount of tuning can drop the deck below it; the only way down is to cut the offending cards.';
 // One consolidated explainer for the power signal — intro + every signal —
 // so the four rows don't each need their own info icon (which read as clutter).
 const SOFT_SCORE_TIP: ReactNode = (
   <>
     <p className="info-tip-lead">
-      The power signal (0–100) rates how tuned the deck is. It can only push the bracket{' '}
-      <strong>up</strong> from the hard floor — never below it. Four signals feed it:
+      The power signal (0–100) can only push your bracket <strong>up</strong> from the hard floor,
+      never below it. It's built from four signals:
     </p>
     <ul className="info-tip-list">
       <li>
-        <strong>Fast mana</strong> — rocks/rituals that make more mana than they cost (Mana Crypt,
-        Jeweled Lotus). Sol Ring counts too, but the bracket system allows it in every bracket as a
-        precon staple, so it's not scored here. 8 pts each, max 40.
+        <strong>Fast mana</strong>: rocks/rituals that make more mana than they cost (Mana Crypt,
+        Jeweled Lotus). Sol Ring is exempt as a precon staple. 8 pts each, max 40.
       </li>
       <li>
-        <strong>Tutors</strong> — cards that search your library for anything (Demonic Tutor). They
+        <strong>Tutors</strong>: cards that search your library for anything (Demonic Tutor). They
         make the deck consistent. 5 pts each, max 25.
       </li>
       <li>
-        <strong>Low curve</strong> — a low average mana value does powerful things sooner; below 3.5
+        <strong>Low curve</strong>: a low average mana value gets your plan online sooner; below 3.5
         earns up to 20 pts.
       </li>
       <li>
-        <strong>Interaction</strong> — removal, counterspells and board wipes; more answers = a more
+        <strong>Interaction</strong>: removal, counterspells and board wipes; more answers = a more
         resilient deck. Up to 15 pts.
       </li>
     </ul>
@@ -152,7 +152,7 @@ export function BracketBreakdown({
   estimation: BracketEstimation;
   deckCardsByName?: DeckCardMap;
 }): JSX.Element {
-  const { breakdown, hardFloors, softScore, bracket, label } = estimation;
+  const { breakdown, hardFloors, softScore, bracket } = estimation;
 
   const floor = hardFloors.length > 0 ? Math.max(...hardFloors.map((f) => f.bracket)) : 1;
 
@@ -182,14 +182,14 @@ export function BracketBreakdown({
         ? {
             need: ELEVATE_CEDH_THRESHOLD - softScore,
             at: ELEVATE_CEDH_THRESHOLD,
-            target: `Bracket 5 (${bracketLabel(5)})`,
+            target: formatBracketLabel(5),
           }
         : null
       : bracket === floor
         ? {
             need: ELEVATE_BUMP_THRESHOLD - softScore,
             at: ELEVATE_BUMP_THRESHOLD,
-            target: `Bracket ${Math.min(floor + 1, 4)} (${bracketLabel(Math.min(floor + 1, 4))})`,
+            target: formatBracketLabel(Math.min(floor + 1, 4)),
           }
         : null;
 
@@ -205,7 +205,7 @@ export function BracketBreakdown({
           <InfoTip label="a hard floor" text={HARD_FLOOR_TIP} />
         </h4>
         {sortedFloors.length === 0 ? (
-          <p className="bracket-breakdown-empty">No hard floors — bracket set by soft score.</p>
+          <p className="bracket-breakdown-empty">No hard floors. Bracket set by soft score.</p>
         ) : (
           <div className="deck-bracket-table" role="table" aria-label="Hard floors">
             <div className="deck-bracket-row deck-bracket-head" role="row">
@@ -315,8 +315,8 @@ export function BracketBreakdown({
       {/* ── 3. Calculation summary ── */}
       <div className="bracket-breakdown-section bracket-breakdown-summary">
         <p className="bracket-breakdown-summary-line">
-          Floor Bracket <strong>{floor}</strong> + power signal <strong>{softScore}/100</strong> →
-          Bracket <strong>{bracket}</strong> ({label})
+          Floor Bracket <strong>{floor}</strong> + power signal <strong>{softScore}/100</strong> →{' '}
+          {formatBracketLabel(bracket)}
         </p>
         {elevatedToCedh && (
           <p className="bracket-breakdown-summary-note">

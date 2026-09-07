@@ -268,7 +268,7 @@ export function applyFlagshipSeating(
       reason:
         `${candidate.name} is a top ${ctx.themeLabel} card` +
         (typeof inclusion === 'number' ? ` (${inclusion.toFixed(1)}% of decks)` : '') +
-        ` that the visibility boost alone couldn't outrank — reserved a seat for it.`,
+        `. Worth a seat over a weaker cut.`,
     });
   }
 

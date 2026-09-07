@@ -203,7 +203,7 @@ describe('getCardById', () => {
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => artCard }));
 
-    await expect(getCardById('art-1')).rejects.toThrow(/non-playable/);
+    await expect(getCardById('art-1')).rejects.toThrow(/can't be played/);
   });
 });
 

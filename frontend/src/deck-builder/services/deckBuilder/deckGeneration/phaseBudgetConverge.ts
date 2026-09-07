@@ -539,7 +539,7 @@ export async function applyBudgetConvergence(
         : primaryTypeOf(cut) === primaryTypeOf(added)
           ? 'similar card type'
           : 'cheaper alternative';
-    const base = `Saves ${sym}${savings.toFixed(2)} — ${bucket}`;
+    const base = `Saves ${sym}${savings.toFixed(2)}: ${bucket}`;
     return softLabel ? `${base}; swapped ${softLabel} to fit your budget` : base;
   };
 

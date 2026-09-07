@@ -271,7 +271,7 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
     candidates.push({
       category: 'infinite-combo',
       label: 'Infinite combo',
-      summary: `${comboWin.length} complete ${suffixes[dominant] ?? 'combo'} in the deck (e.g. ${marquee.slice(0, 2).join(' + ')})`,
+      summary: `${comboWin.length} complete ${suffixes[dominant] ?? 'combo'} in the deck: ${marquee.slice(0, 2).join(' + ')}`,
       evidence: allCards.slice(0, 8),
       score: 5 + comboWin.length * 3,
       // Assembled = every library piece of any ONE complete combo drawn.
@@ -452,7 +452,7 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
       candidates.push({
         category: 'voltron',
         label: 'Voltron / commander damage',
-        summary: `${equipCards.length} equipment${auraCards.length > 0 ? `, ${auraCards.length} aura${auraCards.length === 1 ? '' : 's'}` : ''}${cmdEvasion ? ' — commander has evasion' : ''}`,
+        summary: `${equipCards.length} equipment${auraCards.length > 0 ? `, ${auraCards.length} aura${auraCards.length === 1 ? '' : 's'}` : ''}${cmdEvasion ? ', commander has evasion' : ''}`,
         evidence: allEvidence.slice(0, 8),
         score: voltronScore,
         // Two pieces of gear on the (always-available) commander = suited up.
@@ -472,7 +472,7 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
     candidates.push({
       category: 'combat',
       label: 'Combat / aggro',
-      summary: `${creatureCount} creature${creatureCount === 1 ? '' : 's'} — generic combat plan`,
+      summary: `${creatureCount} creature${creatureCount === 1 ? '' : 's'}, generic combat plan`,
       evidence: [],
       score: Math.min(creatureCount, 10),
     });

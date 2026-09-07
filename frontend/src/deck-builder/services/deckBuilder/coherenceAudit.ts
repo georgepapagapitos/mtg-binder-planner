@@ -194,11 +194,11 @@ function landSanityFindings(input: CoherenceAuditInput): CoherenceFinding[] {
       message:
         share === 0
           ? sharesCommander
-            ? 'No creature here shares a creature type with your commander — its bonus never triggers.'
-            : 'No creature type repeats in this deck — its chosen type covers almost nothing.'
+            ? 'No creature here shares a creature type with your commander. Its bonus never triggers.'
+            : 'No creature type repeats in this deck. Its chosen type covers almost nothing.'
           : sharesCommander
-            ? `Only ${sharing} of ${creatures.length} creatures share a creature type with your commander — its bonus will rarely trigger.`
-            : `Its chosen creature type covers at most ${sharing} of ${creatures.length} creatures — the mana will often be stuck.`,
+            ? `Only ${sharing} of ${creatures.length} creatures share a creature type with your commander. Its bonus will rarely trigger.`
+            : `Its chosen creature type covers at most ${sharing} of ${creatures.length} creatures. The mana will often be stuck.`,
     });
   }
 
@@ -219,6 +219,8 @@ function landSanityFindings(input: CoherenceAuditInput): CoherenceFinding[] {
     });
     if (colorlessOnly.length >= MIN_COLORLESS_UTILITY) {
       const seen = new Set<string>();
+      const article = articleFor(BASIC_NAMES[shortColor]);
+      const Article = article[0].toUpperCase() + article.slice(1);
       for (const land of colorlessOnly) {
         if (seen.has(land.name)) continue;
         seen.add(land.name);
@@ -226,7 +228,7 @@ function landSanityFindings(input: CoherenceAuditInput): CoherenceFinding[] {
           kind: 'land-sanity',
           severity: 'info',
           card: land.name,
-          message: `Colorless-only land while ${COLOR_WORDS[shortColor]} sources run short — ${articleFor(BASIC_NAMES[shortColor])} ${BASIC_NAMES[shortColor]} would serve the manabase better.`,
+          message: `Colorless-only land while ${COLOR_WORDS[shortColor]} sources run short. ${Article} ${BASIC_NAMES[shortColor]} would serve the manabase better.`,
           basicFixColor: shortColor,
         });
       }
@@ -266,14 +268,13 @@ export function auditDeckCoherence(input: CoherenceAuditInput): CoherenceFinding
       findings.push({
         kind: 'win-condition',
         severity: 'warn',
-        message:
-          'No clear way to win — no finisher, complete combo, or committed strategy detected in the 99.',
+        message: 'No clear way to win. Nothing in the 99 finishes the game yet.',
       });
     } else if (winCon.secondary.length === 0 && winCon.primary) {
       findings.push({
         kind: 'win-condition',
         severity: 'info',
-        message: `Single win path — ${winCon.primary.label}. A backup finisher would make the deck more resilient.`,
+        message: `Single win path: ${winCon.primary.label}. A backup finisher would make the deck more resilient.`,
       });
     }
   }
@@ -321,7 +322,7 @@ export function auditDeckCoherence(input: CoherenceAuditInput): CoherenceFinding
         kind: 'unjustified-slot',
         severity: 'warn',
         card: card.name,
-        message: 'No EDHREC signal, engine link, role, or combo ties it to this deck.',
+        message: 'Nothing ties this card to the deck.',
       });
     }
   }

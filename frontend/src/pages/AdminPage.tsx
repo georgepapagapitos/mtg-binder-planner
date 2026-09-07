@@ -202,7 +202,7 @@ export function AdminPage() {
       <div className="admin-header">
         <h1>Debug / Admin</h1>
         <p className="admin-sub">
-          Live view of what is in localStorage + IndexedDB right now. Nothing here is persisted —
+          Live view of what is in localStorage + IndexedDB right now. Nothing here is persisted:
           this page just reads the same stores the rest of the app reads.
         </p>
         <p className="admin-sub">
@@ -283,7 +283,7 @@ export function AdminPage() {
                 <th>
                   Deck slots:{' '}
                   <span className={doubleClaimCount ? 'admin-err' : ''}>double-claimed</span> (same
-                  physical copy bound to &gt;1 slot — self-heals automatically; a nonzero count here
+                  physical copy bound to &gt;1 slot, self-heals automatically. A nonzero count here
                   means it's happening faster than the heal)
                 </th>
                 <td className={doubleClaimCount ? 'admin-err' : ''}>{doubleClaimCount}</td>
@@ -315,7 +315,7 @@ export function AdminPage() {
           {fixableCount > 0 && (
             <>
               <p className="admin-warn">
-                <strong>{fixableCount} slot(s) fixable</strong> — a free copy of the preferred
+                <strong>{fixableCount} slot(s) fixable</strong>: a free copy of the preferred
                 printing exists, so re-running the remap rebinds them.
               </p>
               <div className="admin-danger" style={{ marginBottom: '0.85rem' }}>
@@ -331,8 +331,8 @@ export function AdminPage() {
                     const healed = before - after;
                     setRemapResult(
                       healed > 0
-                        ? `Remap ran — ${healed} slot(s) healed, ${after} still fixable.`
-                        : `Remap ran — nothing changed (${after} still fixable).`
+                        ? `Remap ran: ${healed} slot(s) healed, ${after} still fixable.`
+                        : `Remap ran: nothing changed (${after} still fixable).`
                     );
                     setTimeout(() => setRemapResult(null), 6000);
                   }}
@@ -369,13 +369,13 @@ export function AdminPage() {
           {stuckCount > 0 && (
             <details className="admin-subopt-info">
               <summary className="admin-sub">
-                {stuckCount} slot(s) use a different printing than the generator&apos;s default —
-                informational, not a problem (click to expand)
+                {stuckCount} slot(s) use a different printing than the generator&apos;s default.
+                Informational, not a problem (click to expand)
               </summary>
               <p className="admin-sub">
                 These slots are bound to a real owned copy. You also own the printing the generator
                 happened to pick by default, but every copy of it is already in another deck.
-                Nothing is broken, double-claimed, or orphaned — the only way to &quot;match&quot;
+                Nothing is broken, double-claimed, or orphaned. The only way to &quot;match&quot;
                 would be to steal a copy out of another deck, which you don&apos;t want. Safe to
                 ignore; listed for transparency.
               </p>

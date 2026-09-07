@@ -165,7 +165,7 @@ export function SharedLinksSettings() {
     async (token: string, kindLabel: string) => {
       const ok = await confirm({
         title: `Revoke this ${kindLabel} link?`,
-        body: `Anyone holding the link — including people you sent it to — loses access immediately. This can't be undone; sharing again mints a different link.`,
+        body: `Anyone holding the link (including people you sent it to) loses access immediately. This can't be undone. Sharing again mints a different link.`,
         confirmLabel: 'Revoke link',
         danger: true,
       });
@@ -366,7 +366,7 @@ export function SharedLinksSettings() {
       {qrShare && qrLabel && (
         <Modal onClose={() => setQrToken(null)} labelledBy="share-qr-modal-title">
           <h2 id="share-qr-modal-title" className="choice-dialog-title">
-            QR code — {qrLabel.name}
+            QR code · {qrLabel.name}
           </h2>
           <div className="share-qr-panel">
             <ShareQrCode value={shareUrl(qrShare.token)} label={`QR code for ${qrLabel.name}`} />

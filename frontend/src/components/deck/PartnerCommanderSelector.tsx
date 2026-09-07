@@ -239,7 +239,7 @@ export function PartnerCommanderSelector({ commander, partner, onSelect, collect
           <span className="partner-toggle-title">Add a partner commander</span>
           <span className="partner-toggle-sub">
             {enabled
-              ? 'Pick a second commander — its colors join the deck.'
+              ? 'Pick a second commander. Its colors join the deck.'
               : 'Build a two-commander deck across both color identities.'}
           </span>
         </span>

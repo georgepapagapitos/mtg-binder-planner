@@ -48,9 +48,11 @@ export function checkGenerationGate(
     partnerCommander: generated.partnerCommander,
   });
   if (issues.length === 0) return { ok: true };
+  const [first, ...rest] = issues;
+  const more = rest.length > 0 ? ` (+${rest.length} more)` : '';
   return {
     ok: false,
-    message: `Couldn't build a legal deck: ${issues.map((i) => `${i.cardName} — ${i.detail}`).join('; ')}`,
+    message: `Couldn't build a legal deck. ${first.cardName}: ${first.detail}.${more}`,
   };
 }
 
@@ -276,8 +278,8 @@ export function useDeckGeneration({
             customization.collectionStrategy === 'available'
               ? 'All your cards are committed to other decks. Free up copies or switch to "Only my cards" mode.'
               : customization.collectionStrategy === 'prefer'
-                ? 'Your collection is empty. Import cards on the Collection page to enable owned-first bias.'
-                : 'Your collection is empty. Import cards on the Collection page before constraining the build to owned cards.'
+                ? 'Your collection is empty. Import cards on the Collection page to prioritize cards you own.'
+                : 'Your collection is empty. Import cards on the Collection page to build with only your cards.'
           );
           setIsBuilding(false);
           setProgress(null);

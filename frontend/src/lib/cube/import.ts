@@ -93,7 +93,7 @@ export async function fetchCubeCobraCube(input: string): Promise<ImportedCube> {
   }
   if (res.status === 404) throw new CubeImportError(`No public cube found for "${id}".`);
   if (res.status === 429)
-    throw new CubeImportError('CubeCobra is rate-limiting requests — wait a minute and retry.');
+    throw new CubeImportError('CubeCobra is rate-limiting requests. Wait a minute and retry.');
   if (!res.ok) throw new CubeImportError(`CubeCobra returned an error (${res.status}).`);
 
   const data = await res.json();

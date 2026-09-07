@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { ChevronRight, Sparkles, X } from 'lucide-react';
 import { getOwnedPrinting } from '@/deck-builder/services/scryfall/client';
 import { fetchCommanderData } from '@/deck-builder/services/edhrec/client';
 import { useCollectionStore } from '../../store/collection';
 import { useDecksStore } from '../../store/decks';
 import { useCardThumb } from '../../lib/card-thumbs';
+import { useEscapeKey } from '../../lib/use-escape-key';
+import { useLockBodyScroll } from '../../lib/use-lock-body-scroll';
+import { useSheetExit } from '../../lib/use-sheet-exit';
 import { toast } from '../../store/toasts';
 import {
   extractCommanderCandidates,
@@ -20,7 +23,7 @@ import './ReadinessSpotlight.css';
 
 /** Below this collection size a readiness % is too noisy to be a useful "what to build" signal. */
 const MIN_COLLECTION_SIZE = 20;
-/** How many top-readiness picks the strip shows at once. */
+/** How many top-readiness picks the strip/sheet shows at once. */
 const SHOWN_COUNT = 3;
 const DISMISS_KEY = 'readiness-spotlight-dismissed-signature';
 
@@ -90,13 +93,167 @@ function SpotlightCard({
 }
 
 /**
+ * The full pick list, in the same `card-picker` bottom sheet (mobile) / centered
+ * modal (≥1024px) shell `BetweenYourDecksSheet` uses — see that component for
+ * the containment/animation rationale (no portal, mirrored slide-out).
+ */
+function ReadinessSpotlightSheet({
+  picks,
+  scores,
+  selectingName,
+  onSelect,
+  onClose,
+}: {
+  picks: EnrichedCard[];
+  scores: Map<string, ReadinessScore>;
+  selectingName: string | null;
+  onSelect: (card: EnrichedCard) => void;
+  onClose: () => void;
+}) {
+  useLockBodyScroll();
+  const { isClosing, beginClose, onAnimationEnd } = useSheetExit(onClose, 'binder-sheet-slide-out');
+  const dismiss = useCallback(() => {
+    if (window.matchMedia('(min-width: 1024px)').matches) onClose();
+    else beginClose();
+  }, [beginClose, onClose]);
+  useEscapeKey(dismiss);
+
+  return (
+    <div
+      className="card-picker-root readiness-spotlight-sheet-root"
+      onClick={dismiss}
+      role="presentation"
+    >
+      <div
+        className={`card-picker-sheet readiness-spotlight-sheet${isClosing ? ' is-closing' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Build another"
+        onClick={(e) => e.stopPropagation()}
+        onAnimationEnd={onAnimationEnd}
+      >
+        <div className="card-picker-handle" aria-hidden />
+        <header className="readiness-spotlight-sheet-head">
+          <div className="readiness-spotlight-sheet-titles">
+            <h2 className="readiness-spotlight-sheet-title">Build another</h2>
+            <p className="readiness-spotlight-sheet-sub">
+              You already own the staples. Closest to done shows first.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="readiness-spotlight-sheet-close"
+            onClick={dismiss}
+            aria-label="Close"
+          >
+            <X width={18} height={18} strokeWidth={2} aria-hidden />
+          </button>
+        </header>
+        <div className="readiness-spotlight-list readiness-spotlight-sheet-body">
+          {picks.map((c) => {
+            const score = scores.get(c.name);
+            if (!score) return null;
+            return (
+              <SpotlightCard
+                key={c.copyId}
+                card={c}
+                score={score}
+                selecting={selectingName === c.name}
+                disabled={selectingName !== null}
+                onSelect={() => onSelect(c)}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** One-row summary: icon, label, a count pill, and (space permitting) a teaser
+ *  of the top pick — mirrors `BetweenYourDecksStrip` (STYLE_GUIDE "Index-page
+ *  insight strips"). Rendered as soon as the candidate pool is known
+ *  (synchronously, before the readiness fetch resolves) so the strip reserves
+ *  its own height from first paint and never pops a card block in under the
+ *  deck grid mid-load. */
+function ReadinessSpotlightStrip({
+  ready,
+  picks,
+  scores,
+  onOpen,
+  onDismiss,
+}: {
+  ready: boolean;
+  picks: EnrichedCard[];
+  scores: Map<string, ReadinessScore>;
+  onOpen: () => void;
+  onDismiss: () => void;
+}) {
+  const top = picks[0];
+  const topScore = top ? scores.get(top.name) : undefined;
+  return (
+    <div className="readiness-spotlight-strip">
+      <button
+        type="button"
+        className="readiness-spotlight-strip-main"
+        onClick={onOpen}
+        disabled={!ready}
+        aria-haspopup={ready ? 'dialog' : undefined}
+      >
+        <Sparkles className="readiness-spotlight-strip-icon" aria-hidden width={16} height={16} />
+        <span className="readiness-spotlight-strip-label">Build another</span>
+        {ready ? (
+          <>
+            <span className="readiness-spotlight-strip-count">
+              {picks.length} pick{picks.length === 1 ? '' : 's'}
+            </span>
+            {top && topScore && (
+              <span className="readiness-spotlight-strip-teaser">
+                {top.name}
+                <span className="readiness-spotlight-strip-teaser-sep" aria-hidden>
+                  ·
+                </span>
+                {topScore.explainerLine}
+              </span>
+            )}
+            <ChevronRight
+              className="readiness-spotlight-strip-chevron"
+              aria-hidden
+              width={16}
+              height={16}
+            />
+          </>
+        ) : (
+          <span className="readiness-spotlight-strip-teaser is-loading">
+            Checking your collection…
+          </span>
+        )}
+      </button>
+      {ready && (
+        <button
+          type="button"
+          className="readiness-spotlight-strip-dismiss"
+          onClick={onDismiss}
+          aria-label={`Hide ${picks.length} build suggestion${picks.length === 1 ? '' : 's'}`}
+        >
+          <X width={16} height={16} strokeWidth={2} aria-hidden />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * "What should I build next" strip above the Decks grid: the top 1-3 owned
  * commanders (that don't already have a deck) ranked by EDHREC-staple
  * readiness. This is the literal "what should I build next" answer nobody
  * else can give — nobody else knows what you physically own.
  *
- * Readiness is fetched lazily after mount (never blocks first paint of the
- * deck grid below). Dismissible; the dismissal is keyed to the current pick
+ * Collapses to a one-row strip that opens the pick list in a sheet on tap
+ * (STYLE_GUIDE "Index-page insight strips") — the strip mounts as soon as the
+ * candidate pool is known, before the EDHREC readiness fetch resolves, so it
+ * reserves its own height and never pops a multi-card block under the deck
+ * grid mid-load. Dismissible; the dismissal is keyed to the current pick
  * signature so it can resurface once the top pick genuinely changes.
  */
 export function ReadinessSpotlight() {
@@ -112,6 +269,7 @@ export function ReadinessSpotlight() {
   // boolean that would need a synchronous reset inside the effect.
   const [scoresReadyKey, setScoresReadyKey] = useState<string | null>(null);
   const [selectingName, setSelectingName] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   const importRecency = useMemo(
     () => new Map(importHistory.map((h) => [h.id, h.addedAt])),
@@ -158,9 +316,9 @@ export function ReadinessSpotlight() {
         candidates.map(async (c): Promise<[string, ReadinessScore]> => {
           try {
             const data = await fetchCommanderData(c.name);
-            return [c.name, computeReadiness(data.cardlists.allNonLand, ownedCardNames, c.name)];
+            return [c.name, computeReadiness(data.cardlists.allNonLand, ownedCardNames)];
           } catch {
-            return [c.name, computeReadiness([], ownedCardNames, c.name)];
+            return [c.name, computeReadiness([], ownedCardNames)];
           }
         })
       );
@@ -184,7 +342,13 @@ export function ReadinessSpotlight() {
 
   const signature = picks.map((c) => c.name).join('|');
 
-  if (!eligible || picks.length === 0 || dismissedSig === signature) return null;
+  // Render-phase adjustment: a sheet left open across a recompute that empties
+  // the pick list (e.g. a fresh candidate batch resolves to nothing) must not
+  // linger open over an empty list — reset before commit rather than in an effect.
+  if (open && scoresReady && picks.length === 0) setOpen(false);
+
+  if (!eligible) return null;
+  if (scoresReady && (picks.length === 0 || dismissedSig === signature)) return null;
 
   const handleSelect = async (owned: EnrichedCard) => {
     setSelectingName(owned.name);
@@ -202,7 +366,7 @@ export function ReadinessSpotlight() {
         },
       });
     } catch {
-      toast.show({ message: `Couldn't load ${owned.name}`, tone: 'error' });
+      toast.show({ message: `Couldn't load ${owned.name}. Try again.`, tone: 'error' });
     } finally {
       setSelectingName(null);
     }
@@ -211,42 +375,27 @@ export function ReadinessSpotlight() {
   const handleDismiss = () => {
     persistDismissedSignature(signature);
     setDismissedSig(signature);
+    setOpen(false);
   };
 
   return (
-    <section className="readiness-spotlight" aria-label="Commander readiness spotlight">
-      <div className="readiness-spotlight-header">
-        <div className="readiness-spotlight-header-text">
-          <p className="readiness-spotlight-eyebrow">Build another</p>
-          <p className="readiness-spotlight-hint">
-            You already own the staples — here's what's closest to done.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="readiness-spotlight-dismiss"
-          onClick={handleDismiss}
-          aria-label="Dismiss readiness spotlight"
-        >
-          <X width={16} height={16} strokeWidth={1.8} aria-hidden />
-        </button>
-      </div>
-      <div className="readiness-spotlight-list">
-        {picks.map((c) => {
-          const score = scores.get(c.name);
-          if (!score) return null;
-          return (
-            <SpotlightCard
-              key={c.copyId}
-              card={c}
-              score={score}
-              selecting={selectingName === c.name}
-              disabled={selectingName !== null}
-              onSelect={() => void handleSelect(c)}
-            />
-          );
-        })}
-      </div>
-    </section>
+    <>
+      <ReadinessSpotlightStrip
+        ready={scoresReady}
+        picks={picks}
+        scores={scores}
+        onOpen={() => setOpen(true)}
+        onDismiss={handleDismiss}
+      />
+      {open && scoresReady && picks.length > 0 && (
+        <ReadinessSpotlightSheet
+          picks={picks}
+          scores={scores}
+          selectingName={selectingName}
+          onSelect={(c) => void handleSelect(c)}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 }

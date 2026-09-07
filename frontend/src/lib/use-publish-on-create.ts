@@ -73,7 +73,7 @@ export function usePublishOnCreate(onSettled: (deckId: string, outcome?: Publish
   const publicDisabledReason = isGuest
     ? 'Sign in to publish.'
     : !online
-      ? "You're offline — reconnect to publish."
+      ? "You're offline. Reconnect to publish."
       : null;
 
   const [visibility, setVisibility] = useState<CreateVisibility>('private');
@@ -92,7 +92,7 @@ export function usePublishOnCreate(onSettled: (deckId: string, outcome?: Publish
 
   const announcePublished = (slug: string) => {
     toast.show({
-      message: `Published — anyone can view it at ${publicationUrl(slug)}`,
+      message: `Published. Anyone can view it at ${publicationUrl(slug)}`,
       tone: 'success',
     });
   };

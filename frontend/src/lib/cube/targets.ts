@@ -53,11 +53,14 @@ export type CubeSize = (typeof CUBE_SIZES)[number];
 
 /** Pod size a cube is built for, plus a one-line note explaining the trade-off. */
 export const SIZE_INFO: Record<CubeSize, { players: number; note: string }> = {
-  180: { players: 4, note: '180 cards — a tight 4-player pod drafts the whole cube' },
-  270: { players: 6, note: '270 cards — a 6-player pod drafts the whole cube' },
-  360: { players: 8, note: 'An 8-player draft sees the whole cube — every card matters' },
-  450: { players: 8, note: 'An 8-player draft sees ~80% — room for more variety' },
-  540: { players: 8, note: 'An 8-player draft sees ~67% — the classic MTGO Vintage Cube size' },
+  180: { players: 4, note: '180 cards. A tight 4-player pod drafts the whole cube' },
+  270: { players: 6, note: '270 cards. A 6-player pod drafts the whole cube' },
+  360: { players: 8, note: 'An 8-player draft sees the whole cube. Every card matters' },
+  450: { players: 8, note: 'An 8-player draft sees ~80% of the cube. Room for more variety' },
+  540: {
+    players: 8,
+    note: 'An 8-player draft sees ~67% of the cube, the classic MTGO Vintage Cube size',
+  },
   720: { players: 8, note: 'An 8-player draft sees 50%, or run two pods at once' },
 };
 

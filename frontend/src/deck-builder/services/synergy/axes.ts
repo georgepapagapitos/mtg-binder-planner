@@ -74,7 +74,7 @@ const tokens: SynergyAxis = {
     if (hasCreatureEtbTrigger(card.oracle)) return 'triggers when your creatures enter';
     if (scalesWithCreatures(card.oracle)) return 'scales with creatures you control';
     if (hasCreatureAnthem(card.oracle)) return 'anthem for your creatures';
-    if (has(card, 'convoke')) return 'convoke (token sink)';
+    if (has(card, 'convoke')) return 'has convoke';
     if (/\bpopulate\b/.test(card.oracle)) return 'populate';
     return null;
   },
@@ -124,7 +124,7 @@ const sacrifice: SynergyAxis = {
   key: 'sacrifice',
   label: 'Sacrifice / aristocrats',
   producer(card) {
-    if (SAC_KEYWORD_OUTLETS.some((k) => has(card, k))) return 'sacrifice outlet (keyword)';
+    if (SAC_KEYWORD_OUTLETS.some((k) => has(card, k))) return 'a sacrifice outlet';
     // A sac OUTLET — imperative "Sacrifice a creature" you activate — NOT a
     // "Whenever you sacrifice" trigger (that's the payoff below).
     return sacrificeSignals(card.oracle).outlet ? 'sacrifice outlet' : null;
@@ -217,7 +217,7 @@ const graveyard: SynergyAxis = {
     if (has(card, 'surveil') || /\bsurveil\b/.test(card.oracle)) return 'surveil';
     // Dredge self-mills as a draw replacement, but its text is reminder-only
     // ("Dredge 3 (… mill three cards …)") and gets stripped — match the keyword.
-    if (has(card, 'dredge') || /\bdredge \d/.test(card.oracle)) return 'dredge (self-mill)';
+    if (has(card, 'dredge') || /\bdredge \d/.test(card.oracle)) return 'self-mills via dredge';
     return null;
   },
   payoff(card) {
@@ -255,7 +255,7 @@ const artifacts: SynergyAxis = {
     const tc = tokenCreation(card.oracle);
     if (tc.noncreatureForYou) return 'creates artifact tokens';
     if (/artifact (?:creature )?token/.test(card.oracle)) return 'creates artifact tokens';
-    if (has(card, 'fabricate')) return 'fabricate (servo tokens)';
+    if (has(card, 'fabricate')) return 'fabricates servo tokens';
     if (ARTIFACT_TOKEN_KEYWORDS.some((k) => has(card, k))) return 'creates artifact tokens';
     // investigate → Clue, incubate → Incubator — both make artifact tokens, but
     // the token wording lives in reminder text that gets stripped, so match the verb.
@@ -405,7 +405,7 @@ const superfriends: SynergyAxis = {
     // counter-doublers (Doubling Season, Vorinclex) are deliberately *not* here —
     // their templating is "counters", not loyalty-specific, so they read as the
     // `counters` axis. Only loyalty-named or planeswalker-named text qualifies.
-    if (card.typeLine.includes('planeswalker')) return 'planeswalker (loyalty engine)';
+    if (card.typeLine.includes('planeswalker')) return 'a loyalty engine';
     if (has(card, 'proliferate') || /\bproliferate\b/.test(card.oracle)) return 'proliferate';
     if (/(?:enters with|put|add)[^.]*loyalty counter/.test(card.oracle))
       return 'adds loyalty counters';
@@ -544,12 +544,12 @@ const vehicles: SynergyAxis = {
   key: 'vehicles',
   label: 'Vehicles / crew',
   producer(card) {
-    if (card.typeLine.includes('vehicle') || has(card, 'crew')) return 'vehicle (crew engine)';
+    if (card.typeLine.includes('vehicle') || has(card, 'crew')) return 'a crewable vehicle';
     // Pilots operate the crew engine even though they aren't Vehicles
     // themselves (Aeronaut Admiral, Depala-class); crew-support body text
     // ("crews Vehicles as though its power were N greater") is the same
     // enabling shape on a non-Pilot, non-Vehicle card.
-    if (card.typeLine.includes('pilot')) return 'Pilot (crews vehicles)';
+    if (card.typeLine.includes('pilot')) return 'crews vehicles';
     if (/crews? vehicles? as though/.test(card.oracle)) return 'crew-support';
     return null;
   },
@@ -572,11 +572,11 @@ const grouphug: SynergyAxis = {
   key: 'grouphug',
   label: 'Group hug',
   producer(card) {
-    if (/each player draws/.test(card.oracle)) return 'each player draws (symmetric)';
+    if (/each player draws/.test(card.oracle)) return 'each player draws, symmetric';
     if (/each player's [a-z]+ step/.test(card.oracle) && /that player draws/.test(card.oracle))
       return 'extra draws for every player';
     if (/each player may (?:play|put)[^.]*lands?/.test(card.oracle))
-      return 'each player ramps (extra lands)';
+      return 'each player ramps extra lands';
     if (/whenever a player taps a land for mana/.test(card.oracle))
       return 'symmetric mana for all players';
     return null;
@@ -636,7 +636,7 @@ const auras: SynergyAxis = {
       AURA_BUFF.test(card.oracle) &&
       !/enchant creature card in a graveyard/.test(card.oracle)
     )
-      return 'Voltron aura (buffs the enchanted creature)';
+      return 'buffs the enchanted creature';
     if (/aura (?:spells?|cards?) you cast cost/.test(card.oracle)) return 'reduces Aura cost';
     if (
       /search your library for an aura card/.test(card.oracle) ||
@@ -666,8 +666,8 @@ const discard: SynergyAxis = {
   label: 'Discard / madness',
   producer(card) {
     const d = discardSignals(card.oracle);
-    if (d.forced) return 'forces discards (hand attack)';
-    if (d.causes) return 'discards cards (loot/rummage)';
+    if (d.forced) return 'forces discards';
+    if (d.causes) return 'loots or rummages';
     return null;
   },
   payoff(card) {
@@ -734,8 +734,8 @@ const poison: SynergyAxis = {
   key: 'poison',
   label: 'Poison / infect',
   producer(card) {
-    if (has(card, 'infect') || /\binfect\b/.test(card.oracle)) return 'infect (poison)';
-    if (has(card, 'toxic') || /\btoxic \d/.test(card.oracle)) return 'toxic (poison)';
+    if (has(card, 'infect') || /\binfect\b/.test(card.oracle)) return 'gives infect';
+    if (has(card, 'toxic') || /\btoxic \d/.test(card.oracle)) return 'gives toxic';
     // A direct "gets N poison counter(s)" grant (Fynn, the Fangbearer; Vraska,
     // Betrayal's Sting's -9) is an alternate poison-delivery engine, not just
     // infect/toxic reminder text.

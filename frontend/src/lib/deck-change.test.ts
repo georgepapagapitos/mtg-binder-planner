@@ -744,9 +744,7 @@ describe('whyFactors wiring — every lane adapter carries a structured breakdow
       side: 'payoff',
       reason: 'rewards going wide',
     });
-    expect((c.whyFactors ?? []).some((f) => /payoff for your Tokens engine/.test(f.text))).toBe(
-      true
-    );
+    expect((c.whyFactors ?? []).some((f) => /Pays off your Tokens engine/.test(f.text))).toBe(true);
   });
 
   it('fromOptimizeCard interprets the reason category on both sides', () => {

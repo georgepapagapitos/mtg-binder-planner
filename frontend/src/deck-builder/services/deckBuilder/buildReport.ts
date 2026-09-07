@@ -38,22 +38,22 @@ export function buildArchetypeNote(params: {
   let base: string;
   switch (params.provenance) {
     case 'user-theme':
-      base = `Built as ${label} — from your ${params.firstThemeName ?? label} theme pick.`;
+      base = `Built as ${label}, from your ${params.firstThemeName ?? label} theme pick.`;
       break;
     case 'edhrec-dominant':
-      base = `Built as ${label} — from EDHREC's dominant theme for this commander.`;
+      base = `Built as ${label}, from EDHREC's dominant theme for this commander.`;
       break;
     case 'neutral':
-      base = `Built as balanced ${label} — no single theme dominates this commander's EDHREC data.`;
+      base = `Built as balanced ${label}. No single theme dominates this commander's EDHREC data.`;
       break;
     case 'oracle-text':
       base = params.isLowConfidence
-        ? `Built as ${label} — read from the commander's card text (no EDHREC theme data to confirm it).`
-        : `Built as ${label} — from a read of the commander's card text.`;
+        ? `Built as ${label}, read from the commander's card text. No EDHREC theme data confirms it.`
+        : `Built as ${label}, from a read of the commander's card text.`;
       break;
   }
   const multiClause = params.multiThemeSelected
-    ? ` Role targets follow your first theme (${params.firstThemeName}); all selected themes shape the card pool.`
+    ? ` Role targets follow ${params.firstThemeName}; every theme you picked still shapes the pool.`
     : '';
   return base + multiClause;
 }
@@ -131,11 +131,9 @@ export function assembleBuildReport(input: {
   // Staples <-> Theme dial disclosure — undefined at the 0.5 Balanced default.
   const brewLevel = customization.brewLevel ?? 0.5;
   if (brewLevel > 0.5) {
-    report.brewDialNote =
-      'Dial leaned toward Theme — theme-synergy and hidden-synergy fit were weighted over raw EDHREC play-rate.';
+    report.brewDialNote = 'Leaned toward theme fits over raw play-rate.';
   } else if (brewLevel < 0.5) {
-    report.brewDialNote =
-      'Dial leaned toward Staples — raw EDHREC play-rate was weighted over theme-synergy fit.';
+    report.brewDialNote = 'Leaned toward EDHREC staples over theme fit.';
   }
 
   // Archetype-aware land count auto-tune disclosure (undefined when the user
@@ -301,8 +299,8 @@ export function assembleBuildReport(input: {
   // dangling clause rather than change the threshold (out of scope).
   if (report.roleCapOverflowNote && roleExcesses.length === 0) {
     report.roleCapOverflowNote = report.roleCapOverflowNote.replace(
-      / — see Overbuilt roles below for the full total\.$/,
-      '.'
+      / See Overbuilt roles below for the full total\.$/,
+      ''
     );
   }
 
@@ -320,7 +318,7 @@ export function assembleBuildReport(input: {
     PROTECTION_MOTIVATED_ARCHETYPES.includes(generated.detectedArchetype)
   ) {
     report.protectionZeroNote =
-      'No protection or free-interaction pieces (e.g. Heroic Intervention, Swiftfoot Boots, Fierce Guardianship) — a Voltron deck usually wants insurance for its one big threat.';
+      'No protection for your one big threat. A Voltron deck usually wants insurance like Heroic Intervention or Swiftfoot Boots.';
   }
 
   // Coaching: cards that are owned but all copies are committed to other decks.

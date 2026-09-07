@@ -287,35 +287,25 @@ describe('summarizeSeatedBlend', () => {
     const { names, note } = summarizeSeatedBlend(
       ['Blood Artist', 'Zulaport Cutthroat', 'Deadly Dispute'],
       deck,
-      'Aristocrats',
-      42
+      'Aristocrats'
     );
     expect(names).toEqual(['Blood Artist']);
-    expect(note).toBe(
-      '1 card in this deck came from the Aristocrats archetype page — this commander has only 42 decks on record, so the theme page filled the gaps.'
-    );
+    expect(note).toBe('1 card came from the Aristocrats archetype page.');
   });
 
-  it('pluralizes both the card count and the deck sample', () => {
-    const { note } = summarizeSeatedBlend(['Blood Artist', 'Sol Ring'], deck, 'Tokens', 1);
-    expect(note).toContain('2 cards in this deck');
-    expect(note).toContain('only 1 deck on record');
+  it('pluralizes the card count', () => {
+    const { note } = summarizeSeatedBlend(['Blood Artist', 'Sol Ring'], deck, 'Tokens');
+    expect(note).toContain('2 cards came from');
   });
 
   it('matches case-insensitively, like the pool dedup does', () => {
-    const { names } = summarizeSeatedBlend(['blood artist'], deck, 'Aristocrats', 42);
+    const { names } = summarizeSeatedBlend(['blood artist'], deck, 'Aristocrats');
     expect(names).toEqual(['blood artist']);
   });
 
   it('stays silent when nothing was injected, or nothing survived', () => {
-    expect(summarizeSeatedBlend([], deck, 'Tokens', 42).note).toBeUndefined();
-    expect(summarizeSeatedBlend(['Never Seated'], deck, 'Tokens', 42).note).toBeUndefined();
-    expect(summarizeSeatedBlend(['Never Seated'], deck, 'Tokens', 42).names).toBeUndefined();
-  });
-
-  it('drops the sample clause rather than claiming "0 decks on record"', () => {
-    const { note } = summarizeSeatedBlend(['Blood Artist'], deck, 'Aristocrats', 0);
-    expect(note).toContain('came from the Aristocrats archetype page');
-    expect(note).not.toContain('0 decks');
+    expect(summarizeSeatedBlend([], deck, 'Tokens').note).toBeUndefined();
+    expect(summarizeSeatedBlend(['Never Seated'], deck, 'Tokens').note).toBeUndefined();
+    expect(summarizeSeatedBlend(['Never Seated'], deck, 'Tokens').names).toBeUndefined();
   });
 });

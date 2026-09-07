@@ -451,7 +451,7 @@ export function YouPage() {
           ) : (
             <SettingsRow
               label="Not signed in"
-              hint="Everything is saved on this device. Sign in to back it up and sync — the cards here are added to your account."
+              hint="Everything is saved on this device. Sign in to back it up and sync the cards here into your account."
               actions={
                 <Link to={signInHref} className="pill-btn pill-btn-primary">
                   Sign in to sync
@@ -465,7 +465,7 @@ export function YouPage() {
           <SettingsSection
             id="settings-signin-title"
             title="Sign-in methods"
-            hint="Add another way to sign in, or remove one — you always need at least one."
+            hint="Add another way to sign in, or remove one. You always need at least one."
           >
             {/* Password row: status-only for now; action slot left open for a
                 future Set/Change password flow to slot in. */}
@@ -557,7 +557,7 @@ export function YouPage() {
         <SettingsSection
           id="settings-typeface-title"
           title="Typeface"
-          hint="A set changes every face at once — titles, body, labels, and numerals are picked to go together. Independent of theme."
+          hint="A set changes every face at once: titles, body, labels, and numerals, picked to go together. Independent of theme."
         >
           <TypeSetPicker />
         </SettingsSection>
@@ -613,16 +613,15 @@ export function YouPage() {
                   wide
                   text={
                     <>
-                      <strong>Binders</strong> are rule-driven — you define filters (color, set,
-                      rarity, etc.) and SpellControl automatically routes matching cards into them.
+                      <strong>Binders</strong> sort your cards by rules you set: color, set, rarity,
+                      and more.
                       <br />
                       <br />
-                      <strong>Lists</strong> are named groups of cards — hand-curated want lists
-                      (cards to acquire), tracking lists (cards you own, catalogued outside your
-                      binders), or dynamic lists driven by a rule like binders are.
+                      <strong>Lists</strong> are named groups: want lists, tracking lists, or
+                      rule-driven dynamic lists.
                       <br />
                       <br />
-                      The backup includes both binder rule definitions and lists.
+                      The backup includes both.
                     </>
                   }
                 />
@@ -668,7 +667,7 @@ export function YouPage() {
                 Repair deck allocations
                 <InfoTip
                   label="deck allocations"
-                  text="An allocation links each card slot in a deck to a specific physical copy in your collection — so if you own two copies of a card, SpellControl knows which one is claimed by which deck. Repair re-runs this matching after edits or re-imports."
+                  text="An allocation links a deck slot to one physical copy, so owning two copies of a card doesn't leave it ambiguous which deck claims which. Repair re-runs the match after edits or re-imports."
                 />
               </>
             }
@@ -748,7 +747,7 @@ export function YouPage() {
             Danger zone
           </h2>
           <p className="settings-card-hint">
-            Irreversible actions. Make a backup first — Collection → Export full collection.
+            Irreversible actions. Make a backup first: Collection → Export full collection.
           </p>
         </header>
         <div className="settings-card-body">
@@ -756,8 +755,8 @@ export function YouPage() {
             <div className="settings-row-text">
               <div className="settings-row-value">Delete entire collection</div>
               <div className="settings-row-hint">
-                Removes every card and import-history entry. Binder definitions are kept; they will
-                simply have nothing to match against.
+                Removes every card and import-history entry. Binder definitions stay, with nothing
+                left to match against.
               </div>
             </div>
             <button
@@ -775,8 +774,8 @@ export function YouPage() {
               <div className="settings-row-text">
                 <div className="settings-row-value">Delete account</div>
                 <div className="settings-row-hint">
-                  Permanently deletes your account and all server-side data — collection, binders,
-                  decks, games, backups, and share links. This cannot be undone.
+                  Permanently deletes your account and everything on the server: collection,
+                  binders, decks, games, backups, share links. This can't be undone.
                 </div>
               </div>
               <button type="button" className="btn btn-danger" onClick={() => setDeleteStep(1)}>
@@ -806,29 +805,12 @@ export function YouPage() {
           . Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards
           of the Coast. ©Wizards of the Coast LLC.
         </p>
-        <p>
-          Card data and images are provided by{' '}
-          <a
-            href="https://scryfall.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              if (!isNativePlatform()) return;
-              e.preventDefault();
-              openExternal('https://scryfall.com');
-            }}
-          >
-            Scryfall
-          </a>
-          . SpellControl is not affiliated with Scryfall, ManaBox, Moxfield, Archidekt, Deckbox,
-          TCGplayer, or Cardsphere.
-        </p>
       </footer>
 
       {unlinkOpen && (
         <ConfirmDialog
           title="Unlink Google?"
-          body="You can re-link any time. Your account and data stay intact — only the Google sign-in shortcut is removed."
+          body="You can re-link any time. Your account and data stay intact, and only the Google sign-in shortcut is removed."
           confirmLabel={unlinkBusy ? 'Unlinking…' : 'Unlink'}
           danger
           onConfirm={() => void handleUnlinkGoogle()}
@@ -843,7 +825,7 @@ export function YouPage() {
             signOutPending > 0
               ? `You have ${signOutPending} unsynced ${
                   signOutPending === 1 ? 'change' : 'changes'
-                } that haven't reached the server yet. Signing out removes all data from this device — those changes will be lost.`
+                } that haven't reached the server yet. Signing out removes all data from this device, and those changes will be lost.`
               : `Your data is synced to ${
                   username ? `@${username}` : 'your account'
                 } and will be restored when you sign back in. It will be removed from this device.`
@@ -934,13 +916,13 @@ function DeleteAccountDialog({
       labelledBy="delete-account-title"
     >
       <h2 id="delete-account-title" className="choice-dialog-title">
-        {isFinal ? 'Last chance — delete your account?' : 'Delete your account?'}
+        {isFinal ? 'Last chance: delete your account?' : 'Delete your account?'}
       </h2>
       <p className="choice-dialog-body">
         {isFinal ? (
           <>
-            This permanently deletes <strong>{username}</strong> and erases every server-side record
-            — collection, binders, decks, games, backups, and share links. There is no undo.
+            This permanently deletes <strong>{username}</strong> and erases every server-side
+            record: collection, binders, decks, games, backups, share links. This can't be undone.
           </>
         ) : (
           <>
@@ -998,14 +980,14 @@ function WipeConfirmDialog({ cardCount, step, busy, onAdvance, onCancel }: WipeC
       labelledBy="wipe-collection-title"
     >
       <h2 id="wipe-collection-title" className="choice-dialog-title">
-        {isFinal ? 'Last chance — delete everything?' : 'Delete entire collection?'}
+        {isFinal ? 'Last chance: delete everything?' : 'Delete entire collection?'}
       </h2>
       <p className="choice-dialog-body">
         {isFinal ? (
           <>
             This will permanently remove <strong>{frozenCount.toLocaleString()}</strong>{' '}
             {frozenCount === 1 ? 'card' : 'cards'} and the import history. Your binders stay defined
-            but will be empty. There is no undo.
+            but will be empty. This can't be undone.
           </>
         ) : (
           <>

@@ -300,7 +300,7 @@ export function ScannerQueueSheet({
 
         {entries.length === 0 ? (
           <div className="scanner-sheet-empty">
-            Nothing scanned yet — hold a card up to the camera, or search above to add one.
+            Nothing scanned yet. Hold a card up to the camera, or search above to add one.
           </div>
         ) : (
           <ul className="scanner-sheet-list">

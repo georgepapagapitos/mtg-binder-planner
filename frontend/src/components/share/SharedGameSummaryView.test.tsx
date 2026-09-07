@@ -75,7 +75,7 @@ describe('SharedGameSummaryView', () => {
     render(<SharedGameSummaryView data={sample({ winnerSeat: null })} token="tok123" />);
 
     expect(
-      screen.getByRole('heading', { level: 1, name: 'commander game — no declared winner' })
+      screen.getByRole('heading', { level: 1, name: 'commander game · no declared winner' })
     ).toBeTruthy();
     expect(screen.queryByText('Winner')).toBeNull();
   });

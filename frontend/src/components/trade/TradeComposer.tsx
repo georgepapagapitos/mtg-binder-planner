@@ -285,7 +285,7 @@ export function TradeComposer({
    *  say what actually happened, and what to do about it, before sending. */
   function warnLineCap() {
     toast.show({
-      message: `A trade side maxes out at ${MAX_TRADE_LINES_PER_SIDE} different cards — remove one to add another.`,
+      message: `A trade side maxes out at ${MAX_TRADE_LINES_PER_SIDE} different cards. Remove one to add another.`,
       tone: 'warn',
     });
   }
@@ -454,11 +454,11 @@ export function TradeComposer({
       >
         <div className="game-night-dialog trade-composer">
           <h2 id={titleId} className="game-night-dialog-title">
-            Propose a trade — {friendName}
+            Propose a trade · {friendName}
           </h2>
           <p className="game-night-dialog-hint">
-            Pick what changes hands. {friendName} sees the exact printings you're offering, and
-            confirms which of theirs they're giving when they accept.
+            Pick what changes hands. {friendName} sees the exact printings and confirms theirs when
+            they accept.
           </p>
 
           <div className="trade-composer-sides">
@@ -543,7 +543,7 @@ export function TradeComposer({
               }}
               emptyResults={
                 ownedLines.length === 0
-                  ? 'Your collection is empty — import or add cards first.'
+                  ? 'Your collection is empty. Import or add cards first.'
                   : wantedOnly && spareOnly
                     ? `Nothing spare that ${friendName} wants matches that search. Turn off a filter to widen it.`
                     : wantedOnly
@@ -573,7 +573,7 @@ export function TradeComposer({
               searchLabel={`Search ${friendName}'s collection`}
               searchNote={
                 wantSearch.ignored.length > 0
-                  ? `${wantSearch.ignored.join(', ')} ${wantSearch.ignored.length === 1 ? 'is' : 'are'} not searchable in a friend's collection — the rest of your search still applied.`
+                  ? `${wantSearch.ignored.join(', ')} ${wantSearch.ignored.length === 1 ? 'is' : 'are'} not searchable in a friend's collection; the rest of your search still ran.`
                   : undefined
               }
               picked={wantCards.map((c) => ({
@@ -586,7 +586,7 @@ export function TradeComposer({
                 max: 20,
                 value: (() => {
                   const floor = floorPrices.get(c.name);
-                  return floor == null ? '—' : `from ${formatMoney(floor * c.quantity)}`;
+                  return floor == null ? undefined : `from ${formatMoney(floor * c.quantity)}`;
                 })(),
               }))}
               onBump={(key, delta, max) => bump(setWanting, key, delta, max)}
@@ -766,7 +766,7 @@ function TradeSide({
       </h3>
 
       {picked.length > 0 && (
-        <ul className="trade-side-picked" aria-label={`${title} — chosen cards`}>
+        <ul className="trade-side-picked" aria-label={`${title}: chosen cards`}>
           {picked.map((row) => (
             <PickedRow
               key={row.key}
@@ -813,7 +813,7 @@ function TradeSide({
           {emptyResults}
         </p>
       ) : (
-        <ul className="trade-side-results" aria-label={`${title} — pick a card`}>
+        <ul className="trade-side-results" aria-label={`${title}: pick a card`}>
           {results.map((row) => (
             // Two sibling buttons, not one row-wide button with a nested one
             // (invalid HTML). The split is deliberately UNEVEN: this picker is
@@ -954,7 +954,7 @@ function PickedRow({
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-controls={listId}
-              aria-label={`Choose which printing of ${row.name} to trade — ${totalChosen} of ${totalOwned} copies selected`}
+              aria-label={`Choose which printing of ${row.name} to trade, ${totalChosen} of ${totalOwned} copies selected`}
             >
               <span aria-hidden>
                 {totalChosen}/{totalOwned}
@@ -1010,7 +1010,7 @@ function PickedRow({
             countOf={countIn}
             onSet={(printingKey, next) => onSetPrinting?.(row.key, printingKey, next)}
             binderByCopyId={binderByCopyId}
-            label={`${row.name} — your printings`}
+            label={`${row.name}: your printings`}
           />
         </div>
       )}

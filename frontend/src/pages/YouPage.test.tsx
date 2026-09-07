@@ -136,7 +136,7 @@ describe('UX-332 — Settings account card honesty copy', () => {
   it('explains that local data merges on sign-in when the user is not signed in', () => {
     renderYouPage();
     // The guest-state row should mention that local cards will be added to the account.
-    expect(screen.getByText(/the cards here are added to your account/i)).toBeTruthy();
+    expect(screen.getByText(/sync the cards here into your account/i)).toBeTruthy();
   });
 });
 
@@ -238,7 +238,7 @@ describe('you-page — hero copy', () => {
     expect(screen.queryByRole('heading', { name: 'Settings' })).toBeNull();
     // The Danger zone's backup hint names the card, not a page called Settings.
     expect(
-      screen.getByText(/Make a backup first — Collection → Export full collection/)
+      screen.getByText(/Make a backup first: Collection → Export full collection/)
     ).toBeTruthy();
   });
 });

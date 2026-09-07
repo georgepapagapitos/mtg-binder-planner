@@ -33,9 +33,25 @@
   }
 }
 
-/* Narrow phones: four chips wrapped as three plus an orphan on its own line.
-   Let each take half the row so they settle into two even pairs. */
+/* Four chips wrap as three plus an orphan whenever the row's own available
+   width is too narrow for all four, which is NOT just a phone thing: above
+   600px this row lives inside .home-hero-main (HomeHero.css), whose width is
+   the hero panel's functional column beside the featured-card sleeve, not
+   the viewport — the same orphan reappears at 768px and again from 1440px up
+   (the hero is capped at --page-max, so its functional column stops growing
+   past that point too). Let each chip take half the row so they settle into
+   two even pairs, everywhere the row itself is narrow rather than only below
+   a phone-viewport breakpoint (B2-01). The ≤600px media query below still
+   carries the ≤480px phone case on its own: .home-hero-main is
+   `display: contents` there (HomeHero.css), so it has no box to query. */
 @media (max-width: 480px) {
+  .home-quick-action {
+    flex: 1 1 calc(50% - var(--space-2));
+    justify-content: center;
+  }
+}
+
+@container home-hero-main (max-width: 560px) {
   .home-quick-action {
     flex: 1 1 calc(50% - var(--space-2));
     justify-content: center;

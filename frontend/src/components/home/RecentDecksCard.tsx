@@ -5,6 +5,7 @@ import { useDecksStore, type Deck } from '../../store/decks';
 import { ManaCost } from '../ManaCost';
 import { ColorPip } from '../shared/ManaSymbol';
 import { imageFromCard, useCardThumb } from '../../lib/card-thumbs';
+import { formatRelativeTime } from '../../lib/format-time';
 import { DECK_FORMAT_CONFIGS } from '@/deck-builder/lib/constants/archetypes';
 import type { DeckFormat } from '@/deck-builder/types';
 import { HomeCard } from './HomeCard';
@@ -73,15 +74,21 @@ export function RecentDecksCard() {
       <ul className="home-recent-decks-list">
         {recent.map((deck) => {
           const label = formatLabel(deck.format);
+          const updated = formatRelativeTime(deck.updatedAt);
           return (
             <li key={deck.id}>
               <Link
                 to={`/decks/${deck.id}`}
                 className="home-recent-deck-row"
-                aria-label={`Open deck: ${deck.name}, ${label}`}
+                aria-label={`Open deck: ${deck.name}, ${label}, updated ${updated}`}
               >
                 <DeckThumb deck={deck} />
-                <span className="home-recent-deck-name">{deck.name}</span>
+                <span className="home-recent-deck-name-group">
+                  <span className="home-recent-deck-name">{deck.name}</span>
+                  <span className="home-recent-deck-updated" aria-hidden="true">
+                    {updated}
+                  </span>
+                </span>
                 {deck.commander?.mana_cost && (
                   <ManaCost cost={deck.commander.mana_cost} className="home-recent-deck-cost" />
                 )}

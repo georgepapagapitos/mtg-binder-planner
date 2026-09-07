@@ -132,7 +132,10 @@ function PublicDeckPageInner({ slug }: { slug: string }) {
   if (state.status === 'notFound') {
     return (
       <SharedShell>
-        <NotFoundView />
+        <NotFoundView
+          title="Deck not found"
+          message="This deck isn't public anymore, or the link is wrong."
+        />
       </SharedShell>
     );
   }

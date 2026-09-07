@@ -81,7 +81,7 @@ export function TagsPage() {
         <h1>Browse by tag</h1>
         <p className="tags-page-sub">
           Find cards by what they do, not what they're called. Pick a function to see every card
-          that does it — no commander required.
+          that does it. No commander required.
         </p>
       </header>
 
@@ -158,9 +158,7 @@ export function TagsPage() {
           ) : matches.length === 0 ? (
             <div className="tags-page-status">
               <p className="empty-state-tagline">No tag matches “{tagQuery.trim()}”.</p>
-              <p className="empty-state-hint">
-                Tags describe function — try “sweeper”, “tutor”, “token”, or “counter”.
-              </p>
+              <p className="empty-state-hint">Tags describe function. Try “sweeper” or “tutor”.</p>
             </div>
           ) : (
             <>
@@ -187,7 +185,7 @@ export function TagsPage() {
               </ul>
               {total > matches.length && (
                 <p className="tags-list-note">
-                  Showing {matches.length} of {total.toLocaleString()} tags — search to narrow.
+                  Showing {matches.length} of {total.toLocaleString()} tags. Search to narrow.
                 </p>
               )}
             </>
@@ -229,7 +227,7 @@ export function TagsPage() {
             <EmptyStateMark />
             <p className="empty-state-tagline">Pick a tag to see what it finds.</p>
             <p className="empty-state-hint">
-              Combine tags to narrow — “sweeper” plus “instant speed” is a much shorter list.
+              Combine tags to narrow: “sweeper” plus “instant speed” is a much shorter list.
             </p>
           </div>
         )

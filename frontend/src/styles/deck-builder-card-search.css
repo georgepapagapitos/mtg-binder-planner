@@ -61,9 +61,11 @@
   padding: var(--space-2) 0.85rem 0;
 }
 
-/* The tabpanel wrapper sits between the panel and the results list; it must
-   carry the flex chain so the list scrolls within the sheet instead of growing
-   past it. Without this it's an auto-height block and the results overflow. */
+/* The tabpanel is the sheet's ONE scroll body (STYLE_GUIDE § Overlays: a
+   sheet's middle is one scroll region; `.deck-size-prompt-body` is the
+   reference). The hint strip, the Suggestions tab's AI slot and the results
+   list are non-scrolling children that stack inside it, so the AI prose and
+   the suggestion rows read as one list instead of two nested scrollers. */
 .deck-add-sheet .card-search-tabpanel {
   flex: 1;
   min-height: 0;
@@ -73,24 +75,17 @@
      is the tabpanel's first child, above the results list — spaces the two
      apart without the hint component owning its own margin. */
   gap: var(--space-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.deck-add-sheet .card-search-tabpanel > * {
+  flex-shrink: 0;
 }
 
 .deck-add-sheet .card-search-results {
-  flex: 1;
-  min-height: 0;
   max-height: none;
-}
-
-/* The Suggestions tab's AI slot (E244). The tabpanel is a fixed-height flex
-   column where only the results list scrolls, so the expanded AI panel must
-   bound itself: cap it and scroll its prose internally, leaving the
-   suggestion rows their own share of the sheet. */
-.deck-add-sheet .card-search-ai {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 60%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow-y: visible;
 }
 
 /* "Pick a commander first" interstitial — shown when Add cards is opened on a

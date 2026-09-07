@@ -550,11 +550,12 @@ export const CardSearchPanel = forwardRef<CardSearchPanelHandle, Props>(function
   // than stored so we never render against a now-hidden tab.
   const activeMode: Mode = !enableSuggestions && mode === 'suggestions' ? 'collection' : mode;
 
-  // The reset above re-labels row 0 as the active one, but the list keeps its
-  // old scroll offset — a new query/tab/sort would highlight a row parked
-  // above the fold. Snap the list back to the top alongside the reset.
+  // The reset above re-labels row 0 as the active one, but the tabpanel (the
+  // sheet's one scroll body) keeps its old scroll offset — a new query/tab/
+  // sort would highlight a row parked above the fold. Snap it back to the top
+  // alongside the reset.
   useEffect(() => {
-    document.getElementById('card-search-results')?.scrollTo({ top: 0 });
+    document.getElementById('card-search-tabpanel')?.scrollTo({ top: 0 });
   }, [query, activeMode, sort]);
 
   return (
@@ -705,9 +706,8 @@ export const CardSearchPanel = forwardRef<CardSearchPanelHandle, Props>(function
           />
         ) : activeMode === 'suggestions' ? (
           <>
-            {/* Bounded + internally scrollable: the tabpanel is a fixed-height
-                flex column where only the results list scrolls, so an expanded
-                AI panel must cap itself instead of painting past the sheet. */}
+            {/* Stacks above the rows inside the tabpanel, the sheet's one
+                scroll body; the AI prose and the suggestions scroll together. */}
             {aiSlot && <div className="card-search-ai">{aiSlot}</div>}
             <SuggestionsResults
               deckId={deckId}

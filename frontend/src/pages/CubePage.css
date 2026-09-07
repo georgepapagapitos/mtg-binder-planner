@@ -61,6 +61,29 @@
   gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
+/* Desktop: a wrapping toolbar row (STYLE_GUIDE § Toolbars & action rows, control
+   rows). Size picker first, the rest flow after it and wrap to a second line
+   inside the 960px page cap; bottoms align so the slider's end labels, the
+   toggle, the button and the count sit on one baseline. Phone/tablet keep the
+   stacked column. */
+@media (min-width: 1024px) {
+  .cube-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3) var(--space-4);
+  }
+  .cube-controls .cube-synergy {
+    width: 20rem;
+  }
+}
+/* Picker + its per-size note travel together so the note stays under the
+   options it describes when the controls become a row. */
+.cube-size {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 /* Six sizes with a per-option pod label don't fit a single segmented bar on a
    phone (a joined bar can't wrap cleanly), so the picker is a wrapping group of
    selectable rect options — each its own bordered button, accent-light when

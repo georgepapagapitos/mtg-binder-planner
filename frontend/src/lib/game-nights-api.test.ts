@@ -149,11 +149,13 @@ describe('host controls: delete night, remove attendee, un-invite', () => {
 });
 
 describe('fetchPublicGameNight', () => {
-  it('appends the guest rsvpId and unwraps the payload', async () => {
+  it('sends the guest rsvpId as a header, not in the URL, and unwraps the payload', async () => {
     const payload = { night: NIGHT, rsvps: [], myRsvp: null };
     fetchMock.mockResolvedValue(jsonResponse(payload));
     expect(await fetchPublicGameNight('tok', 'r1')).toEqual(payload);
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/game-nights/public/tok?rsvpId=r1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/game-nights\/public\/tok$/);
+    expect(init.headers).toEqual({ 'X-Rsvp-Id': 'r1' });
   });
 
   it('throws GameNightNotFoundError on 404', async () => {

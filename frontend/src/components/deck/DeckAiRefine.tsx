@@ -366,7 +366,12 @@ export function DeckAiRefine({
           {tweaks.length > 0 ? (
             <>
               {onApplyAll && !isReplace && bulkable.length >= 2 && (
-                <button type="button" className="btn deck-ai-bulk-apply" onClick={applyAll}>
+                <button
+                  type="button"
+                  className="btn btn-primary deck-ai-bulk-apply"
+                  onClick={applyAll}
+                >
+                  <Check width={14} height={14} strokeWidth={2.5} aria-hidden />
                   Apply all {bulkable.length} swaps
                 </button>
               )}
@@ -444,12 +449,13 @@ export function DeckAiRefine({
                         ) : (
                           <button
                             type="button"
-                            className="btn"
+                            className="btn btn-primary"
                             onClick={() => accept(t)}
                             aria-label={
                               t.cut ? `Swap ${t.cut} for ${shownName}` : `Add ${shownName}`
                             }
                           >
+                            <Check width={14} height={14} strokeWidth={2.5} aria-hidden />
                             Apply
                           </button>
                         )}

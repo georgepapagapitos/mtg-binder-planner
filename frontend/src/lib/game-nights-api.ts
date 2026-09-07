@@ -351,16 +351,19 @@ export async function revokeGameNightGuestInvite(nightId: string, inviteId: stri
   }
 }
 
-/** Public read. `rsvpId` is the guest's stored credential for `myRsvp` resolution. */
+/** Public read. `rsvpId` is the guest's stored credential for `myRsvp`
+ *  resolution; it travels as a header, like the invite token, never in the URL. */
 export async function fetchPublicGameNight(
   token: string,
   rsvpId?: string
 ): Promise<PublicGameNight> {
-  const query = rsvpId ? `?rsvpId=${encodeURIComponent(rsvpId)}` : '';
   const inviteToken = loadGuestInviteToken(token);
-  const res = await fetch(apiUrl(`/api/game-nights/public/${encodeURIComponent(token)}${query}`), {
+  const headers: Record<string, string> = {};
+  if (rsvpId) headers['X-Rsvp-Id'] = rsvpId;
+  if (inviteToken) headers['X-Night-Invite'] = inviteToken;
+  const res = await fetch(apiUrl(`/api/game-nights/public/${encodeURIComponent(token)}`), {
     credentials: 'include',
-    ...(inviteToken ? { headers: { 'X-Night-Invite': inviteToken } } : {}),
+    headers,
   });
   if (res.status === 404) {
     throw new GameNightNotFoundError();

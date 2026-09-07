@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateGroups, validateRanges } from './FilterGroupEditor';
+import { groupBadgeCount, validateGroups, validateRanges } from './FilterGroupEditor';
 import { isFilterEmpty } from '../lib/rules';
 import type { BinderFilter } from '../types';
 
@@ -70,5 +70,24 @@ describe('isFilterEmpty — the shadowed copy is gone', () => {
   it('still calls a blank filter empty', () => {
     expect(isFilterEmpty({})).toBe(true);
     expect(isFilterEmpty({ scryfallQuery: { query: '   ', oracleIds: [] } })).toBe(true);
+  });
+});
+
+describe('groupBadgeCount — B4-01, a binder catch-all is not a list "no rule"', () => {
+  // A binder's empty group is a deliberate catch-all, so its badge shows the
+  // real (large) match count — the default, un-flagged behavior.
+  it('shows the raw match count for a binder (emptyGroupMatchesNothing off)', () => {
+    expect(groupBadgeCount({}, 11535, false)).toBe(11535);
+  });
+
+  // A list's empty rule matches nothing by construction (dynamic-list.ts), so
+  // its badge must not repeat the binder's catch-all count for the same
+  // (empty) filter — the bug the audit caught.
+  it('reads as "no rule yet" for a list with an empty group', () => {
+    expect(groupBadgeCount({}, 11535, true)).toBeNull();
+  });
+
+  it('still shows the real count for a list once the group has a rule', () => {
+    expect(groupBadgeCount({ cmcMin: 1 }, 42, true)).toBe(42);
   });
 });

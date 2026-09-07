@@ -9,6 +9,7 @@ import { isTrackingList } from '../lib/lists';
 import { formatMoney } from '../lib/format-money';
 import { useCollectionStore } from '../store/collection';
 import { BackLink } from './BackLink';
+import { InfoTip } from './InfoTip';
 import { ListDetailView } from './ListDetailView';
 import { ListAddCardSheet } from './ListAddCardSheet';
 import { ListRuleEditor } from './ListRuleEditor';
@@ -52,9 +53,12 @@ export function ListEntriesView({ list }: Props) {
   // Static lists resolve their stored printings; dynamic lists never fetch —
   // their rows ARE collection cards. Each path gets an empty input when the
   // other is active.
-  const { rows: entryRows, loading: entriesLoading } = useEnrichedListEntries(
-    isDynamic ? [] : list.entries
-  );
+  const {
+    rows: entryRows,
+    loading: entriesLoading,
+    loadingLong: entriesLoadingLong,
+    retry: retryEntries,
+  } = useEnrichedListEntries(isDynamic ? [] : list.entries);
   // Decorate with oracle tags only when the rule needs them (same lazy gate
   // as the binder pages), so tag rules count correctly once the snapshot loads.
   const taggedOwned = useCardsWithTags(ownedCards, isDynamic && groupsUseTags(rule));
@@ -88,15 +92,23 @@ export function ListEntriesView({ list }: Props) {
               <>
                 {copyCount > cardCount && <> · {copyCount.toLocaleString()} copies</>}
                 {' · '}
-                <span title="This list is rule-driven — cards from your collection that match the rule appear here automatically">
-                  dynamic — stays in sync with your collection
+                <span>
+                  dynamic
+                  <InfoTip
+                    label="dynamic list"
+                    text="Rule-driven. Matching cards from your collection appear here automatically."
+                  />
                 </span>
               </>
             ) : tracking ? (
               <>
                 {' · '}
-                <span title="This list catalogues cards you own — it's never treated as a want list">
+                <span>
                   tracking
+                  <InfoTip
+                    label="tracking list"
+                    text="Catalogues cards you own. Never treated as a want list."
+                  />
                 </span>
                 {list.entries.length > 0 &&
                   !loading &&
@@ -105,9 +117,7 @@ export function ListEntriesView({ list }: Props) {
                   !cost.allOwned && (
                     <>
                       {' · '}
-                      <span title="Cards on this list that aren't in your collection right now">
-                        {cost.unownedEntries.toLocaleString()} not in your collection
-                      </span>
+                      <span>{cost.unownedEntries.toLocaleString()} not in your collection</span>
                     </>
                   )}
               </>
@@ -121,14 +131,16 @@ export function ListEntriesView({ list }: Props) {
                       Pricing…
                     </span>
                   ) : cost.allOwned ? (
-                    <span title="Every copy on this list is already in your collection">
-                      you already own everything here
-                    </span>
+                    <span>you already own everything here</span>
                   ) : (
-                    <span title="Cost to buy everything on this list you don't already own (Scryfall market price)">
+                    <span>
                       {formatMoney(cost.totalCost, { wholeDollars: true })} to complete
                       {cost.unpricedCount > 0 &&
                         ` (+${cost.unpricedCount.toLocaleString()} unpriced)`}
+                      <InfoTip
+                        label="cost to complete"
+                        text="Scryfall market price for everything on this list you don't already own."
+                      />
                     </span>
                   )}
                 </>
@@ -159,7 +171,14 @@ export function ListEntriesView({ list }: Props) {
         </div>
       </header>
 
-      <ListDetailView list={list} rows={rows} loading={loading} dynamic={isDynamic} />
+      <ListDetailView
+        list={list}
+        rows={rows}
+        loading={loading}
+        loadingLong={!isDynamic && entriesLoadingLong}
+        onRetry={retryEntries}
+        dynamic={isDynamic}
+      />
 
       {addOpen && !isDynamic && <ListAddCardSheet list={list} onClose={() => setAddOpen(false)} />}
       {ruleOpen && isDynamic && <ListRuleEditor list={list} onClose={() => setRuleOpen(false)} />}

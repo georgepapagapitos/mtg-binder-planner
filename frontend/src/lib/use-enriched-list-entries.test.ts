@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import type { ScryfallCard } from '@/deck-builder/types';
 import type { ListEntry } from '../types';
 import { useEnrichedListEntries } from './use-enriched-list-entries';
@@ -118,5 +118,45 @@ describe('useEnrichedListEntries', () => {
     expect(result.current.loading).toBe(false);
     expect(getCardsByIds).not.toHaveBeenCalled();
     expect(getCardsByNames).not.toHaveBeenCalled();
+  });
+
+  it('flips loadingLong after 5s of unresolved loading (B4-05)', async () => {
+    vi.useFakeTimers();
+    try {
+      // Resolution never settles in this test, so `loading` stays true long
+      // enough to observe the timer flip (e.g. a stuck rate-limit backoff).
+      vi.mocked(getCardsByIds).mockReturnValue(new Promise(() => {}));
+
+      const { result } = renderHook(() => useEnrichedListEntries([entry()]));
+      expect(result.current.loading).toBe(true);
+      expect(result.current.loadingLong).toBe(false);
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+        await Promise.resolve();
+      });
+      expect(result.current.loadingLong).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retry() re-runs resolution and clears loadingLong once it settles', async () => {
+    vi.mocked(getCardsByIds).mockResolvedValueOnce(new Map());
+    // Hoisted so the entries array keeps its identity across re-renders —
+    // the hook's effect depends on it by reference, same as `entries` in
+    // every other caller (a stable prop), not a literal recreated per render.
+    const entries = [entry()];
+    const { result } = renderHook(() => useEnrichedListEntries(entries));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    vi.mocked(getCardsByIds).mockClear();
+    vi.mocked(getCardsByIds).mockResolvedValueOnce(new Map());
+    act(() => {
+      result.current.retry();
+    });
+    expect(getCardsByIds).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.loadingLong).toBe(false);
   });
 });

@@ -65,21 +65,29 @@ jobs:
             if (cov < 0.6) { console.error("::error::staple coverage <60% — scrape likely incomplete"); process.exit(1); }
           '
 
+      # An app token, not GITHUB_TOKEN, for the same reason as scanner-ingest.yml
+      # and refresh-snapshots.yml: a PR opened with GITHUB_TOKEN never triggers
+      # CI, so the required checks never report and the PR can't merge without
+      # an admin override. Same secrets as those two workflows.
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SCANNER_BOT_APP_ID }}
+          private-key: ${{ secrets.SCANNER_BOT_PRIVATE_KEY }}
+
+      # No-op (no PR) when the index is unchanged.
       - name: Open a PR if the index changed
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if git diff --quiet -- frontend/public/card-similar.json; then
-            echo "No change to card-similar.json — nothing to PR."
-            exit 0
-          fi
-          branch="chore/refresh-card-similar-${{ github.run_id }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add frontend/public/card-similar.json
-          git commit -m "chore(deck): refresh card-similar.json from EDHREC"
-          git push origin "$branch"
-          gh pr create --base main --head "$branch" \
-            --title "chore(deck): refresh card-similar.json from EDHREC" \
-            --body "Automated refresh of the substitute index (\`public/card-similar.json\`) via the **Refresh card-similar** workflow. Validated in-workflow before opening: count ≥ 500, no empty similar lists, ≥ 60% eval-staple coverage. Review the diff and merge. Note: bot-token PRs don't auto-trigger CI — if branch protection blocks the merge, push an empty commit (\`git commit --allow-empty\`) to start checks, or admin-merge (the data is already guard-validated)."
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: chore/refresh-card-similar
+          delete-branch: true
+          base: main
+          title: 'chore(deck): refresh card-similar.json from EDHREC'
+          commit-message: 'chore(deck): refresh card-similar.json from EDHREC'
+          add-paths: frontend/public/card-similar.json
+          body: |
+            Automated refresh of the substitute index (`public/card-similar.json`) via the **Refresh card-similar** workflow.
+
+            Validated in-workflow before opening: count ≥ 500, no empty similar lists, ≥ 60% eval-staple coverage. Review the diff and merge.

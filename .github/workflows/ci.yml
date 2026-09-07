@@ -32,6 +32,8 @@ concurrency:
 permissions:
   contents: read
 
+# Every job below caps its runtime (GitHub's default is 6h) so a hung install
+# or test can't silently drain the Actions budget.
 jobs:
   # Cheap structural gate, deliberately first: a packages/* shared package has to
   # be registered in every place that installs a consumer, and the places that
@@ -61,16 +63,24 @@ jobs:
       - name: Check shared package registration
         run: node scripts/check-shared-package-registration.mjs
 
-  game-core:
-    name: game-core — typecheck & test
+  # One job per packages/* shared package. The `name` must stay exactly
+  # "<package> — typecheck & test": those are the required status checks in the
+  # "protect main" ruleset, and a renamed check never reports, so every PR would
+  # wait on it forever. Adding a package here does NOT make it required — that
+  # is a ruleset edit (Settings → Rules → protect main).
+  package:
+    name: ${{ matrix.package }} — typecheck & test
     runs-on: ubuntu-latest
-    # Cap runaway jobs (GitHub's default is 6h) so a hung install/test can't
-    # silently drain the Actions budget. This job normally finishes in ~2 min.
     timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [game-core, binder-routing, deck-metrics]
 
     defaults:
       run:
-        working-directory: packages/game-core
+        working-directory: packages/${{ matrix.package }}
 
     steps:
       - uses: actions/checkout@v7
@@ -79,67 +89,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: packages/game-core/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Format check
-        run: npm run format:check
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-
-  binder-routing:
-    name: binder-routing — typecheck & test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    defaults:
-      run:
-        working-directory: packages/binder-routing
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: packages/binder-routing/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Format check
-        run: npm run format:check
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-
-  deck-metrics:
-    name: deck-metrics — typecheck & test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    defaults:
-      run:
-        working-directory: packages/deck-metrics
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: packages/deck-metrics/package-lock.json
+          cache-dependency-path: packages/${{ matrix.package }}/package-lock.json
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
@@ -171,35 +121,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # The three shared packages are re-installed here only so their build
-      # has TypeScript and @types/node in reach (their tests already ran in
-      # their own jobs above). Restore those node_modules from cache and
-      # install only on a miss: on 2026-09-03 a slow registry turned each of
-      # these 69-package installs into a 4-minute wait, and this job hit its
-      # 15-minute cap before typecheck ever started.
-      - name: Restore shared package dependencies
-        uses: actions/cache@v6
-        with:
-          path: packages/*/node_modules
-          key: shared-packages-${{ runner.os }}-node22-${{ hashFiles('packages/*/package-lock.json') }}
-
-      # Build the shared file: dependency before installing the consumer:
-      # game-core's dist is gitignored, so a fresh checkout has none and the
-      # consumer's `npm ci` would otherwise run game-core's build with no
-      # devDeps. Building it here makes the dist-guarded prepare a no-op.
-      # `test -d node_modules ||` keeps a cache hit from being thrown away —
-      # `npm ci` always starts by deleting node_modules.
-      - name: Build shared game-core
-        working-directory: packages/game-core
-        run: (test -d node_modules || npm ci --no-audit --no-fund) && npm run build
-
-      - name: Build shared binder-routing
-        working-directory: packages/binder-routing
-        run: (test -d node_modules || npm ci --no-audit --no-fund) && npm run build
-
-      - name: Build shared deck-metrics
-        working-directory: packages/deck-metrics
-        run: (test -d node_modules || npm ci --no-audit --no-fund) && npm run build
+      # The shared packages' tests already ran in the `package` job above; this
+      # only rebuilds their gitignored dist so the frontend's `npm ci` can link
+      # them. Must come BEFORE the install — see the action for why.
+      - name: Build shared packages
+        uses: ./.github/actions/build-shared
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
@@ -281,31 +207,8 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      # See the frontend job: restore the shared packages' node_modules, then
-      # build each file: dependency before the consumer install so its
-      # dist-guarded prepare is a no-op.
-      - name: Restore shared package dependencies
-        uses: actions/cache@v6
-        with:
-          path: packages/*/node_modules
-          key: shared-packages-${{ runner.os }}-node22-${{ hashFiles('packages/*/package-lock.json') }}
-
-      - name: Build shared game-core
-        working-directory: packages/game-core
-        run: (test -d node_modules || npm ci --no-audit --no-fund) && npm run build
-
-      - name: Build shared binder-routing
-        working-directory: packages/binder-routing
-        run: (test -d node_modules || npm ci --no-audit --no-fund) && npm run build
-
-      # Added when the backend took a file: dep on deck-metrics for the AI
-      # check_bracket tool. EVERY shared package the consumer depends on needs a
-      # step here: without it the consumer's `npm ci` runs that package's
-      # dist-guarded prepare with none of its devDependencies present, and the
-      # build dies on "TS2688: Cannot find type definition file for 'node'".
-      - name: Build shared deck-metrics
-        working-directory: packages/deck-metrics
-        run: (test -d node_modules || npm ci --no-audit --no-fund) && npm run build
+      - name: Build shared packages
+        uses: ./.github/actions/build-shared
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund

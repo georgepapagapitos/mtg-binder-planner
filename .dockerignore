@@ -1,4 +1,6 @@
-# Root build context (docker-publish.yml builds with context: .).
+# Root build context: docker-image-build.yml and fly.toml both build with
+# context `.` and -f backend/Dockerfile, so THIS file is the only .dockerignore
+# Docker consults (a backend/.dockerignore would be ignored).
 # Keep the context lean and never ship host artifacts into images.
 **/node_modules
 **/dist

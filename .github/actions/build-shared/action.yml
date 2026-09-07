@@ -1,0 +1,32 @@
+name: Build shared packages
+description: >-
+  Install (on a cache miss) and build every packages/* shared package. Run it
+  BEFORE any `npm ci` of frontend/ or backend/: their file: deps have a
+  dist-guarded `prepare`, and with no dist present the consumer's install runs
+  that build with none of the package's devDependencies → "TS2688: Cannot find
+  type definition file for 'node'". --ignore-scripts on the consumer buys no
+  exemption (npm treats building a file: link as resolution, not a lifecycle
+  script). This loops over the directory, so a new packages/* is covered in
+  every workflow the day it lands; scripts/check-shared-package-registration.mjs
+  counts one `uses:` of this action as building all of them.
+
+runs:
+  using: composite
+  steps:
+    # Restore rather than reinstall: on 2026-09-03 a slow registry turned each
+    # of these 69-package installs into a 4-minute wait, and the frontend job hit
+    # its 15-minute cap before typecheck ever started. `test -d node_modules ||`
+    # keeps a hit from being thrown away — `npm ci` starts by deleting it.
+    - uses: actions/cache@v6
+      with:
+        path: packages/*/node_modules
+        key: shared-packages-${{ runner.os }}-${{ hashFiles('.nvmrc', 'packages/*/package-lock.json') }}
+
+    - shell: bash
+      run: |
+        set -euo pipefail
+        for pkg in packages/*/; do
+          echo "::group::build $pkg"
+          (cd "$pkg" && (test -d node_modules || npm ci --ignore-scripts --no-audit --no-fund) && npm run build)
+          echo "::endgroup::"
+        done

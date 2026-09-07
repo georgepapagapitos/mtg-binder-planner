@@ -24,7 +24,7 @@ RUN apt-get update \
 # ⚠️ ADDING A packages/* PACKAGE? It needs a stage here or the image build
 # breaks — and CI will NOT catch it, because typecheck/lint/test run in a
 # working tree where the package is already built. The failure only surfaces in
-# the Fly deploy / GHCR publish. This bit us once already (PR #312 added
+# the Fly deploy / docker-image-build.yml. This bit us once already (PR #312 added
 # binder-routing, #314 fixed this file).
 COPY packages/game-core/package.json packages/game-core/package-lock.json packages/game-core/tsconfig*.json ./packages/game-core/
 RUN npm --prefix packages/game-core ci --ignore-scripts
@@ -94,7 +94,7 @@ COPY --from=build /app/packages/binder-routing/dist ./packages/binder-routing/di
 # runs the bracket estimator), so the runtime copy has to exist or the `npm ci`
 # below cannot resolve the link. CI does NOT catch this — it runs in a working
 # tree where the package is already present, so a missing runtime copy surfaces
-# only in the Fly/GHCR image builds. Same trap binder-routing hit in #312/#314.
+# only in the Fly / docker-image-build.yml image builds. Same trap as #312/#314.
 COPY packages/deck-metrics/package.json ./packages/deck-metrics/
 COPY --from=build /app/packages/deck-metrics/dist ./packages/deck-metrics/dist
 

@@ -4539,9 +4539,9 @@ earlier faint `.binder-spread-blank` placeholder was invisible against the
 scrim, so a spine-centered lone-page spread read as "focused on the empty
 space with the page shoved aside"; the first narrowing pass kept the full
 spread flex-basis, which left a ~400px dead gap between the lone page and its
-neighbors. The track's centering spacers are sized for this narrowest slide so
-first/last slides still reach dead center; windowing placeholders carry the
-same class so track width stays stable.
+neighbors. `SnapCarousel` measures the track's edge spacers from the real
+first/last slide, so a lone-page first/last spread still reaches dead center;
+windowing placeholders carry the same class so track width stays stable.
 
 ### Spine
 
@@ -4604,9 +4604,8 @@ contract from PR-1). Tab gutters live **outside** that budget:
   envelope covers both gutters — applied to every slide (windowed or
   placeholder) so slide widths never change as spreads enter/leave the
   render window.
-- The centering spacers (`::before/::after`) have an `.is-spread.is-tabbed`
-  override that accounts for the extra gutter width so first/last spreads
-  still center.
+- The edge spacers (`.snap-spacer`) need no tabbed override: `SnapCarousel`
+  sizes them from the rendered first/last slide, gutters included.
 
 **Hard rule:** anything added to a spread slide must either live inside the
 pages+spine fraction budget (touching `--spread-page-frac` / `--spread-spine-frac`)

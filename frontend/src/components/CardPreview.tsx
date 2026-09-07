@@ -1,7 +1,5 @@
 import {
   Boxes,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   ExternalLink,
   Layers,
@@ -12,15 +10,7 @@ import {
   RotateCw,
   Share2,
 } from 'lucide-react';
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Share } from '@capacitor/share';
@@ -43,8 +33,7 @@ import { foilFinishLabel } from '../lib/foil-style';
 import { LANGUAGE_OPTIONS } from './PrintingPicker';
 import { ManaCost } from './ManaCost';
 import { useLockBodyScroll } from '../lib/use-lock-body-scroll';
-import { useCenteredSlide } from '../lib/use-centered-slide';
-import { useMaxBoundaryScroll } from '../lib/use-max-boundary-scroll';
+import { SnapCarousel, type SnapCarouselHandle } from './SnapCarousel';
 import { useSwipeDownDismiss } from '../lib/use-swipe-down-dismiss';
 import { useSheetExit } from '../lib/use-sheet-exit';
 import type { AllocationInfo } from '../lib/allocations';
@@ -211,7 +200,7 @@ export function CardPreview({
   const trackRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const panelInnerRef = useRef<HTMLDivElement>(null);
-  const slideRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const carousel = useRef<SnapCarouselHandle>(null);
   const [selected, setSelected] = useState(index);
   // Compact (image-hero) ↔ expanded (text-hero) panel. Expanded is a fixed
   // taller height applied to every card, so swiping between cards stays
@@ -309,23 +298,8 @@ export function CardPreview({
     onIndexChangeRef.current = onIndexChange;
   }, [onIndexChange]);
 
-  // Initial scroll: jump to the requested slide without animation.
-  useLayoutEffect(() => {
-    const slide = slideRefs.current[index];
-    if (slide) {
-      slide.scrollIntoView({
-        inline: 'center',
-        block: 'nearest',
-        behavior: 'instant' as ScrollBehavior,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useCenteredSlide(
-    trackRef,
-    slideRefs,
-    (bestIdx) => {
+  const handleIndexChange = useCallback(
+    (bestIdx: number) => {
       setSelected(bestIdx);
       onIndexChangeRef.current(bestIdx);
 
@@ -345,23 +319,12 @@ export function CardPreview({
         return next;
       });
     },
-    // Every card always has a placeholder slide div, so the observed set is
-    // stable for the life of the carousel — only `cards` identity matters.
     [cards]
   );
 
-  // Clamp the native scroll so a momentum fling can't rubber-band past the
-  // first/last card (CSS overscroll-behavior alone doesn't fully cover the
-  // Capacitor WebView — see the hook).
-  useMaxBoundaryScroll(trackRef);
-
   // Sync parent → carousel if the parent index changes externally.
   useEffect(() => {
-    if (index === selected) return;
-    const slide = slideRefs.current[index];
-    if (slide) {
-      slide.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-    }
+    if (index !== selected) carousel.current?.scrollTo(index);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
@@ -382,21 +345,14 @@ export function CardPreview({
       if (e.key === 'Escape') {
         // The preview is always the topmost overlay; capture + stop so a host
         // sheet's document-level Escape listener can't also fire and dismiss
-        // both layers on one press.
+        // both layers on one press. Arrow keys live in the carousel.
         e.stopPropagation();
         beginClose();
-        return;
       }
-      let next: number | null = null;
-      if (e.key === 'ArrowLeft') next = Math.max(0, selected - 1);
-      else if (e.key === 'ArrowRight') next = Math.min(cards.length - 1, selected + 1);
-      if (next === null || next === selected) return;
-      const slide = slideRefs.current[next];
-      slide?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [beginClose, selected, cards.length, shareOpen]);
+  }, [beginClose, shareOpen]);
 
   const { isDragging, axisLockRef, touchHandlers } = useSwipeDownDismiss({
     onDismiss: beginClose,
@@ -428,74 +384,28 @@ export function CardPreview({
   // feeds them the swipe-gesture suppression signal.
   const shouldSuppressTilt = useCallback(() => axisLockRef.current !== null, [axisLockRef]);
 
-  // Slide list lifted into a memo so a re-render (e.g. the once-per-gesture
-  // isDragging toggle) reuses these elements instead of rebuilding one DOM
-  // subtree per card. Recomputes only when something the slides depend on
-  // changes — notably `selected`, which slides the rich-content window.
-  const slideEls = useMemo(
-    () =>
-      cards.map((c, i) => {
-        // Every card always renders a bare placeholder slide div: that keeps
-        // the scroll track full-width and native scroll-snap intact. Only
-        // cards within WINDOW_RADIUS of the focus mount the expensive image
-        // frame — a few thousand 3D-transformed frames is what crushed the
-        // compositor to ~22fps; keeping the rich set small holds 120fps.
-        const inWindow = Math.abs(i - selected) <= WINDOW_RADIUS;
-        const slideRef = (el: HTMLDivElement | null) => {
-          slideRefs.current[i] = el;
-        };
-        const onSlideClick = (e: React.MouseEvent) => {
-          e.stopPropagation();
-          if (i !== selected) {
-            // Tap a peeking neighbor to advance to it.
-            slideRefs.current[i]?.scrollIntoView({
-              inline: 'center',
-              block: 'nearest',
-              behavior: 'smooth',
-            });
-          } else {
-            // Tap the active card to close — matches the natural
-            // "tap to dismiss" expectation on mobile and desktop alike.
-            beginClose();
-          }
-        };
-        if (!inWindow) {
-          // Placeholder: holds the slide's width/scroll-snap slot, nothing else.
-          return (
-            <div
-              className="card-preview-slide"
-              ref={slideRef}
-              key={`${c.scryfallId}-${i}`}
-              onClick={onSlideClick}
-            />
-          );
-        }
-        return (
-          <div
-            className={`card-preview-slide${i === selected ? ' is-active' : ''}`}
-            ref={slideRef}
-            key={`${c.scryfallId}-${i}`}
-            onClick={onSlideClick}
-          >
-            <CardImageFrame
-              card={c}
-              active={i === selected}
-              flipped={!!flipped[i]}
-              turn={turned[i] ?? 0}
-              mounted={mounted.has(c.scryfallId)}
-              imgLoaded={!!imgLoaded[c.scryfallId]}
-              imgErrored={!!imgErrors[c.scryfallId]}
-              onImgLoad={() => markLoaded(c.scryfallId)}
-              onImgError={() => setImgErrors((prev) => ({ ...prev, [c.scryfallId]: true }))}
-              eager={i === selected}
-              shouldSuppressTilt={shouldSuppressTilt}
-            />
-          </div>
-        );
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cards, mounted, selected, imgErrors, imgLoaded, flipped, turned]
-  );
+  // Only cards near the focus mount the expensive image frame (the carousel
+  // windows the rest to bare placeholders) — a few thousand 3D-transformed
+  // frames is what crushed the compositor to ~22fps; keeping the rich set
+  // small holds 120fps.
+  const renderSlide = (i: number) => {
+    const c = cards[i];
+    return (
+      <CardImageFrame
+        card={c}
+        active={i === selected}
+        flipped={!!flipped[i]}
+        turn={turned[i] ?? 0}
+        mounted={mounted.has(c.scryfallId)}
+        imgLoaded={!!imgLoaded[c.scryfallId]}
+        imgErrored={!!imgErrors[c.scryfallId]}
+        onImgLoad={() => markLoaded(c.scryfallId)}
+        onImgError={() => setImgErrors((prev) => ({ ...prev, [c.scryfallId]: true }))}
+        eager={i === selected}
+        shouldSuppressTilt={shouldSuppressTilt}
+      />
+    );
+  };
 
   if (!cards[selected]) return null;
   const current = cards[selected];
@@ -608,33 +518,21 @@ export function CardPreview({
           ×
         </button>
         <div className="card-preview-grabber" aria-hidden="true" />
-        {cards.length > 1 && (
-          <CarouselNav
-            onPrev={() => {
-              const next = Math.max(0, selected - 1);
-              if (next !== selected)
-                slideRefs.current[next]?.scrollIntoView({
-                  inline: 'center',
-                  block: 'nearest',
-                  behavior: 'smooth',
-                });
-            }}
-            onNext={() => {
-              const next = Math.min(cards.length - 1, selected + 1);
-              if (next !== selected)
-                slideRefs.current[next]?.scrollIntoView({
-                  inline: 'center',
-                  block: 'nearest',
-                  behavior: 'smooth',
-                });
-            }}
-            atStart={selected === 0}
-            atEnd={selected === cards.length - 1}
-          />
-        )}
-        <div className="card-preview-track" ref={trackRef}>
-          {slideEls}
-        </div>
+        <SnapCarousel
+          ref={carousel}
+          trackRef={trackRef}
+          count={cards.length}
+          index={selected}
+          onIndexChange={handleIndexChange}
+          windowRadius={WINDOW_RADIUS}
+          keysEnabled={!shareOpen}
+          className="card-preview-track"
+          slideClassName="card-preview-slide"
+          renderSlide={renderSlide}
+          // Tap the active card to close — matches the natural "tap to
+          // dismiss" expectation on mobile and desktop alike.
+          onSlideClick={(_, isActive) => isActive && beginClose()}
+        />
 
         {/* Always rendered so single-faced and transform cards reserve the
             same vertical space — otherwise navigating between them would
@@ -1074,50 +972,5 @@ export function CardPreview({
         )}
     </div>,
     document.body
-  );
-}
-
-function CarouselNav({
-  onPrev,
-  onNext,
-  atStart,
-  atEnd,
-}: {
-  onPrev: () => void;
-  onNext: () => void;
-  atStart: boolean;
-  atEnd: boolean;
-}) {
-  // The layer occupies the same grid cell as the card track (see CSS), so the
-  // arrows center in the card area above the panel — and ride up as that area
-  // shrinks when the panel expands — instead of pinning to mid-screen and
-  // colliding with the expanded panel.
-  return (
-    <div className="carousel-nav-layer">
-      <button
-        type="button"
-        className="carousel-nav carousel-nav-prev"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPrev();
-        }}
-        disabled={atStart}
-        aria-label="Previous"
-      >
-        <ChevronLeft width={20} height={20} strokeWidth={2.4} aria-hidden />
-      </button>
-      <button
-        type="button"
-        className="carousel-nav carousel-nav-next"
-        onClick={(e) => {
-          e.stopPropagation();
-          onNext();
-        }}
-        disabled={atEnd}
-        aria-label="Next"
-      >
-        <ChevronRight width={20} height={20} strokeWidth={2.4} aria-hidden />
-      </button>
-    </div>
   );
 }

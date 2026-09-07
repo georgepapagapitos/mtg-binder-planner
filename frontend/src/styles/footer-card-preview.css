@@ -405,7 +405,10 @@
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
+  /* `none`, not `contain`: the first/last snap points sit exactly at the
+     scroll extremes (measured .snap-spacer), so any overscroll past them is
+     pure rubber-band with nothing to reveal. */
+  overscroll-behavior-x: none;
   -webkit-overflow-scrolling: touch;
   /* Keep vertical touches free for our swipe-down-to-dismiss handler.
      `pinch-zoom` is explicit: a bare `pan-x` intersects the browser's own
@@ -436,11 +439,9 @@
            resolution-honest max since the hero renders Scryfall `large`
            (672w via imageLarge); beyond that even `large` upscales.
      min() picks the smallest, so the card stays whole on every viewport.
-     Defined on the track (not the slide) so the centering spacers below
-     share one source of truth. cqh/cqw on the track ITSELF is invalid
-     (a container can't query itself), but --slide-size is substituted at
-     each use site — descendants of the track (slide + ::before/::after)
-     resolve cqh/cqw against the track, which is exactly what we want. */
+     cqh/cqw on the track ITSELF is invalid (a container can't query
+     itself), but --slide-size is substituted at each use site — the slides
+     are descendants of the track and resolve cqh/cqw against it. */
   --slide-size: min(calc(100cqh * 488 / 680), 100cqw, clamp(460px, 56vw, 620px));
 }
 
@@ -451,10 +452,12 @@
    against it, sharing the --slide-size token with the slides instead of
    duplicating the formula. They have no scroll-snap-align, so the
    scroll-snap-type still only snaps to real slides. */
-.card-preview-track::before,
-.card-preview-track::after {
-  content: '';
-  flex: 0 0 calc((100cqw - var(--slide-size)) / 2);
+/* Edge spacers (both carousels): SnapCarousel sets each one's flex-basis to
+   (track content width − that edge slide's width) / 2 − gap, measured from
+   the real DOM, so the first and last slides snap dead center at scroll 0
+   and scroll max — no slack to swipe into past either end. */
+.snap-spacer {
+  flex: 0 0 auto;
   align-self: stretch;
   pointer-events: none;
 }
@@ -1288,7 +1291,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
+  overscroll-behavior-x: none; /* see .card-preview-track */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pinch-zoom;
   /* Same breathing room as .card-preview-track (kept in lockstep so the two
@@ -1314,8 +1317,7 @@
            (9-/4-pocket → 5:7, 12-pocket → 20:21).
        (c) clamp(460,64vw,820) — desktop ceiling. Higher than the card's
            620 because a 3×3 page is inherently larger than one card; the
-           padding/spacing match, the max-size ceiling is page-appropriate.
-     Defined on the track so the centering spacers below share it. */
+           padding/spacing match, the max-size ceiling is page-appropriate. */
   --slide-size: min(100cqw, calc(100cqh * var(--page-w-ratio, 0.72)), clamp(460px, 64vw, 820px));
 }
 
@@ -1336,15 +1338,6 @@
     padding-top: var(--space-3);
     padding-inline: var(--space-3);
   }
-}
-
-/* Centering spacers — see .card-preview-track::before/::after. */
-.binder-pages-track::before,
-.binder-pages-track::after {
-  content: '';
-  flex: 0 0 calc((100cqw - var(--slide-size)) / 2);
-  align-self: stretch;
-  pointer-events: none;
 }
 
 .binder-pages-track::-webkit-scrollbar {

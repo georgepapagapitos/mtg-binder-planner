@@ -15,6 +15,19 @@ import { ScrollContainerContext } from '../lib/scroll-container';
 import { isNativePlatform, isTouchDevice } from '../lib/platform';
 import { PullToRefresh } from './PullToRefresh';
 import { refreshNow } from '../lib/sync';
+import { useDocumentTitle } from '../lib/use-document-title';
+
+/** Route→label map for the app's primary hub destinations. Sub-routes (e.g.
+ * `/decks/:id`) inherit their hub's title until/unless they set a more
+ * specific one of their own — a strict improvement over the boot-time title
+ * that stuck across every navigation before this existed. */
+const HUB_TITLES: Record<string, string> = {
+  home: 'Home',
+  collection: 'Collection',
+  decks: 'Decks',
+  play: 'Play',
+  you: 'You',
+};
 import {
   ShortcutRegistryProvider,
   isTypingTarget,
@@ -74,6 +87,43 @@ function LayoutShell() {
     if (!el || hash) return;
     el.scrollTo({ top: navType === 'POP' ? (positions.current.get(key) ?? 0) : 0 });
   }, [pathname, hash, navType, key, scrollEl]);
+
+  // Route-change announcement: a hub title in the tab, and focus moved to
+  // the new page's <h1> — the same "scroll/focus a heading on arrival" idea
+  // lib/scroll-to-heading.ts already applies to `?section=` deep links,
+  // extended to ordinary top-level navigation so a screen-reader user isn't
+  // silently left wherever focus last was. Skips the very first render (the
+  // browser already places focus sensibly on initial load).
+  useDocumentTitle(HUB_TITLES[pathname.split('/')[1] ?? '']);
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const el = scrollEl;
+    if (!el) return;
+    const focusHeading = () => {
+      const heading = el.querySelector<HTMLElement>('h1');
+      if (!heading) return false;
+      heading.tabIndex = -1;
+      // Same recognized exception as lib/scroll-to-heading.ts (base-layout.css):
+      // this is a programmatic arrival focus, not a tabbed-to control, so the
+      // browser's raw default ring is suppressed rather than reading as a
+      // rendering glitch on every route change.
+      heading.classList.add('scroll-heading-target');
+      heading.focus({ preventScroll: true });
+      return true;
+    };
+    if (focusHeading()) return;
+    // The route's lazy chunk (or a page that fetches before it can render a
+    // title) hasn't painted its <h1> yet — catch it the moment it does.
+    const observer = new MutationObserver(() => {
+      if (focusHeading()) observer.disconnect();
+    });
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pathname, scrollEl]);
 
   // `?` global listener — fires anywhere outside text inputs.
   // Each page/component is responsible for its own shortcuts; this wires only

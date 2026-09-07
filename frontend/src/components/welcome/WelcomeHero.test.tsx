@@ -77,6 +77,6 @@ describe('WelcomeHero', () => {
 
   it('shows an art caption crediting Scryfall once art resolves', () => {
     renderHero();
-    expect(screen.getByText(/— art via Scryfall/)).toBeTruthy();
+    expect(screen.getByText(/· art via Scryfall/)).toBeTruthy();
   });
 });

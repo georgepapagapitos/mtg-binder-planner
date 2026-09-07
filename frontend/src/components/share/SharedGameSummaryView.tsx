@@ -54,7 +54,7 @@ export function SharedGameSummaryView({ data, token }: Props) {
             <h1 className="shared-view-title game-summary-winner-name">{winner.name}</h1>
           </div>
         ) : (
-          <h1 className="shared-view-title">{data.format} game — no declared winner</h1>
+          <h1 className="shared-view-title">{data.format} game · no declared winner</h1>
         )}
         <p className="shared-view-subtitle">
           {data.format} · {formatRelativeTime(data.endedAt, { verbose: true })}

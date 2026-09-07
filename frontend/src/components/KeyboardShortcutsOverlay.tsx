@@ -3,6 +3,16 @@ import { Modal } from './Modal';
 interface Shortcut {
   keys: string[];
   description: string;
+  /**
+   * How multiple `keys` entries relate. 'alt' (default): each entry is a
+   * complete alternative binding (e.g. platform-conditional ⌘K vs Ctrl+K),
+   * rendered as separate kbd chips joined by "/". 'chord': entries are parts
+   * of one combo (e.g. ['Cmd/Ctrl', 'Z']), rendered as a single kbd joined by
+   * "+". No shortcut in this codebase is a true multi-step sequence today —
+   * add a third variant if one ever is, rather than overloading either of
+   * these.
+   */
+  join?: 'alt' | 'chord';
 }
 
 interface Group {
@@ -39,12 +49,16 @@ export function KeyboardShortcutsOverlay({ groups, onClose }: Props) {
               {g.shortcuts.map((s) => (
                 <li key={s.description} className="shortcuts-overlay-row">
                   <span className="shortcuts-overlay-keys">
-                    {s.keys.map((k, i) => (
-                      <span key={i} className="shortcuts-overlay-key-group">
-                        {i > 0 && <span className="shortcuts-overlay-sep">then</span>}
-                        <kbd className="shortcuts-overlay-kbd">{k}</kbd>
-                      </span>
-                    ))}
+                    {s.join === 'chord' ? (
+                      <kbd className="shortcuts-overlay-kbd">{s.keys.join('+')}</kbd>
+                    ) : (
+                      s.keys.map((k, i) => (
+                        <span key={i} className="shortcuts-overlay-key-group">
+                          {i > 0 && <span className="shortcuts-overlay-sep">/</span>}
+                          <kbd className="shortcuts-overlay-kbd">{k}</kbd>
+                        </span>
+                      ))
+                    )}
                   </span>
                   <span className="shortcuts-overlay-desc">{s.description}</span>
                 </li>

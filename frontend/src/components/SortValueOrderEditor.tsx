@@ -60,7 +60,7 @@ export function SortValueOrderEditor({ field, value, onChange }: Props) {
     <div className="sort-value-order-editor">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={order} strategy={horizontalListSortingStrategy}>
-          <ol className="sort-value-order-list" aria-label={`${field} order — drag to reorder`}>
+          <ol className="sort-value-order-list" aria-label={`${field} order, drag to reorder`}>
             {order.map((key, i) => (
               <SortableValueChip key={key} id={key} index={i} label={getValueLabel(field, key)} />
             ))}
@@ -100,7 +100,7 @@ function SortableValueChip({ id, index, label }: { id: string; index: number; la
       className={`sort-value-order-chip${isDragging ? ' dragging' : ''}`}
       {...attributes}
       {...listeners}
-      aria-label={`${label} — position ${index + 1}. Use space to grab, arrow keys to move, space to drop.`}
+      aria-label={`${label}, position ${index + 1}. Use space to grab, arrow keys to move, space to drop.`}
     >
       <span className="sort-value-order-num">{index + 1}</span>
       <span className="sort-value-order-label">{label}</span>

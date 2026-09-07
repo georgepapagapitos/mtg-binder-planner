@@ -64,8 +64,8 @@ export function SyncIndicator() {
   if (!online) {
     const detail =
       pending > 0
-        ? `Offline — ${pending} change${pending === 1 ? '' : 's'} saved on this device, will sync when you reconnect`
-        : 'Offline — changes are saved on this device';
+        ? `Offline. ${pending} change${pending === 1 ? '' : 's'} saved on this device, will sync when you reconnect.`
+        : 'Offline. Changes are saved on this device.';
     return (
       <span
         className="sync-indicator sync-indicator-offline"
@@ -82,7 +82,7 @@ export function SyncIndicator() {
     return (
       <span className="sync-indicator sync-indicator-syncing" aria-live="polite">
         <span className="sync-indicator-spinner" aria-hidden="true" />
-        Syncing&hellip;
+        Syncing…
       </span>
     );
   }
@@ -91,7 +91,7 @@ export function SyncIndicator() {
     return (
       <span
         className="sync-indicator sync-indicator-error"
-        title="Couldn't reach the server — retrying. Your changes are saved on this device."
+        title="Retrying. Changes are saved on this device."
         aria-label="Sync failed, retrying"
         aria-live="polite"
       >
@@ -110,7 +110,7 @@ export function SyncIndicator() {
         aria-live="polite"
       >
         <span className="sync-indicator-spinner" aria-hidden="true" />
-        Saving&hellip;
+        Saving…
       </span>
     );
   }
@@ -182,13 +182,13 @@ export function HeaderSyncIndicator() {
   if (!online) {
     const label =
       pending > 0
-        ? `Offline — ${pending} change${pending === 1 ? '' : 's'} saved locally`
+        ? `Offline. ${pending} change${pending === 1 ? '' : 's'} saved locally.`
         : 'Offline';
     return (
       <Link
         to="/you?section=account"
         className="sync-indicator sync-indicator-offline header-sync-indicator"
-        title="Offline — changes saved on this device. Tap for sync details."
+        title="Changes saved on this device. Tap for details."
         aria-label={label}
       >
         {label}
@@ -205,7 +205,7 @@ export function HeaderSyncIndicator() {
         aria-label="Syncing…"
       >
         <span className="sync-indicator-spinner" aria-hidden="true" />
-        Syncing&hellip;
+        Syncing…
       </Link>
     );
   }
@@ -216,8 +216,8 @@ export function HeaderSyncIndicator() {
       <Link
         to="/you?section=account"
         className="sync-indicator sync-indicator-error header-sync-indicator"
-        title="Couldn't reach the server — retrying. Tap for sync details."
-        aria-label="Sync failed — tap for sync details"
+        title="Retrying. Tap for sync details."
+        aria-label="Sync failed. Tap for sync details."
       >
         Sync failed
       </Link>
@@ -235,7 +235,7 @@ export function HeaderSyncIndicator() {
         aria-label={detail}
       >
         <span className="sync-indicator-spinner" aria-hidden="true" />
-        Saving&hellip;
+        Saving…
       </Link>
     );
   }

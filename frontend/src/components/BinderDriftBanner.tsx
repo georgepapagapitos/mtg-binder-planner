@@ -34,9 +34,9 @@ const celebratedBinderCleared = new Set<string>();
 const DRIFT_TIP = (
   <>
     <p className="info-tip-lead">
-      <strong>Drift</strong> tracks cards moving between binders since you last physically reviewed
-      this one — rules read live card data (prices, EDHREC rank, format legality), so filing changes
-      on its own.
+      <strong>Drift</strong> tracks cards that have moved binders since your last physical review.
+      Rule matches shift as prices, EDHREC rank, and format legality change, even without you
+      touching anything.
     </p>
     <ul className="info-tip-list">
       <li>
@@ -52,12 +52,12 @@ const DRIFT_TIP = (
       </li>
       <li>
         <strong>One move, one confirmation:</strong> a card moving between two binders shows in both
-        queues — as outgoing in one and incoming in the other. Confirming it in either binder checks
-        off the matching row in the other automatically; you never review the same move twice.
+        queues, as outgoing in one and incoming in the other. Confirming it in either binder checks
+        off the matching row in the other. You never review the same move twice.
       </li>
       <li>
         <strong>Mark reviewed</strong> means "I've seen everything and updated my physical binder."
-        It saves a new baseline in one shot — drift is then measured from this point forward.
+        It saves a new baseline in one shot. Drift is then measured from this point forward.
       </li>
     </ul>
   </>
@@ -158,7 +158,7 @@ export function BinderDriftBanner({ binder }: Props) {
       <div className="binder-drift binder-drift--cleared" role="status">
         {sealMoment}
         <CheckCircle2 className="binder-drift-cleared-icon" width={16} height={16} aria-hidden />
-        <span>All caught up — this binder matches your last review.</span>
+        <span>All caught up. This binder matches your last review.</span>
       </div>
     );
   }
@@ -178,7 +178,7 @@ export function BinderDriftBanner({ binder }: Props) {
     acknowledgeBinderCard(binderId, row.key, 'removed', row.representative, counterpart);
     if (dest.kind === 'binder') {
       toast.show({
-        message: `Moved ${row.name} to ${dest.binderName} — checked off in both binders`,
+        message: `Moved ${row.name} to ${dest.binderName}, checked off in both binders`,
         tone: 'success',
       });
     }
@@ -192,7 +192,7 @@ export function BinderDriftBanner({ binder }: Props) {
     }
     if (dest.kind === 'binder') {
       toast.show({
-        message: `Moved ${rows.length} cards to ${dest.binderName} — checked off in both binders`,
+        message: `Moved ${rows.length} cards to ${dest.binderName}, checked off in both binders`,
         tone: 'success',
       });
     }
@@ -203,8 +203,8 @@ export function BinderDriftBanner({ binder }: Props) {
     toast.show({
       message:
         row.copyIds.length > 1
-          ? `Pinned ${row.copyIds.length} copies of ${row.name} — stay here`
-          : `Pinned — ${row.name} stays here`,
+          ? `Pinned ${row.copyIds.length} copies of ${row.name} here`
+          : `Pinned ${row.name} here`,
       tone: 'success',
     });
   };
@@ -215,7 +215,7 @@ export function BinderDriftBanner({ binder }: Props) {
     acknowledgeBinderCard(binderId, row.key, 'added', row.representative, counterpart);
     if (source.kind === 'binder') {
       toast.show({
-        message: `Added ${row.name} — checked off in ${source.binderName} too`,
+        message: `Added ${row.name}, checked off in ${source.binderName} too`,
         tone: 'success',
       });
     }
@@ -229,7 +229,7 @@ export function BinderDriftBanner({ binder }: Props) {
     }
     if (source.kind === 'binder') {
       toast.show({
-        message: `Added ${rows.length} cards — checked off in ${source.binderName} too`,
+        message: `Added ${rows.length} cards, checked off in ${source.binderName} too`,
         tone: 'success',
       });
     }
@@ -377,7 +377,7 @@ function AddedGroupBlock({
           <button
             type="button"
             className="btn-link"
-            aria-label={`Added all — ${formatSourceLabel(group.source)}`}
+            aria-label={`Added all: ${formatSourceLabel(group.source)}`}
             onClick={() => onAcknowledgeAll(group.rows, group)}
           >
             Added all
@@ -439,7 +439,7 @@ function RemovedGroupBlock({
           <button
             type="button"
             className="btn-link"
-            aria-label={`Moved all — ${formatDestinationLabel(group.destination)}`}
+            aria-label={`Moved all: ${formatDestinationLabel(group.destination)}`}
             onClick={() => onAcknowledgeAll(group.rows, group)}
           >
             Moved all
@@ -490,12 +490,12 @@ function QueueRow({
           ×{qty}
         </span>
       )}
-      <span className="binder-drift-card-reason"> — {formatDriftReason(row.reason)}</span>
+      <span className="binder-drift-card-reason"> · {formatDriftReason(row.reason)}</span>
       <span className="binder-drift-queue-actions">
         <button
           type="button"
           className="btn-link"
-          aria-label={`${acknowledgeLabel} — ${row.name}, ${acknowledgeRoute}`}
+          aria-label={`${acknowledgeLabel}: ${row.name}, ${acknowledgeRoute}`}
           onClick={onAcknowledge}
         >
           {acknowledgeLabel}
@@ -503,7 +503,7 @@ function QueueRow({
         <button
           type="button"
           className="btn-link"
-          aria-label={`${primaryLabel} — ${row.name}`}
+          aria-label={`${primaryLabel}: ${row.name}`}
           onClick={onPrimary}
         >
           {primaryLabel}

@@ -67,7 +67,7 @@ describe('AvatarPickerSheet', () => {
     }));
     render(<AvatarPickerSheet current={null} onPick={vi.fn()} onClose={vi.fn()} />);
     expect(within(getGrid()).getAllByRole('option')).toHaveLength(300);
-    expect(screen.getByText('Showing your first 300 cards — search above for more.')).toBeTruthy();
+    expect(screen.getByText('Showing your first 300 cards. Search above for more.')).toBeTruthy();
   });
 
   it('shows the two-part empty state when the collection is empty', () => {

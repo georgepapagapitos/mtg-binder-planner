@@ -152,7 +152,7 @@ async function applySettlement(offer: TradeOffer): Promise<boolean> {
   toast.show({
     // Counts what actually landed, not what the plan hoped for — an unresolved
     // card must not be announced as "in".
-    message: `Trade with ${who} settled — ${describeSettlement({ ...plan, add: applied })}`,
+    message: `Trade with ${who} settled: ${describeSettlement({ ...plan, add: applied })}`,
     tone: 'success',
   });
 
@@ -160,19 +160,19 @@ async function applySettlement(offer: TradeOffer): Promise<boolean> {
     toast.show({
       message: `You no longer had ${plan.short
         .map((s) => s.name)
-        .join(', ')} — removed what was there.`,
+        .join(', ')}. Removed what was there instead.`,
       tone: 'warn',
     });
   }
   if (substituted.length > 0) {
     toast.show({
-      message: `Added ${substituted.join(', ')} as a different printing — the exact one couldn't be looked up.`,
+      message: `Added ${substituted.join(', ')} as a different printing. The exact one couldn't be looked up.`,
       tone: 'warn',
     });
   }
   if (unresolved.length > 0) {
     toast.show({
-      message: `Couldn't look up ${unresolved.join(', ')} — add ${
+      message: `Couldn't look up ${unresolved.join(', ')}. Add ${
         unresolved.length === 1 ? 'it' : 'them'
       } by hand.`,
       tone: 'warn',

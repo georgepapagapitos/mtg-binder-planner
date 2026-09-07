@@ -183,7 +183,7 @@ export function RulesPage() {
         <RulesPageHeader />
         <DeckAiConsent
           title="Ask a rules question"
-          blurb={`AI can answer Magic rules questions, grounded in the official Comprehensive Rules and the exact text of the cards involved — every answer cites the rules it relies on. Turning this on sends your question to Anthropic. Nothing is sent until you press Ask, ${status.limit} AI uses a day shared across AI features. You can turn it back off in Settings.`}
+          blurb={`AI answers Magic rules questions, grounded in the Comprehensive Rules and the cards involved, and cites its sources. Turning this on sends your question to Anthropic when you press Ask. You get ${status.limit} uses a day, shared across AI features, and can turn it off anytime in Settings.`}
         />
       </div>
     );
@@ -229,7 +229,7 @@ export function RulesPage() {
           </button>
           <span className="rules-ask-remaining">
             {remaining === 0
-              ? 'Daily limit reached — resets at midnight UTC.'
+              ? 'Daily limit reached. Resets at midnight UTC.'
               : `${remaining} of ${status.limit} left today`}
           </span>
         </div>
@@ -345,8 +345,8 @@ export function RulesPage() {
 
       <p className="rules-disclaimer">
         Answers cite the official Comprehensive Rules
-        {effectiveDate ? ` (effective ${effectiveDate})` : ''}. AI can misread corner cases — for
-        tournament play, ask a judge.
+        {effectiveDate ? ` (effective ${effectiveDate})` : ''}. AI can misread corner cases, so ask
+        a judge for tournament play.
       </p>
     </div>
   );

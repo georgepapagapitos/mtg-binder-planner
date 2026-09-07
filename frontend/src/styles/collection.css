@@ -1012,6 +1012,14 @@
   cursor: not-allowed;
 }
 
+/* B3-03: these commit a state change (delete/move/mark as proxy/select all) —
+   the mutating-actions floor (STYLE_GUIDE § Responsive) applies. */
+@media (pointer: coarse) {
+  .card-list-bulk-toolbar .toolbar-pill {
+    min-height: 44px;
+  }
+}
+
 /* Destructive action: neutral until intent, then the app's error tint —
    keeps the bar calm rather than a permanently-red button. */
 .card-list-bulk-danger:focus-visible:not(:disabled) {
@@ -2170,7 +2178,10 @@ i.ss.set-symbol--mythic {
 
 .collection-list.is-compact .collection-list-name {
   font-size: var(--text-sm);
-  min-width: 0;
+  /* B3-06: a floor, not 0 — a split/adventure card's double mana-cost pip
+     otherwise out-competes the name for width and truncates it to 1-2
+     characters, defeating the point of a text-forward dense row. */
+  min-width: 6ch;
 }
 
 .collection-list.is-compact .collection-list-meta {

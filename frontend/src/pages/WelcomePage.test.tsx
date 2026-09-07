@@ -186,7 +186,7 @@ describe('WelcomePage fresh-decks rail', () => {
     expect(screen.getByText('Deck C')).toBeTruthy();
   });
 
-  it('renders no fresh-decks rail below the 3-deck floor', async () => {
+  it('renders no fresh-decks rail below the 3-deck floor, and skips TrendingRail too (B1-06)', async () => {
     mockListDiscoverDecks.mockResolvedValue({
       decks: [makeDeck({ slug: 'a' }), makeDeck({ slug: 'b' })],
       page: 1,
@@ -195,12 +195,18 @@ describe('WelcomePage fresh-decks rail', () => {
 
     renderWelcome();
 
-    // Wait for a definitely-post-resolution signal (TrendingRail's own
-    // stubbed fetch settling) before asserting the negative, rather than
+    // Wait for a definitely-post-resolution signal (the doors below both
+    // rails are always present) before asserting the negative, rather than
     // just confirming the mock was called (which is already true
     // pre-resolution and would prove nothing about the resolved state).
-    await waitFor(() => expect(screen.getByText(/nothing trending yet/i)).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /try sample cards/i })).toBeTruthy()
+    );
     expect(screen.queryByText('Fresh public decks')).toBeNull();
+    // TrendingRail never self-hides on its own — WelcomePage doesn't mount it
+    // at all when the sibling rail also found nothing, so its empty state
+    // ("Nothing trending yet.") must never appear here either.
+    expect(screen.queryByText(/nothing trending yet/i)).toBeNull();
   });
 });
 
@@ -215,8 +221,21 @@ describe('WelcomePage renders', () => {
     expect(screen.getByRole('link', { name: /sign in/i }).getAttribute('href')).toBe('/auth');
   });
 
-  it('shows the trending rail\'s "View all" link to Discover', () => {
+  it('shows the trending rail\'s "View all" link to Discover once there are enough fresh decks', async () => {
+    mockListDiscoverDecks.mockResolvedValue({
+      decks: [makeDeck({ slug: 'a' }), makeDeck({ slug: 'b' }), makeDeck({ slug: 'c' })],
+      page: 1,
+      hasMore: false,
+    });
     renderWelcome();
+    await waitFor(() => expect(screen.getByText('Fresh public decks')).toBeTruthy());
+    // The "View all" link only mounts once WelcomePage's own hasFreshDecks
+    // state (set from FreshDecksRail's onVisibilityChange effect) has
+    // committed — a separate render pass from the one above, so this needs
+    // its own wait rather than a synchronous check right after.
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /view all public decks/i })).toBeTruthy()
+    );
     expect(screen.getByRole('link', { name: /view all public decks/i }).getAttribute('href')).toBe(
       '/decks/discover'
     );

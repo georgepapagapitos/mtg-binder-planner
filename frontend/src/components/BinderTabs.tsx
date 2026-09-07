@@ -93,7 +93,7 @@ export function BinderTabs({ binders }: Props) {
   const handleDelete = async (id: string, name: string) => {
     const ok = await confirm({
       title: `Delete "${name}"?`,
-      body: `Its cards will be re-routed through your other binders. Anything that doesn't match a remaining binder will only show up in the Collection view.`,
+      body: `Its cards route to your other binders. Anything that no longer matches falls back to the Collection view. This can't be undone.`,
       confirmLabel: 'Delete binder',
       danger: true,
     });
@@ -103,7 +103,7 @@ export function BinderTabs({ binders }: Props) {
   const handleDeleteAll = async () => {
     const ok = await confirm({
       title: `Delete all ${binders.length} binders?`,
-      body: `Every binder definition will be removed. Your cards stay where they are — they'll fall back to the Uncategorized view until you build new binders. This can't be undone.`,
+      body: `Every binder definition will be removed. Your cards fall back to the Uncategorized view. This can't be undone.`,
       confirmLabel: 'Delete all binders',
       danger: true,
     });
@@ -187,7 +187,7 @@ export function BinderTabs({ binders }: Props) {
         className="tab tab-export"
         onClick={() => setExportOpen(true)}
         disabled={binders.length === 0}
-        title="Export this binder, all binders, or the full collection"
+        title="Export binders or your collection"
       >
         <Download width={14} height={14} strokeWidth={1.6} aria-hidden />
         <span>Export</span>
@@ -198,7 +198,7 @@ export function BinderTabs({ binders }: Props) {
           type="button"
           className="tab tab-delete-all"
           onClick={handleDeleteAll}
-          title="Delete every binder (cards are unaffected — they fall back to Uncategorized)"
+          title="Delete every binder"
         >
           <Trash2 width={14} height={14} strokeWidth={1.6} aria-hidden />
           <span>Delete all</span>

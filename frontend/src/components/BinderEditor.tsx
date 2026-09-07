@@ -45,11 +45,11 @@ const RULE_GROUP_TIP = (
     </p>
     <ul className="info-tip-list">
       <li>
-        <strong>Within a group:</strong> every active rule must match — a card must satisfy Color
-        AND Rarity AND Price (AND so on).
+        <strong>Within a group:</strong> every active rule must match: a card must satisfy Color AND
+        Rarity AND Price (AND so on).
       </li>
       <li>
-        <strong>Between groups:</strong> OR — a card joins if it matches <em>any</em> group. Use
+        <strong>Between groups:</strong> OR. A card joins if it matches <em>any</em> group. Use
         multiple groups for binders like "Rares OR cards worth $5+."
       </li>
     </ul>
@@ -582,7 +582,7 @@ export function BinderEditor() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Standard staples"
+                  placeholder="Standard staples"
                   autoFocus
                   style={{ width: '100%' }}
                 />
@@ -617,11 +617,7 @@ export function BinderEditor() {
                       { value: 12, label: '12-pocket' },
                     ]}
                   />
-                  <label
-                    className="field-checkbox"
-                    style={{ margin: 0, whiteSpace: 'nowrap' }}
-                    title="Each sheet stores cards on both sides — back of each sheet counts as its own page."
-                  >
+                  <label className="field-checkbox" style={{ margin: 0, whiteSpace: 'nowrap' }}>
                     <input
                       type="checkbox"
                       checked={doubleSided}
@@ -637,6 +633,10 @@ export function BinderEditor() {
                     />
                     Double-sided
                   </label>
+                  <InfoTip
+                    label="double-sided sheets"
+                    text="Back of each sheet counts as its own page."
+                  />
                 </div>
               </div>
             </div>
@@ -698,8 +698,8 @@ export function BinderEditor() {
               <div className="warn-banner" style={{ marginTop: '0.5rem' }}>
                 This binder matches {binderMatchCount.toLocaleString()} cards but its capacity is
                 only {capacity.toLocaleString()}. The extra{' '}
-                {(binderMatchCount - capacity).toLocaleString()} won't fit physically — they'll
-                still display, just flagged as over-capacity.
+                {(binderMatchCount - capacity).toLocaleString()} won't fit physically. They'll still
+                display, flagged as over-capacity.
               </div>
             )}
             {/* One "Behaviour" group, not three consecutive section headings
@@ -723,7 +723,7 @@ export function BinderEditor() {
                     </label>
                     <InfoTip
                       label="deck and cube cards"
-                      text="When off, cards currently allocated to any deck or cube are hidden from this binder until they are released. Pins and manual order are preserved."
+                      text="Hides cards currently in a deck or cube until they're released. Pins and manual order stay put."
                     />
                   </div>
                   <div className="binder-behaviour-option">
@@ -737,7 +737,7 @@ export function BinderEditor() {
                     </label>
                     <InfoTip
                       label="keeping printings together"
-                      text="When on, if any printing you own of a card matches this binder's rules, all your copies of that card join the binder — not just the printings that matched (e.g. a pricey commander brings its cheap copies along). Only reclaims cards not already in another binder. Ignored for manual binders."
+                      text="Pulls in every copy of a matching card, not just the printings that matched. A pricey commander brings its cheap copies along. Won't pull a copy out of another binder, and has no effect in manual mode."
                     />
                   </div>
                   <div className="binder-behaviour-option">
@@ -816,8 +816,8 @@ export function BinderEditor() {
                     Filters <InfoTip label="rule groups" text={RULE_GROUP_TIP} wide />
                     <span className="muted">
                       {groups.length === 1
-                        ? '— a card joins this binder if it matches every filter below'
-                        : '— a card joins this binder if it matches any rule group below'}
+                        ? 'A card joins this binder if it matches every filter below.'
+                        : 'A card joins this binder if it matches any rule group below.'}
                     </span>
                   </h3>
 
@@ -887,7 +887,7 @@ export function BinderEditor() {
                   effectiveLanding.matches > 0 &&
                   effectiveLanding.lands === 0 && (
                     <div className="warn-banner" style={{ marginTop: '0.5rem' }}>
-                      Every matching card is caught by a binder above this one — this binder will be
+                      Every matching card is caught by a binder above this one. This binder will be
                       empty. Move it up, or tighten the rules of the binders above.
                     </div>
                   )}
@@ -898,8 +898,8 @@ export function BinderEditor() {
 
                 {showEmptyWarning && (
                   <div className="warn-banner" style={{ marginTop: '0.75rem' }}>
-                    This binder has no filters — it will match every remaining card. Add at least
-                    one, or place this binder near the bottom of the priority list.
+                    This binder has no filters. It matches every remaining card. Add one, or move it
+                    near the bottom of the priority list.
                   </div>
                 )}
               </section>
@@ -982,9 +982,9 @@ export function BinderEditor() {
                         style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}
                       >
                         {packSections === 'continuous'
-                          ? 'Cards flow with no empty pockets — a section can continue onto the next page. Best for closed sets like Secret Lair drops, but slotting a new card in later shifts everything after it.'
+                          ? 'Cards flow with no empty pockets. A section can continue onto the next page. Best for closed sets like Secret Lair drops, but slotting a new card in later shifts everything after it.'
                           : packSections
-                            ? 'Sections share a page when they fit whole — none is ever split across two pages.'
+                            ? 'Sections share a page when they fit whole. None is ever split across two pages.'
                             : 'Every section starts a new page, leaving the rest of it empty.'}
                       </span>
                     </div>
@@ -1020,7 +1020,7 @@ export function BinderEditor() {
                         >
                           {pageBreakDepth <= 1
                             ? 'Each section header starts a new page; deeper sorts order within the page.'
-                            : `Each ${pageBreakDepth === 2 ? 'secondary' : `level-${pageBreakDepth}`} group starts its own page — empty pockets are accepted.`}
+                            : `Each ${pageBreakDepth === 2 ? 'secondary' : `level-${pageBreakDepth}`} group starts its own page. Empty pockets are accepted.`}
                         </span>
                       </div>
                     </div>
@@ -1037,11 +1037,11 @@ export function BinderEditor() {
             >
               {importDragging && (
                 <div className="file-drop-overlay" aria-hidden="true">
-                  <div className="file-drop-message">Drop files — one binder each</div>
+                  <div className="file-drop-message">Drop files, one binder each</div>
                 </div>
               )}
               <p className="muted" style={{ marginBottom: 'var(--space-2)' }}>
-                Paste a card list, or upload one or more CSV files —{' '}
+                Paste a card list, or upload one or more CSV files:{' '}
                 <strong>each file becomes its own binder</strong>. Cards are added to your
                 collection and pinned into their binder in the order listed.
               </p>
@@ -1049,7 +1049,7 @@ export function BinderEditor() {
                 <>
                   <div className="binder-import-head">
                     <strong>
-                      {importFiles_.length} file{importFiles_.length === 1 ? '' : 's'} — one binder
+                      {importFiles_.length} file{importFiles_.length === 1 ? '' : 's'}, one binder
                       each
                     </strong>
                     <button
@@ -1119,7 +1119,7 @@ export function BinderEditor() {
                   className="paste-textarea import-binder-textarea"
                   value={importPasteText}
                   onChange={(e) => setImportPasteText(e.target.value)}
-                  placeholder={'1 Llanowar Elves\n1 Birds of Paradise\n4 Lightning Bolt\n...'}
+                  placeholder={'1 Llanowar Elves\n1 Birds of Paradise\n4 Lightning Bolt\n…'}
                   disabled={saving}
                   autoFocus
                 />
@@ -1176,7 +1176,7 @@ export function BinderEditor() {
                   <InfoTip
                     label="marking an import as proxies"
                     ariaLabel="What does marking an import as proxies do?"
-                    text="Proxy copies count as owned in this binder, but carry no market value — their cost, if any, still counts toward what you paid."
+                    text="Proxy copies count as owned here but carry no market value. Their cost, if any, still counts toward what you paid."
                   />
                 </span>
               </label>
@@ -1216,15 +1216,17 @@ export function BinderEditor() {
             Some binder names need a decision
           </h2>
           <ul className="choice-dialog-body" style={{ paddingLeft: 'var(--space-4)' }}>
-            {collisionPrompt.map((c) => (
-              <li key={c.name}>
-                <strong>"{c.name}"</strong>
-                {c.count > 1 ? ` — ${c.count} staged files share this name` : ''}
-                {c.existing
-                  ? `${c.count > 1 ? '; it' : ' —'} also matches a binder you already have`
-                  : ''}
-              </li>
-            ))}
+            {collisionPrompt.map((c) => {
+              const facts: string[] = [];
+              if (c.count > 1) facts.push(`${c.count} staged files share this name`);
+              if (c.existing) facts.push('already matches a binder you have');
+              return (
+                <li key={c.name}>
+                  <strong>"{c.name}"</strong>
+                  {facts.length > 0 ? `: ${facts.join('. ')}.` : ''}
+                </li>
+              );
+            })}
           </ul>
           <div className="choice-dialog-options">
             {collisionPrompt.some((c) => c.count > 1) && (
@@ -1242,7 +1244,7 @@ export function BinderEditor() {
                   Files that share a name go into one new binder together. Other files still get
                   their own binder.
                   {collisionPrompt.some((c) => c.existing)
-                    ? ' (Still creates new binders — existing same-named binders are left alone.)'
+                    ? ' Existing same-named binders are left alone.'
                     : ''}
                 </span>
               </button>
@@ -1257,7 +1259,7 @@ export function BinderEditor() {
             >
               <span className="choice-dialog-option-title">Create separate binders</span>
               <span className="choice-dialog-option-desc">
-                Keep one binder per file — you'll get additional binders with the same name
+                Keep one binder per file. You'll get additional binders with the same name
                 {collisionPrompt.some((c) => c.existing)
                   ? ', including alongside the existing ones'
                   : ''}

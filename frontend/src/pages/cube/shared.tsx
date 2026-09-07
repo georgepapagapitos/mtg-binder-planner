@@ -1,8 +1,9 @@
-import { useMemo, type KeyboardEvent } from 'react';
+import { useMemo, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { MeterBar } from '../../components/shared/MeterBar';
 import { OwnershipBadge } from '../../components/deck/OwnershipBadge';
 import { VerdictBadge } from '../../components/deck/VerdictBadge';
+import { InfoTip } from '../../components/InfoTip';
 import { useCollectionStore } from '../../store/collection';
 import { useDecksStore } from '../../store/decks';
 import { useCubeStore } from '../../store/cube';
@@ -186,27 +187,24 @@ export function useOwnershipFor() {
   }, [collectionCards, decks, savedCubes]);
 }
 
-/** Ownership chip for a cube row — names where a committed copy actually lives. */
-export function OwnRowBadge({ own }: { own: Ownership }) {
+/** Ownership chip for a cube row — names where a committed copy actually lives.
+ *  `showUnowned` (ImportCube's rows include cards you don't own at all, unlike
+ *  the always-owned pools BuildCube/CollabCube render) passes through to the
+ *  base badge so "not owned" renders instead of nothing. */
+export function OwnRowBadge({ own, showUnowned }: { own: Ownership; showUnowned?: boolean }) {
   if (own === 'in-other-deck') {
-    return (
-      <VerdictBadge
-        tone="neutral"
-        label="In a deck"
-        title="You own this, but it's currently in a deck"
-      />
-    );
+    return <VerdictBadge tone="neutral" label="In a deck" title="Owned, but currently in a deck" />;
   }
   if (own === 'in-cube') {
     return (
       <VerdictBadge
         tone="neutral"
         label="In a cube"
-        title="You own this, but it's reserved by a physical cube"
+        title="Owned, but reserved by a physical cube"
       />
     );
   }
-  return <OwnershipBadge owned={own === 'owned'} />;
+  return <OwnershipBadge owned={own === 'owned'} showUnowned={showUnowned} />;
 }
 
 /** Readable label for a synergy-slider value. */
@@ -242,7 +240,7 @@ export function SynergySlider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="cube-synergy-range"
-        aria-label="Card priority — from best cards to most archetype synergy"
+        aria-label="Card priority: from best cards to most archetype synergy"
         aria-valuetext={synergyLabel(value)}
       />
       <div className="cube-synergy-ends" aria-hidden="true">
@@ -270,8 +268,8 @@ export function CubeArchetypes({ score }: { score: GeneratedCube['score'] }) {
         </span>
       </div>
       <p className="cube-archetypes-sub">
-        How deeply a drafter can commit to each strategy your collection supports — balanced
-        enablers and payoffs, concentrated in their colors.
+        How deeply a drafter can commit to each strategy your collection supports: balanced enablers
+        and payoffs, concentrated in their colors.
       </p>
       <ul className="cube-archetype-list">
         {score.axes.slice(0, 8).map((a) => (
@@ -349,23 +347,28 @@ export function CubeSizePicker({
   );
 }
 
-/** "Available cards only" checkbox — label/title vary per mode. */
+/** "Available cards only" checkbox — label/mechanism explainer vary per mode.
+ *  The explainer lives in an `InfoTip`, not a native `title`, so it's reachable
+ *  on touch (STYLE_GUIDE "Info tooltips"). */
 export function AvailableToggle({
   checked,
   onChange,
   label,
-  title,
+  infoText,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
-  title: string;
+  infoText: ReactNode;
 }) {
   return (
-    <label className="field-checkbox cube-available-toggle" title={title}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      {label}
-    </label>
+    <span className="cube-available-toggle">
+      <label className="field-checkbox">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        {label}
+      </label>
+      <InfoTip label={label} text={infoText} />
+    </span>
   );
 }
 

@@ -204,7 +204,7 @@ export function CollabCube() {
     if (!cube) return;
     await navigator.clipboard.writeText(toCubeCobraList(cube.picks));
     pushToast({
-      message: `Copied ${cube.picks.length} cards — paste into CubeCobra's Add Cards`,
+      message: `Copied ${cube.picks.length} cards. Paste into CubeCobra's Add Cards.`,
       tone: 'success',
     });
   }, [cube, pushToast]);
@@ -338,7 +338,7 @@ export function CollabCube() {
           checked={availableOnly}
           onChange={setAvailableOnly}
           label="My available cards only"
-          title="When on, your cards whose only copies are committed to a deck or physical cube are left out. Friends' cards are always included."
+          infoText="Your cards whose only copies are already claimed by a deck or physical cube are left out. Friends' cards always count."
         />
         <button
           type="button"
@@ -358,7 +358,7 @@ export function CollabCube() {
         <div className="cube-collab-warn-banner" role="alert">
           {failedFriends.map((name) => (
             <p key={name} className="cube-collab-warn-line">
-              Couldn't load {name}&apos;s collection — their cards were excluded.
+              Couldn't load {name}&apos;s collection. Their cards were excluded.
             </p>
           ))}
         </div>
@@ -508,7 +508,7 @@ export function CollabCube() {
                         className="cube-row cube-row-interactive"
                         role="button"
                         tabIndex={0}
-                        aria-label={`${p.card.name} — open preview`}
+                        aria-label={`Open preview for ${p.card.name}`}
                         onClick={() => setPreviewIndex(flatIndex)}
                         onKeyDown={(e) => cubeRowKeyDown(e, flatIndex, setPreviewIndex)}
                       >

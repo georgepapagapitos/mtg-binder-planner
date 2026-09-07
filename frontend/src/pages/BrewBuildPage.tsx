@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import './BrewBuildPage.css';
 import { BackLink } from '../components/BackLink';
 import { useDeckBuilderStore } from '@/deck-builder/store';
@@ -221,8 +222,8 @@ export function BrewBuildPage(): JSX.Element {
       <header className="deck-builder-header">
         <h1>Brew mode</h1>
         <p className="deck-builder-subtitle">
-          Build the 99 slot by slot — the app proposes, you decide. Ramp, card draw, removal, board
-          wipes, your theme, finishers, then a manabase you review before it's saved.
+          Build the 99 slot by slot: the app proposes, you decide. Ramp, draw, removal, wipes, your
+          theme, finishers, then a manabase you review before it saves.
         </p>
       </header>
 
@@ -280,7 +281,13 @@ export function BrewBuildPage(): JSX.Element {
                 onClick={() => void startBrewing()}
                 disabled={loading}
               >
-                {loading ? 'Loading EDHREC data…' : 'Start brewing →'}
+                {loading ? (
+                  'Loading EDHREC data…'
+                ) : (
+                  <>
+                    Start brewing <ArrowRight width={14} height={14} aria-hidden />
+                  </>
+                )}
               </button>
               {error && <div className="error-banner deck-builder-error">{error}</div>}
             </section>

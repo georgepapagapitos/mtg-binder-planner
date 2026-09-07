@@ -39,6 +39,22 @@ const FOLLOWUP_REQUEST_BUDGET = 100;
  */
 const memoryCache = new Map<string, ScryfallCard>();
 
+// Concurrent callers (land generator, land top-up, the deck generator) ask for
+// the same name before the first lookup has landed. The cache only fills on
+// success, so during a Scryfall cooldown each of them fired its own request for
+// "Forest" into the block. Share the pending promise instead.
+const inflight = new Map<string, Promise<ScryfallCard | null>>();
+function shareInflight<T extends ScryfallCard | null>(
+  key: string,
+  run: () => Promise<T>
+): Promise<T> {
+  const pending = inflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const p = run().finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
 const cardCache = {
   get: (key: string): ScryfallCard | undefined => memoryCache.get(key),
   set: (key: string, card: ScryfallCard): void => {
@@ -307,6 +323,10 @@ async function bulkGetCardByName(name: string): Promise<ScryfallCard | null> {
  * belongs on `/cards/search`, which is where tolerant matching lives.
  */
 async function liveGetCardByName(name: string): Promise<ScryfallCard> {
+  return freshCopy(await shareInflight(`named:${name}`, () => resolveLiveCardByName(name)));
+}
+
+async function resolveLiveCardByName(name: string): Promise<ScryfallCard> {
   await primeFromDisk([name]);
   const cached = cardCache.get(name);
   if (cached) return freshCopy(cached);
@@ -485,7 +505,11 @@ export async function getCardsByIds(ids: string[]): Promise<Map<string, Scryfall
  * Fetch a single card by name with proper rate limiting.
  * Returns null if not found instead of throwing.
  */
-async function fetchCardByNameThrottled(name: string): Promise<ScryfallCard | null> {
+function fetchCardByNameThrottled(name: string): Promise<ScryfallCard | null> {
+  return shareInflight(`search:${name}`, () => fetchCheapestPrintingByName(name));
+}
+
+async function fetchCheapestPrintingByName(name: string): Promise<ScryfallCard | null> {
   try {
     // Search for cheapest USD paper printing across all sets
     // Filter out digital-only printings and require a USD price
@@ -595,6 +619,11 @@ async function liveGetCardsByNames(
 
   // Track names not found in the preferred set for a fallback pass
   const setNotFoundNames: string[] = [];
+  // Names whose batch never got an answer (throttled/offline). Scryfall did NOT
+  // say they don't exist, so they must stay out of the per-name rescue below —
+  // otherwise one 429'd batch of 75 becomes 75 single-card searches fired
+  // straight into the active cooldown.
+  const unanswered = new Set<string>();
 
   // Use Scryfall's /cards/collection endpoint (up to 75 per request)
   for (let i = 0; i < uncachedNames.length; i += COLLECTION_BATCH_SIZE) {
@@ -605,7 +634,8 @@ async function liveGetCardsByNames(
 
     const data = await postCollection(identifiers);
 
-    if (data) {
+    if (!data) for (const name of batch) unanswered.add(name);
+    else {
       for (const card of data.data) {
         if (!isPlayableCard(card)) continue;
         const cacheKey = preferredSet ? `${card.name}|${preferredSet}` : card.name;
@@ -644,7 +674,10 @@ async function liveGetCardsByNames(
     for (let i = 0; i < setNotFoundNames.length; i += COLLECTION_BATCH_SIZE) {
       const batch = setNotFoundNames.slice(i, i + COLLECTION_BATCH_SIZE);
       const data = await postCollection(batch.map((name) => ({ name })));
-      if (!data) continue;
+      if (!data) {
+        for (const name of batch) unanswered.add(name);
+        continue;
+      }
       for (const card of data.data) {
         if (!isPlayableCard(card)) continue;
         cardCache.set(card.name, card);
@@ -699,7 +732,7 @@ async function liveGetCardsByNames(
   }
 
   // For any names not found via collection, try individual fallback
-  const notFound = uncachedNames.filter((name) => !result.has(name));
+  const notFound = uncachedNames.filter((name) => !result.has(name) && !unanswered.has(name));
   if (notFound.length > 0) {
     const pass = notFound.slice(0, followupBudget);
     logger.debug(

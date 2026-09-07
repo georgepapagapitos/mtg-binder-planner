@@ -823,7 +823,7 @@ describe('BuildReportPanel — bracket-1 (Exhibition) expectations', () => {
     const line = container.querySelector('.build-report-bracket');
     expect(line?.textContent).toMatch(/Exhibition/);
     expect(line?.textContent).toMatch(/themed-build intent/);
-    expect(line?.textContent).toMatch(/always estimate at Core \(2\) or/);
+    expect(line?.textContent).toMatch(/estimate at Core \(2\) or higher/);
   });
 });
 

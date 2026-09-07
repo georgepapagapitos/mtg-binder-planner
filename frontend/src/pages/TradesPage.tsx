@@ -138,7 +138,7 @@ function TradesPageBody() {
 
   if (status === 'guest') {
     return (
-      <div className="trades-page">
+      <div className="trades-page social-page-shell social-page-shell--wide">
         <header className="binder-hero">
           <div className="settings-page-hero-text">
             <h1 className="binder-hero-name">Trades</h1>
@@ -179,7 +179,7 @@ function TradesPageBody() {
   const noMatches = searchable && query.trim() !== '' && visible.length === 0;
 
   return (
-    <div className="trades-page">
+    <div className="trades-page social-page-shell social-page-shell--wide">
       <header className="binder-hero">
         <div className="settings-page-hero-text">
           <h1 className="binder-hero-name">Trades</h1>

@@ -13,13 +13,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  /* Capped like every sibling social page (.friends-page / .friend-hub-page
-     640px, .trades-page 760px) rather than running full-bleed — 640px, since
-     the pod tile grid doesn't need Trades' wider give/get layout. Without
-     this the SocialHubTabs content column visibly jumped sideways switching
-     Friends → Trades → Pods (B8-02). */
-  max-width: 640px;
-  margin-inline: auto;
 }
 
 .pods-index-section {
@@ -55,11 +48,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  /* Reading-width cap for a single-column row list — on the uncapped page
-     (the tile grid below wants full width) an invite row stretched to
-     1400px with a dead gap between identity and actions. Matches the
-     friends list's 640px. */
-  max-width: 640px;
 }
 
 .pods-invited-row {

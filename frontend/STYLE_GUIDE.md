@@ -139,7 +139,7 @@ never what the app "is."
    oracle text are data and keep their source punctuation. Guarded by
    `src/copy-guards.test.ts`.
 8. **No parenthetical asides.** No `(e.g. …)`, no jargon gloss `term (plain
-   meaning)`, no `(not X)`. A count qualifier `(4 of 10)` is fine. Placeholders
+meaning)`, no `(not X)`. A count qualifier `(4 of 10)` is fine. Placeholders
    show the example itself (`placeholder="Friday commander"`), never "e.g. …".
 9. **Never narrate the app as the subject.** Not "SpellControl routes…", "the app
    bundles…", "we built…", "AI can judge…". State the result ("Cards file into the
@@ -200,7 +200,6 @@ never what the app "is."
 - Is there a sibling string (the other branch, the adjacent dialog) that should match?
 - Filled with a real name and count, does it still fit a phone row?
 - Would a `title=` survive on touch? If not, it's a caption or an InfoTip.
-
 
 **Primary empty states are two parts: tagline + hint.** A short tagline naming
 the state ("No decks yet."), then ONE hint sentence giving the reason and the
@@ -3185,8 +3184,10 @@ into `/you`). (4) An unmatched route renders "Page not found" inside the Layout 
 CTA, never a silent redirect. (5) A page reached only via a button from its hub (not
 itself a hub tab) gets a `BackLink` to that hub, matching its siblings at the same depth
 (`/decks/new`, `/decks/new/brew`, `/decks/compare`, `/decks/cube`). (6) Social hub pages
-share one of two content caps (640px; 760px for the trade give/get layout) so a new page
-can't ship uncapped (`/pods` did).
+share one content cap, the `.social-page-shell` class in `social-shared.css` (640px;
+`--wide` is 760px for the trade give/get layout), so a new page can't ship uncapped
+(`/pods` did) or a pixel off its siblings (Pods sat 16px left of Friends when each page
+hand-wrote its own cap and padding).
 
 ## CSS file layout
 

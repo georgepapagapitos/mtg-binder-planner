@@ -11,3 +11,8 @@ import { bracketLabel } from '@/deck-builder/services/deckBuilder/bracketEstimat
 export function formatBracketLabel(bracket: number): string {
   return `Bracket ${bracket} · ${bracketLabel(bracket)}`;
 }
+
+/** The one wording of the Bracket 1 caveat, shared by the customizer's hint
+ *  and the build report's aimed-vs-estimated line. */
+export const EXHIBITION_BRACKET_NOTE =
+  'Exhibition is a themed-build intent, not a power level. Decks aimed there estimate at Core (2) or higher.';

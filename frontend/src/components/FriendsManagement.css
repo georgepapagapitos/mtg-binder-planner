@@ -1,11 +1,5 @@
 /* FriendsPage.css — /friends route */
 
-.friends-page {
-  max-width: 640px;
-  margin-inline: auto;
-  padding: var(--space-4);
-}
-
 /* `scrollToHeading` (lib/scroll-to-heading.ts) focuses this non-interactive
    heading on a `?tab=` deep link so sighted users land in the right place and
    screen readers get the announcement. It's not a control, so it gets no
@@ -354,12 +348,6 @@
 .friends-activity-link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-@media (max-width: 600px) {
-  .friends-page {
-    padding: var(--space-3);
-  }
 }
 
 /* a11y (UX-cohesion sweep): keyboard focus-visible rings — parity with :hover. */

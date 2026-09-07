@@ -829,7 +829,6 @@ async function applyArchetypeBlend(state: GenerationState): Promise<void> {
     // it reaches the report (summarizeSeatedBlend).
     state.archetypeBlendNames = injectedNames;
     state.archetypeBlendTheme = theme.name;
-    state.archetypeBlendCommanderDecks = commanderNumDecks;
     logger.debug(
       `[DeckGen] E221: blended ${injectedNames.length} cards from "${theme.slug}"` +
         `${tagPage.colorSlug ? `/${tagPage.colorSlug}` : ' (unfiltered)'} at w=${weight.toFixed(2)}`

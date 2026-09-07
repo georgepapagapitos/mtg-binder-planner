@@ -10,16 +10,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  /* Capped like every sibling social page (.friends-page / .friend-hub-page
-     640px, .pod-hub-page 760px) rather than running full-bleed: the offer
-     card splits give/get into `1fr auto 1fr`, so at 1440px unconstrained each
-     side became a ~700px column holding one card chip. 760px is the existing
-     hub-class value, not a new one. `width: 100%` is load-bearing next to the
-     auto margins — without it the auto margin kills the stretch and the
-     column collapses to its content at narrow widths. */
-  max-width: 760px;
-  width: 100%;
-  margin-inline: auto;
 }
 
 .trades-section {

@@ -484,6 +484,6 @@ describe('DeckCustomizer — Target Bracket (Exhibition expectations)', () => {
       <DeckCustomizer customization={baseCustomization({ targetBracket: 1 })} update={vi.fn()} />
     );
     expect(screen.getByText(/themed-build intent/)).toBeTruthy();
-    expect(screen.getByText(/estimate it at Core \(2\) or higher/)).toBeTruthy();
+    expect(screen.getByText(/estimate at Core \(2\) or higher/)).toBeTruthy();
   });
 });

@@ -382,7 +382,7 @@ export function FriendHubPage() {
 
   if (status === 'guest') {
     return (
-      <div className="friend-hub">
+      <div className="friend-hub social-page-shell">
         <BackLink to="/friends" label="Friends" />
         <div className="friends-signin-prompt">
           <p className="friends-signin-title">Sign in to view shared content</p>
@@ -422,11 +422,15 @@ export function FriendHubPage() {
   ];
 
   return (
-    <div className={`friend-hub${tab === 'collection' ? ' friend-hub--wide' : ''}`}>
+    <div
+      className={`friend-hub social-page-shell${tab === 'collection' ? ' friend-hub--wide' : ''}`}
+    >
       <BackLink to="/friends" label="Friends" />
-      <h1 className="friend-hub-heading">{heading}</h1>
-      {hasDisplayName && <p className="friend-hub-handle">{handle}</p>}
-      <p className="friend-hub-sub">Shared with friends</p>
+      <header className="binder-hero">
+        <h1 className="binder-hero-name">{heading}</h1>
+        {hasDisplayName && <p className="binder-hero-meta">{handle}</p>}
+        <p className="binder-hero-meta">Shared with friends</p>
+      </header>
 
       <Tabs
         ariaLabel="Friend hub views"

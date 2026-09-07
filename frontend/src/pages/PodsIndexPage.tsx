@@ -150,7 +150,7 @@ function PodsIndexPageBody() {
   // /friends). ──────────────────────────────────────────────────────────────
   if (status === 'guest') {
     return (
-      <div className="pods-index-page">
+      <div className="pods-index-page social-page-shell">
         <header className="binder-hero">
           <div className="settings-page-hero-text">
             <h1 className="binder-hero-name">Pods</h1>
@@ -176,7 +176,7 @@ function PodsIndexPageBody() {
   const isEmpty = !loading && invited.length === 0 && yours.length === 0;
 
   return (
-    <div className="pods-index-page">
+    <div className="pods-index-page social-page-shell">
       <header className="binder-hero">
         <div className="settings-page-hero-text">
           <h1 className="binder-hero-name">Pods</h1>

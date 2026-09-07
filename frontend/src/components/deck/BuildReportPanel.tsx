@@ -10,6 +10,7 @@ import { OwnershipBadge } from './OwnershipBadge';
 import { ColorPip } from '@/components/shared/ManaSymbol';
 import { THIN_SAMPLE_FLOOR } from '@/components/shared/ThinDataNote';
 import { InfoTip } from '../InfoTip';
+import { EXHIBITION_BRACKET_NOTE } from '@/lib/format-bracket-label';
 
 const COLOR_WORDS: Record<string, string> = {
   W: 'White',
@@ -298,8 +299,7 @@ export function BuildReportPanel({
       {targetBracket === 1 ? (
         <p className="build-report-line build-report-bracket">
           Aimed Bracket <strong>1 (Exhibition)</strong>, estimated{' '}
-          <strong>{estimatedBracket}</strong>. Exhibition decks always estimate at Core (2) or
-          higher; it's a themed-build intent, not a power level.
+          <strong>{estimatedBracket}</strong>. {EXHIBITION_BRACKET_NOTE}
         </p>
       ) : (
         <p className="build-report-line build-report-bracket">

@@ -107,11 +107,32 @@
   flex-direction: column;
   gap: 0.4rem;
   min-height: 0;
-  justify-content: center;
-  /* Content normally fits the whole panel; only the very smallest 6-player
-     seats could need this, and then it scrolls rather than clipping. */
+  /* Top-aligned, not centered: content can exceed even the biggest panel's
+     height (2-player — the largest, not just "the smallest 6-player seats"
+     as this rule once assumed), and centering an overflowing column hides
+     both ends with no scroll tell (B7-02). */
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* Scroll-edge fade — same convention as Tabs.tsx's horizontal `data-overflow`
+   (deck-builder-tabs.css), applied to this vertical scroller. */
+.seat-menu-body[data-overflow='bottom'] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--space-6)), transparent 100%);
+}
+
+.seat-menu-body[data-overflow='top'] {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--space-6));
+}
+
+.seat-menu-body[data-overflow='both'] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--space-6),
+    #000 calc(100% - var(--space-6)),
+    transparent 100%
+  );
 }
 
 .seat-menu-label {

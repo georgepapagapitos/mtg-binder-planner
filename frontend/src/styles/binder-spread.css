@@ -18,8 +18,8 @@
 
    Tab gutter scoping: --spread-tab-gutter is defined here (on .is-spread)
    so tab buttons can always reference it. The gutter-reserving --slide-size
-   override and the widened centering spacers only activate under .is-tabbed
-   (added by JS when sectionTabs.length > 1). Single-section binders therefore
+   override only activates under .is-tabbed (added by JS when
+   sectionTabs.length > 1). Single-section binders therefore
    get the unmodified 100cqw first-term and don't lose ~30px on each side. */
 .binder-pages-backdrop.is-spread .binder-pages-track {
   /* Define the token for gutter components; only deducted from --slide-size
@@ -45,23 +45,6 @@
   flex-basis: calc(var(--slide-size) + 2 * var(--spread-tab-gutter));
 }
 
-/* Centering spacers in spread mode: sized for the NARROWEST possible
-   first/last slide (a single-page spread), so it can reach dead center at the
-   scroll extremes. When the first/last slide is actually a full spread the
-   spacer is larger than strictly needed, which is harmless — its snap
-   position simply sits at an interior scroll offset instead of the extreme. */
-.binder-pages-backdrop.is-spread .binder-pages-track::before,
-.binder-pages-backdrop.is-spread .binder-pages-track::after {
-  flex-basis: calc((100cqw - var(--slide-size) * var(--spread-page-frac, 0.5)) / 2);
-}
-
-.binder-pages-backdrop.is-spread.is-tabbed .binder-pages-track::before,
-.binder-pages-backdrop.is-spread.is-tabbed .binder-pages-track::after {
-  flex-basis: calc(
-    (100cqw - var(--slide-size) * var(--spread-page-frac, 0.5) - 2 * var(--spread-tab-gutter)) / 2
-  );
-}
-
 /* Spread slide: row of [left-page | spine | right-page]. flex so the spine
    sits between the two page grids without affecting .binder-pages-page's
    own grid layout. align-items:stretch so pages and spine fill the same
@@ -77,8 +60,8 @@
    silhouette, no spine — just the page, in a slide only as wide as the page
    itself. A spread-wide slide here left a huge dead gap between the lone
    page and its neighboring spreads. Snap-align centers each slide regardless
-   of its width; the track spacers below are sized for this (narrowest)
-   slide so the first/last slide can still reach dead center. */
+   of its width; SnapCarousel measures the edge spacers from the real
+   first/last slide, so a lone page still reaches dead center. */
 .binder-pages-slide--single {
   justify-content: center;
 }

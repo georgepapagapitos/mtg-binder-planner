@@ -12,6 +12,7 @@ import {
   physicalCardsToUploadResponse,
 } from '../lib/product-import';
 import { createLimiter } from '../lib/concurrency-limit';
+import { fetchErrorMessage } from '../lib/import-review';
 import { useCardCarousel, type CarouselEntry } from './deck/useCardCarousel';
 import { ManaCost } from './ManaCost';
 import { SearchPill } from './SearchPill';
@@ -459,8 +460,10 @@ export function ProductSearchPanel({ onClose }: Props) {
 
           {selected.fetchErrors.length > 0 && (
             <p className="product-detail-warn">
-              {selected.fetchErrors.length} card{selected.fetchErrors.length === 1 ? '' : 's'}{' '}
-              couldn't be fetched — the card service was unreachable, so this list is incomplete.{' '}
+              {fetchErrorMessage(
+                selected.fetchErrors.length,
+                'The card service was unreachable, so this list is incomplete.'
+              )}{' '}
               <button
                 type="button"
                 className="btn-link"

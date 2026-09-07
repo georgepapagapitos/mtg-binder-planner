@@ -143,7 +143,7 @@ export function ChipExpressionBuilder(props: Props) {
                 title={
                   lockJoiner === 'OR'
                     ? 'OR only (single-valued field)'
-                    : `${joiners[i - 1]} — click to flip`
+                    : `${joiners[i - 1]} · Click to flip`
                 }
                 aria-label={
                   lockJoiner === 'OR'

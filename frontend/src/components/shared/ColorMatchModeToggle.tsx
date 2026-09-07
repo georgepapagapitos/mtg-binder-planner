@@ -28,8 +28,8 @@ export function ColorMatchModeToggle({ mode, onChange, className }: ColorMatchMo
         onClick={() => onChange(all ? 'any' : 'all')}
         title={
           all
-            ? 'AND — cards must show every selected color; click for OR'
-            : 'OR — cards showing any selected color; click for AND'
+            ? 'AND: cards must show every selected color. Click for OR.'
+            : 'OR: cards showing any selected color match. Click for AND.'
         }
         aria-label={
           all

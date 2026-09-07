@@ -77,14 +77,14 @@ describe('CardEditDialog owned-finish awareness', () => {
     // Row tag carries the sr-only ownership note…
     expect(screen.getByText(/\(owned\)/)).toBeTruthy();
     // …and the finish button announces it.
-    expect(screen.getByRole('button', { name: 'Foil — you own this finish' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Foil · You own this finish' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Non-foil' })).toBeTruthy();
   });
 
   it('defaults to an owned finish when an owned printing is selected', async () => {
     renderDialog();
     await selectOwnedPrinting();
-    const foilBtn = screen.getByRole('button', { name: 'Foil — you own this finish' });
+    const foilBtn = screen.getByRole('button', { name: 'Foil · You own this finish' });
     expect(foilBtn.getAttribute('aria-pressed')).toBe('true');
   });
 

@@ -103,6 +103,7 @@ const RESET = {
   hydrating: false,
   isLoading: false,
   isRefreshingPrices: false,
+  pricesEverLoaded: false,
   error: null,
   activeTab: 'uncategorized',
   editingBinder: null,
@@ -985,6 +986,54 @@ describe('autoRefreshStalePrices', () => {
     await useCollectionStore.getState().autoRefreshStalePrices();
     expect(fetchMock).toHaveBeenCalled();
     expect(progressDuringFetch).toBeNull();
+  });
+
+  // B3-02: `pricesEverLoaded` is the widened pending guard that stops a fresh
+  // sync from flashing a confident $0 — it must flip true on every exit path
+  // (not just the ones that actually fetch), or a collection with nothing
+  // stale would shimmer forever instead of settling.
+  it('resolves pricesEverLoaded on every exit path', async () => {
+    const cases: Array<{ name: string; setup: () => void; fetch: () => unknown }> = [
+      { name: 'empty collection', setup: () => {}, fetch: vi.fn() },
+      {
+        name: 'nothing stale',
+        setup: () =>
+          useCollectionStore.setState({
+            cards: [enriched({ copyId: 'c1', scryfallId: 'sf1', pricedAt: Date.now() })],
+          }),
+        fetch: vi.fn(),
+      },
+      {
+        name: 'throttled',
+        setup: () => {
+          localStorage.setItem(THROTTLE_KEY, String(Date.now()));
+          useCollectionStore.setState({ cards: [enriched({ copyId: 'c1', scryfallId: 'sf1' })] });
+        },
+        fetch: vi.fn(),
+      },
+      {
+        name: 'stale, refresh succeeds',
+        setup: () =>
+          useCollectionStore.setState({ cards: [enriched({ copyId: 'c1', scryfallId: 'sf1' })] }),
+        fetch: vi.fn().mockResolvedValue({ ok: true, json: async () => ({ prices: {} }) }),
+      },
+      {
+        name: 'stale, refresh fails',
+        setup: () =>
+          useCollectionStore.setState({ cards: [enriched({ copyId: 'c1', scryfallId: 'sf1' })] }),
+        fetch: vi.fn().mockRejectedValue(new Error('offline')),
+      },
+    ];
+
+    for (const { setup, fetch } of cases) {
+      localStorage.removeItem(THROTTLE_KEY);
+      useCollectionStore.setState({ ...RESET });
+      setup();
+      vi.stubGlobal('fetch', fetch);
+      expect(useCollectionStore.getState().pricesEverLoaded).toBe(false);
+      await useCollectionStore.getState().autoRefreshStalePrices();
+      expect(useCollectionStore.getState().pricesEverLoaded).toBe(true);
+    }
   });
 });
 

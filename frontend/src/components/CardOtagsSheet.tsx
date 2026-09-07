@@ -131,7 +131,7 @@ export function CardOtagsSheet({ card, onClose }: Props) {
         )}
 
         <p className="card-otags-note">
-          Tags come from Scryfall's community Tagger project; this app bundles a snapshot of curated
+          Tags come from Scryfall's community Tagger project; this app bundles a snapshot of
           function tags.
           {taggerUrl && (
             <>

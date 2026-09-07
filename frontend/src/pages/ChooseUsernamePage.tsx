@@ -88,8 +88,7 @@ export default function ChooseUsernamePage() {
         </div>
         <h1 className="auth-title">Pick a username</h1>
         <p className="auth-subtitle">
-          This is how you&apos;ll appear in SpellControl. It can be anything — it doesn&apos;t have
-          to match your email.
+          This is how you&apos;ll appear in SpellControl. It doesn&apos;t have to match your email.
         </p>
 
         <form onSubmit={handleCreate} className="auth-form">
@@ -118,7 +117,7 @@ export default function ChooseUsernamePage() {
             <ul className="auth-rules" aria-label="Username requirements" aria-live="polite">
               <li
                 className={`auth-rule${valid ? ' is-met' : ''}`}
-                aria-label={`3–32 characters: lowercase letters, digits, _ or - — ${valid ? 'met' : 'not yet met'}`}
+                aria-label={`3-32 characters, lowercase letters, digits, underscore, or hyphen: ${valid ? 'met' : 'not yet met'}`}
               >
                 <span className="auth-rule-mark" aria-hidden="true">
                   {valid ? '✓' : '•'}
@@ -170,6 +169,14 @@ export default function ChooseUsernamePage() {
             </form>
           </>
         ) : null}
+
+        <button
+          type="button"
+          className="auth-back"
+          onClick={() => navigate('/auth', { replace: true })}
+        >
+          Back to sign in
+        </button>
       </div>
     </main>
   );

@@ -5,11 +5,13 @@ import {
   Routes,
   Route,
   Navigate,
+  Link,
   useLocation,
   useNavigate,
   useParams,
   useSearchParams,
 } from 'react-router-dom';
+import { EmptyStateMark } from '@/components/shared/EmptyStateMark';
 import { Layout } from './components/Layout';
 import { CollectionHubLayout } from './components/CollectionHubLayout';
 // Eager pages — the entry surfaces a first paint lands on. WelcomePage is the
@@ -190,6 +192,25 @@ function LegacyCubeRedirect() {
 function SettingsRedirect() {
   const { search } = useLocation();
   return <Navigate to={`/you${search}`} replace />;
+}
+
+/** An unmatched in-Layout route (typo, stale link, dead deep link) used to
+ *  silently redirect to Home/Collection with zero feedback. Render an actual
+ *  state instead, so a bad link reads as a bad link, not a random landing. */
+function NotFoundPage({ homePath }: { homePath: string }) {
+  const homeLabel = homePath === '/home' ? 'Home' : 'Collection';
+  return (
+    <div className="empty-state">
+      <EmptyStateMark />
+      <h1 className="empty-state-tagline">Page not found.</h1>
+      <p className="empty-state-hint">That link is broken or the page has moved.</p>
+      <div className="empty-state-actions">
+        <Link to={homePath} className="btn btn-primary empty-state-action">
+          Go to {homeLabel}
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
@@ -404,13 +425,7 @@ export default function App() {
             />
             <Route
               path="*"
-              element={
-                status === 'authed' ? (
-                  <Navigate to="/home" replace />
-                ) : (
-                  <Navigate to="/collection" replace />
-                )
-              }
+              element={<NotFoundPage homePath={status === 'authed' ? '/home' : '/collection'} />}
             />
           </Route>
         </Routes>

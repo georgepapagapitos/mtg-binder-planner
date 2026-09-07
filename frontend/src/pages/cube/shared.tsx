@@ -327,7 +327,7 @@ export function CubeSizePicker({
   onSize: (s: CubeSize) => void;
 }) {
   return (
-    <>
+    <div className="cube-size">
       <div className="cube-size-picker" role="group" aria-label="Cube size">
         {CUBE_SIZES.map((s) => (
           <button
@@ -343,7 +343,7 @@ export function CubeSizePicker({
         ))}
       </div>
       <p className="cube-size-note">{SIZE_INFO[size].note}</p>
-    </>
+    </div>
   );
 }
 

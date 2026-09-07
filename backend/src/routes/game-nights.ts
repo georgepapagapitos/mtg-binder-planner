@@ -1581,12 +1581,19 @@ gameNightsRouter.get(
       .where(eq(gameNightRsvps.nightId, night.id))
       .orderBy(gameNightRsvps.createdAt);
 
+    // The guest's stored rsvp id is a credential (E119): it arrives as the
+    // `X-Rsvp-Id` header, with the `?rsvpId=` query kept for one release so an
+    // already-open guest tab keeps resolving. Both paths gate on the same
+    // `userId === null` guest check below and in canReplyInviteOnly.
+    const rsvpIdParam: unknown = req.get('X-Rsvp-Id') || req.query.rsvpId;
+    const guestRsvpId = typeof rsvpIdParam === 'string' && rsvpIdParam ? rsvpIdParam : undefined;
+
     let myRsvp: { id: string; displayName: string; status: RsvpStatus } | null = null;
     if (req.user) {
       const mine = rsvps.find((r) => r.userId === req.user!.id);
       if (mine) myRsvp = { id: mine.id, displayName: mine.displayName, status: mine.status };
-    } else if (typeof req.query.rsvpId === 'string') {
-      const mine = rsvps.find((r) => r.id === req.query.rsvpId && r.userId === null);
+    } else if (guestRsvpId) {
+      const mine = rsvps.find((r) => r.id === guestRsvpId && r.userId === null);
       if (mine) myRsvp = { id: mine.id, displayName: mine.displayName, status: mine.status };
     }
 
@@ -1598,7 +1605,7 @@ gameNightsRouter.get(
     const canRsvp =
       !blocked &&
       (!night.inviteOnly ||
-        (await canReplyInviteOnly(night, req.user, req.query.rsvpId, guestInviteToken(req))));
+        (await canReplyInviteOnly(night, req.user, guestRsvpId, guestInviteToken(req))));
     res.json({
       night: {
         token: night.token,

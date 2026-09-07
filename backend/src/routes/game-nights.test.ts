@@ -476,9 +476,14 @@ describe('POST /api/game-nights/public/:token/rsvp', () => {
     expect(created.status).toBe(201);
     const rsvpId = created.body.rsvp.id as string;
 
-    // myRsvp resolves via the stored id.
+    // myRsvp resolves via the stored id, sent as the X-Rsvp-Id header (the
+    // client's path) or the legacy ?rsvpId= query (one-release fallback).
+    const viaHeader = await request(app)
+      .get(`/api/game-nights/public/${token}`)
+      .set('X-Rsvp-Id', rsvpId);
+    expect(viaHeader.body.myRsvp).toEqual({ id: rsvpId, displayName: 'Pat', status: 'going' });
     const read = await request(app).get(`/api/game-nights/public/${token}?rsvpId=${rsvpId}`);
-    expect(read.body.myRsvp).toEqual({ id: rsvpId, displayName: 'Pat', status: 'going' });
+    expect(read.body.myRsvp).toEqual(viaHeader.body.myRsvp);
 
     // Update keeps the name when displayName is omitted.
     const updated = await request(app)

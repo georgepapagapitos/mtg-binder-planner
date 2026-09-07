@@ -4217,6 +4217,19 @@ the brand bar's action is "Edit profile" (→ `?section=profile`) instead of
 Report — the server's `isOwner` flag decides, and nobody reports
 themselves.
 
+## Command palette (⌘K) — desktop-only by design
+
+The palette (`components/CommandPalette.tsx`, model in `lib/commands.ts`) is
+reachable by **⌘K / Ctrl+K** anywhere outside a text input and is listed in
+the `?` shortcuts overlay. That is its whole entry surface: **no header
+button, no tab-bar trigger, no touch affordance**, on purpose. Its value is
+keyboard velocity (type three letters, Enter, you're there), not reach.
+A phone already has the tab bar for navigation and the `/search` utility for
+cards, and a tap-to-open palette on a 360px screen is a slower version of
+both. Don't add a visible trigger to "make it discoverable" on touch; if a
+phone needs a shortcut to something, it goes in the tab bar or a page's own
+action row (§ Toolbars & action rows). Settled 2026-09-07 (sweep-3, E262).
+
 ## Keyboard shortcuts — discoverability pattern (UX-334)
 
 **One global overlay, one registry.** The `?` key opens a single

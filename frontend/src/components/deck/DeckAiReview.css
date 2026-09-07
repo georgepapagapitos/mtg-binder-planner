@@ -468,6 +468,12 @@
   margin: var(--space-4) 0 0;
 }
 
+/* Apply / Apply all are the primary tier: accent fill + leading `Check`
+   (STYLE_GUIDE § Action-button anatomy). `.btn` sets no gap of its own. */
+.deck-ai-review .btn-primary {
+  gap: 0.35rem;
+}
+
 @media (pointer: coarse) {
   .btn.deck-ai-bulk-apply {
     min-height: 44px;

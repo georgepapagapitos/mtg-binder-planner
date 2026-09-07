@@ -740,7 +740,9 @@ body:has(.playtest-page) {
   flex-shrink: 0;
   cursor: grab;
   background: var(--surface-raised);
-  transition: transform var(--motion-fast) ease;
+  transition:
+    transform var(--motion-fast) ease,
+    translate var(--motion-fast) ease;
   user-select: none;
   /* Let dnd-kit's pointer sensor own the touch gesture — without this the
      browser hijacks the press for scrolling and the drag never starts on
@@ -759,6 +761,17 @@ body:has(.playtest-page) {
 
 .playtest-card:active {
   cursor: grabbing;
+}
+
+/* Battlefield hover lift, same 6px as `.playtest-opening-card`. The `translate`
+   property, not `transform`: a tapped card carries an inline
+   `transform: rotate(90deg)` and a transform hover rule would replace the
+   rotation. The DragOverlay copy (`--dragging`) renders outside the
+   battlefield and gets no lift. */
+@media (hover: hover) and (pointer: fine) {
+  .playtest-battlefield .playtest-card:hover:not(.playtest-card--dragging) {
+    translate: 0 -6px;
+  }
 }
 
 /* Group-copy selection (E226). An inset ring rather than an outline: the card

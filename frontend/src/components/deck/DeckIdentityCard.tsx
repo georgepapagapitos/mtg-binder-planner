@@ -15,6 +15,7 @@ import type { LaneId } from '@/lib/deck-change';
 import { COLOR_INFO } from '../../lib/colors';
 import { ColorPip } from '../shared/ManaSymbol';
 import { useCardThumb } from '@/lib/card-thumbs';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { InfoTip } from '@/components/InfoTip';
 import { SelectMenu, type SelectOption } from '@/components/SelectMenu';
 import type { Archetype } from '@/deck-builder/types';
@@ -345,6 +346,12 @@ export function DeckIdentityCard({
   // Fallback via CDN thumb when art_crop not directly available on the card object
   const cdnThumb = useCardThumb(artCrop ? undefined : commanderName, 'normal');
   const artUrl = artCrop ?? cdnThumb;
+  // Phone header (E264): the art band is gone below the mobile breakpoint
+  // (DeckIdentityCard.css), and the curve sparkline joins the name and
+  // commander in the header instead of taking its own row below the identity
+  // line, so the stats panels start within the first screen.
+  const phone = useMediaQuery('(max-width: 600px)');
+  const sparkline = <CurveSparkline manaCurve={manaCurve} averageCmc={averageCmc} />;
 
   // Color identity (union of commander + partner)
   const colorIdentity = [
@@ -421,7 +428,7 @@ export function DeckIdentityCard({
               </span>
             )}
             <h2 className="deck-identity-card-deck-name">{deckName}</h2>
-            <span className="deck-identity-card-format">{formatLabel}</span>
+            {phone ? sparkline : <span className="deck-identity-card-format">{formatLabel}</span>}
           </div>
         </div>
       </div>
@@ -468,8 +475,8 @@ export function DeckIdentityCard({
           variant="card"
         />
 
-        {/* Sparkline */}
-        <CurveSparkline manaCurve={manaCurve} averageCmc={averageCmc} />
+        {/* Sparkline (in the header on phones) */}
+        {!phone && sparkline}
 
         {/* ── Playstyle expander ── */}
         <div className="deck-identity-card-playstyle">

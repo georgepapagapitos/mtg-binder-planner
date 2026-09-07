@@ -23,6 +23,7 @@ import { useDeckBuilderStore } from '@/deck-builder/store';
 import { useCollectionStore } from '../../store/collection';
 import { useCubeStore } from '../../store/cube';
 import { useDecksStore } from '../../store/decks';
+import { EXHIBITION_BRACKET_NOTE } from '@/lib/format-bracket-label';
 
 type Update = (patch: Partial<Customization>) => void;
 
@@ -263,10 +264,7 @@ function BracketGroup({ customization, update }: DeckCustomizerProps) {
           })}
         </fieldset>
         {customization.targetBracket === 1 && (
-          <p className="deck-customizer-hint">
-            Exhibition is a themed-build intent, not a power level. Expect the build report to
-            estimate it at Core (2) or higher.
-          </p>
+          <p className="deck-customizer-hint">{EXHIBITION_BRACKET_NOTE}</p>
         )}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { formatBytes } from '../lib/format-bytes';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   listUsers,
   deleteUser,
@@ -46,6 +46,35 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [pendingHide, setPendingHide] = useState<AdminReportRow | null>(null);
   const [hiding, setHiding] = useState(false);
+
+  // The users table scrolls horizontally on narrow viewports. Publish its
+  // overflow state as `data-overflow` so the stylesheet can fade the edge with
+  // more columns behind it (the Tabs.tsx scroll-strip idiom): without the cue
+  // the actions column past the right edge read as clipped layout.
+  const usersScrollRef = useRef<HTMLDivElement | null>(null);
+  const usersTableMounted = !loading && !error && users.length > 0;
+  useLayoutEffect(() => {
+    const el = usersScrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      let next = 'none';
+      if (max > 1) {
+        const atStart = el.scrollLeft <= 1;
+        const atEnd = el.scrollLeft >= max - 1;
+        next = atStart ? 'end' : atEnd ? 'start' : 'both';
+      }
+      if (el.dataset.overflow !== next) el.dataset.overflow = next;
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro?.disconnect();
+    };
+  }, [usersTableMounted]);
 
   // Refreshes the list (used after mount and after a successful delete). The
   // *initial* load goes through the useEffect below directly to avoid a
@@ -200,7 +229,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
             <div className="settings-row-hint">No users yet.</div>
           )}
           {!loading && !error && users.length > 0 && (
-            <div className="admin-users-table-scroll">
+            <div className="admin-users-table-scroll" ref={usersScrollRef}>
               <table className="admin-users-table">
                 <thead>
                   <tr>

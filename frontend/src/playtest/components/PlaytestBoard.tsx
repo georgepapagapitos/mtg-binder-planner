@@ -31,6 +31,8 @@ import { autoPlace } from '../lib/auto-place';
 import { haptics } from '@/lib/haptics';
 import { Battlefield } from './Battlefield';
 import { Hand } from './Hand';
+import { HandDrawer, SHORT_LANDSCAPE_QUERY } from './HandDrawer';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { ZonePile } from './ZonePile';
 import { ZoneViewerModal } from './ZoneViewerModal';
 import { ActionBar } from './ActionBar';
@@ -146,6 +148,10 @@ export function PlaytestBoard({ state, deckName, onBack }: Props) {
   const { confirm, dialog: confirmDialog } = useConfirm();
 
   const battlefieldRef = useRef<HTMLDivElement | null>(null);
+  // Short landscape (E264): the hand collapses to a 44px drawer strip so the
+  // battlefield keeps its height; `handOpen` is the drawer's sheet.
+  const shortLandscape = useMediaQuery(SHORT_LANDSCAPE_QUERY);
+  const [handOpen, setHandOpen] = useState(false);
   const [viewer, setViewer] = useState<ViewerMode>(null);
   const [ctx, setCtx] = useState<ContextState>(null);
   // B6-07: card previewed from a battlefield permanent's context menu — a
@@ -248,6 +254,9 @@ export function PlaytestBoard({ state, deckName, onBack }: Props) {
     }
 
     if (overId === 'battlefield') {
+      // A card dragged out of the short-landscape hand sheet: the play is the
+      // dismissal, same as a tap.
+      if (parsed.source === 'hand') setHandOpen(false);
       const { width, height, cardW, cardH } = getBattlefieldGeometry();
       const rect = battlefieldRef.current?.getBoundingClientRect();
       const translated = event.active.rect.current.translated;
@@ -381,6 +390,7 @@ export function PlaytestBoard({ state, deckName, onBack }: Props) {
 
   const anySheetOpen =
     phase !== 'playing' ||
+    handOpen ||
     viewer !== null ||
     ctx !== null ||
     tokenCreator ||
@@ -781,8 +791,20 @@ export function PlaytestBoard({ state, deckName, onBack }: Props) {
             </aside>
           )}
         </div>
-        <Hand cards={state.zones.hand} onCardClick={handleHandCardClick} />
-        <DragOverlay dropAnimation={null}>
+        {shortLandscape ? (
+          <HandDrawer
+            cards={state.zones.hand}
+            open={handOpen}
+            onOpen={() => setHandOpen(true)}
+            onClose={() => setHandOpen(false)}
+            onCardClick={handleHandCardClick}
+          />
+        ) : (
+          <Hand cards={state.zones.hand} onCardClick={handleHandCardClick} />
+        )}
+        {/* Above `--z-overlay` so a card dragged out of the hand sheet renders
+            over the sheet, not behind it. */}
+        <DragOverlay dropAnimation={null} zIndex={1200}>
           {activeDrag && (
             <PlaytestCardFace
               card={activeDrag.card}

@@ -37,7 +37,8 @@ describe('POST /api/events', () => {
     }
     expect(await count('pageview', '/')).toBe(2);
     const { rows } = await pool.query<{ column_name: string }>(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'event_counts'`
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'event_counts' AND table_schema = current_schema()`
     );
     expect(rows.map((r) => r.column_name).sort()).toEqual(['count', 'day', 'name', 'path']);
   });

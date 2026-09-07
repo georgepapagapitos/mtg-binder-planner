@@ -93,20 +93,9 @@ jobs:
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "Release tag: $TAG  versionName: $NAME  versionCode: $GITHUB_RUN_NUMBER"
 
-      # Build the file: shared deps before the frontend install. Mirrors the
-      # frontend job in ci.yml — their `dist/` is gitignored and the consumer's
-      # `npm ci` would otherwise run their `prepare` with no devDeps.
-      - name: Build shared game-core
-        working-directory: packages/game-core
-        run: npm ci && npm run build
-
-      - name: Build shared binder-routing
-        working-directory: packages/binder-routing
-        run: npm ci && npm run build
-
-      - name: Build shared deck-metrics
-        working-directory: packages/deck-metrics
-        run: npm ci && npm run build
+      # BEFORE the frontend's npm ci — see the action for why.
+      - name: Build shared packages
+        uses: ./.github/actions/build-shared
 
       - name: Install frontend dependencies
         working-directory: frontend

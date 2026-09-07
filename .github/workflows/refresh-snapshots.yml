@@ -58,20 +58,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # The shared packages must be built before the frontend installs, exactly
-      # as everywhere else. --ignore-scripts does NOT buy an exemption: npm
-      # treats building a `file:` link as part of resolving it, not as a
-      # lifecycle script the flag suppresses, so the dist-guarded `prepare`
-      # still runs and still dies on TS2688 with no devDependencies present.
-      # This workflow's first run proved it (run 33506064224).
+      # BEFORE the frontend's npm ci — see the action for why. This workflow's
+      # first run (33506064224) proved --ignore-scripts on the consumer is no
+      # exemption.
       - name: Build shared packages
-        run: |
-          npm --prefix packages/game-core ci --ignore-scripts
-          npm --prefix packages/game-core run build
-          npm --prefix packages/binder-routing ci --ignore-scripts
-          npm --prefix packages/binder-routing run build
-          npm --prefix packages/deck-metrics ci --ignore-scripts
-          npm --prefix packages/deck-metrics run build
+        uses: ./.github/actions/build-shared
 
       # The refresh scripts need node builtins plus js-yaml (refresh-sld-drops).
       - name: Install frontend dependencies

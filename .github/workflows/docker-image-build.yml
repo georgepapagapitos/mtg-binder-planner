@@ -9,7 +9,7 @@ name: Docker image build
 #
 # There is only one image (backend/Dockerfile also builds and embeds the
 # frontend bundle — see its header comment), so one job covers both apps.
-# It also rebuilds the two `packages/*` shared-package stages inline, so a
+# It also rebuilds every `packages/*` shared-package stage inline, so a
 # structural mistake there (e.g. a new shared package missing its Dockerfile
 # stage, per the warning in CLAUDE.md) fails the same way.
 #
@@ -29,14 +29,11 @@ on:
       - 'backend/package.json'
       - 'backend/package-lock.json'
       - 'backend/Dockerfile'
+      - '.dockerignore'
       - 'frontend/package.json'
       - 'frontend/package-lock.json'
-      - 'packages/game-core/package.json'
-      - 'packages/game-core/package-lock.json'
-      - 'packages/binder-routing/package.json'
-      - 'packages/binder-routing/package-lock.json'
-      - 'packages/deck-metrics/package.json'
-      - 'packages/deck-metrics/package-lock.json'
+      - 'packages/*/package.json'
+      - 'packages/*/package-lock.json'
       - '.github/workflows/docker-image-build.yml'
   pull_request:
     branches: [main]
@@ -44,14 +41,11 @@ on:
       - 'backend/package.json'
       - 'backend/package-lock.json'
       - 'backend/Dockerfile'
+      - '.dockerignore'
       - 'frontend/package.json'
       - 'frontend/package-lock.json'
-      - 'packages/game-core/package.json'
-      - 'packages/game-core/package-lock.json'
-      - 'packages/binder-routing/package.json'
-      - 'packages/binder-routing/package-lock.json'
-      - 'packages/deck-metrics/package.json'
-      - 'packages/deck-metrics/package-lock.json'
+      - 'packages/*/package.json'
+      - 'packages/*/package-lock.json'
       - '.github/workflows/docker-image-build.yml'
 
 concurrency:

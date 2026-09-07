@@ -23,7 +23,8 @@
 // frontend/package.json, not a hardcoded list, so a new shared package or a new
 // workflow is covered the day it lands:
 //   1. Every workflow job that runs a real `npm ci` for a consumer must first
-//      build each packages/* that consumer depends on.
+//      build each packages/* that consumer depends on — normally one `uses:` of
+//      .github/actions/build-shared, which builds all of them.
 //   2. backend/Dockerfile's build stage must do the same before each app installs.
 //   3. Its runtime stage must COPY the dist of every package the BACKEND depends
 //      on (the frontend's are bundled at build time and don't ship separately).
@@ -85,8 +86,12 @@ function installedConsumer(step, jobDefaultDir) {
   return CONSUMERS.includes(dir) ? dir : null;
 }
 
-/** Does this step build packages/<pkg>? */
+/**
+ * Does this step build packages/<pkg>? `.github/actions/build-shared` loops
+ * over every packages/* directory, so one `uses:` of it counts for all.
+ */
 function buildsPackage(step, pkg) {
+  if (/\/actions\/build-shared(@|$)/.test(step?.uses ?? '')) return true;
   const text = stepText(step);
   if (!text.includes(`packages/${pkg}`)) return false;
   return /\brun\s+build\b/.test(text) || /npm run build/.test(text);

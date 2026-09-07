@@ -299,6 +299,20 @@
   font-size: var(--text-sm);
 }
 
+/* GNV-02: a real CTA in the history panel only — the leaderboard panel's
+   empty state (above) stays a plain line so the pair doesn't repeat one CTA
+   twice side by side (GNV-04). */
+.pod-hub-stats-empty-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.pod-hub-stats-empty-cta p {
+  margin: 0;
+}
+
 /* No truncation: `title` alone isn't reachable on touch (STYLE_GUIDE "title
    is never the sole path to non-trivial detail"), and the table already
    scrolls horizontally in its wrapper — same as the untruncated Date/Format/

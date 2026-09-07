@@ -122,7 +122,7 @@ export function TonightTrades({
       <Modal onClose={onClose} labelledBy={titleId}>
         <div className="game-night-dialog tonight-trades-dialog">
           <h2 id={titleId} className="game-night-dialog-title">
-            Tonight's trades — {night.title}
+            Tonight's trades · {night.title}
           </h2>
 
           <label className="field-checkbox tonight-trades-optin">
@@ -255,7 +255,7 @@ function TonightTradesSection<K extends 'supplierUsername' | 'wanterUsername'>({
               <h4 className="tonight-trades-person-title">{person}</h4>
               <button
                 type="button"
-                className="btn-link tonight-trades-propose"
+                className="btn btn-primary tonight-trades-propose"
                 onClick={() => onPropose(person)}
               >
                 Propose a trade

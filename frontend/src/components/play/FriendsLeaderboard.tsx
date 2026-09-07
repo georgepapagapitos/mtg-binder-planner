@@ -83,13 +83,13 @@ export function FriendsLeaderboard() {
       <table className="play-records-table">
         <thead>
           <tr>
-            <th>Friend</th>
-            <th>Played</th>
-            <th>You</th>
-            <th>Them</th>
-            <th>W/L</th>
-            <th>Last played</th>
-            <th aria-label="Expand" />
+            <th scope="col">Friend</th>
+            <th scope="col">Played</th>
+            <th scope="col">You</th>
+            <th scope="col">Them</th>
+            <th scope="col">W/L</th>
+            <th scope="col">Last played</th>
+            <th scope="col" aria-label="Expand" />
           </tr>
         </thead>
         <tbody>

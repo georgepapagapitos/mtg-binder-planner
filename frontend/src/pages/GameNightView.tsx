@@ -269,7 +269,7 @@ function NightBody({
       <dl className="game-night-facts">
         <div className="game-night-fact">
           <dt>When</dt>
-          <dd>{polling ? `Being decided — ${options.length} times proposed` : when}</dd>
+          <dd>{polling ? `Being decided · ${options.length} times proposed` : when}</dd>
         </div>
         {night.series !== null && night.series.endedAt === null && (
           <div className="game-night-fact">
@@ -322,7 +322,7 @@ function NightBody({
           </h2>
           <p className="game-night-invite-only-note" role="status">
             {night.inviteOnly
-              ? `This night is invite-only — ask ${night.hostUsername} for an invite link. It admits you whether or not you have a SpellControl account.`
+              ? `This night is invite-only. Ask ${night.hostUsername} for an invite link.`
               : "You can't reply to this game night."}
           </p>
           {polling && <NightPoll options={options} />}
@@ -332,7 +332,7 @@ function NightBody({
       {!cancelled && canRsvp && polling && (
         <section className="game-night-reply" aria-label="Vote on a date">
           <h2 className="game-night-section-title">
-            {myRsvp ? 'Your votes — change them any time' : 'Which times can you make?'}
+            {myRsvp ? 'Your votes · change them any time' : 'Which times can you make?'}
           </h2>
           {username !== null ? (
             <p className="game-night-reply-as">Voting as {username}</p>
@@ -354,7 +354,7 @@ function NightBody({
       {!cancelled && canRsvp && !polling && (
         <section className="game-night-reply" aria-label="Your reply">
           <h2 className="game-night-section-title">
-            {myRsvp ? 'Your reply — change it any time' : 'Can you make it?'}
+            {myRsvp ? 'Your reply · change it any time' : 'Can you make it?'}
           </h2>
           {username !== null ? (
             <p className="game-night-reply-as">Replying as {username}</p>
@@ -427,7 +427,7 @@ function GuestNameField({ value, onChange }: { value: string; onChange: (v: stri
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={40}
-        placeholder="e.g. Pat"
+        placeholder="Pat"
         autoComplete="name"
       />
     </label>

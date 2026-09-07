@@ -319,8 +319,8 @@ export function CollectionCombosPage() {
       {partial && (
         <div className="deck-combos-partial-banner" role="status" aria-live="polite">
           <span>
-            Showing partial results — your device couldn't load the full combo dataset, so some
-            combos may be missing.
+            Showing partial results. The full combo dataset didn't load, so some combos may be
+            missing.
           </span>
           <button type="button" className="btn-link" onClick={refetch} disabled={loading}>
             {loading ? 'Retrying…' : 'Retry'}
@@ -357,8 +357,8 @@ export function CollectionCombosPage() {
             <p className="combos-truncation-note" role="status" aria-live="polite">
               {searchMatches.length.toLocaleString()}
               {searchTruncated ? ` of ${searchResult!.total.toLocaleString()}` : ''} combos matching
-              “{query}”, closest first
-              {searchTruncated ? ' — narrow with filters to see more' : ''}
+              “{query}”, closest first.
+              {searchTruncated ? ' Narrow with filters to see more.' : ''}
             </p>
           ) : (
             <Tabs
@@ -387,7 +387,7 @@ export function CollectionCombosPage() {
           {!searchMode && tab === 'oneAway' && oneAwayTruncated && (
             <p className="combos-truncation-note">
               Showing {rawOneAway.length.toLocaleString()} of {oneAwayTotal.toLocaleString()} combos
-              one card away — narrow with search or filters to find more.
+              one card away. Narrow with search or filters to find more.
             </p>
           )}
 
@@ -443,13 +443,13 @@ export function CollectionCombosPage() {
                   {oneAway.length > 0 && (
                     <p className="deck-combos-empty-secondary">
                       {oneAway.length === 1
-                        ? '1 combo is one card away — check the next tab.'
-                        : `${oneAway.length} combos are one card away — check the next tab.`}
+                        ? '1 combo is one card away. Check the next tab.'
+                        : `${oneAway.length} combos are one card away. Check the next tab.`}
                     </p>
                   )}
                 </>
               ) : (
-                <p>No combos one card away — try expanding your collection.</p>
+                <p>No combos one card away. Try expanding your collection.</p>
               )}
             </div>
           )}

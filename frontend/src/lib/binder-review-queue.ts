@@ -213,5 +213,5 @@ export function formatExcludeDestination(
   binderDefs: BinderDef[]
 ): string {
   const match = nextBinderMatch(card, binderDefs, { excludeBinderId: binderId });
-  return match ? `Excluded — files to ${match.name}` : 'Excluded — files to Uncategorized';
+  return match ? `Excluded: files to ${match.name}` : 'Excluded: files to Uncategorized';
 }

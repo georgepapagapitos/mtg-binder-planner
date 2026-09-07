@@ -67,11 +67,11 @@ export function BinderExportDialog({ binders, activeId, onClose }: Props) {
           autoFocus
         >
           <span className="choice-dialog-option-title">
-            {active ? `This binder — ${active.def.name}` : 'This binder'}
+            {active ? `This binder: ${active.def.name}` : 'This binder'}
           </span>
           <span className="choice-dialog-option-desc">
             {active
-              ? `Just "${active.def.name}" and its ${active.totalCards.toLocaleString()} card${active.totalCards === 1 ? '' : 's'}.`
+              ? `"${active.def.name}" and its ${active.totalCards.toLocaleString()} card${active.totalCards === 1 ? '' : 's'}.`
               : 'No active binder.'}
           </span>
         </button>
@@ -90,7 +90,7 @@ export function BinderExportDialog({ binders, activeId, onClose }: Props) {
         <button type="button" className="choice-dialog-option" onClick={() => handlePick('full')}>
           <span className="choice-dialog-option-title">Full collection</span>
           <span className="choice-dialog-option-desc">
-            Everything — all cards (including uncategorized) and all binder definitions.
+            Everything: all cards, including uncategorized, and all binder definitions.
           </span>
         </button>
       </div>

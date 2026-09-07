@@ -195,7 +195,7 @@ export function BindersIndexPage() {
     async (id: string, name: string) => {
       const ok = await confirm({
         title: `Delete "${name}"?`,
-        body: `Its cards will be re-routed through your other binders. Anything that does not match a remaining binder will only show up in the Collection view.`,
+        body: `Its cards route to your other binders. Anything that no longer matches falls back to the Collection view. This can't be undone.`,
         confirmLabel: 'Delete binder',
         danger: true,
       });
@@ -207,7 +207,7 @@ export function BindersIndexPage() {
   const handleDeleteAll = useCallback(async () => {
     const ok = await confirm({
       title: `Delete all ${binders.length} binders?`,
-      body: `Every binder definition will be removed. Your cards stay where they are — they'll fall back to the Uncategorized view until you build new binders. This cannot be undone.`,
+      body: `Every binder definition will be removed. Your cards fall back to the Uncategorized view. This can't be undone.`,
       confirmLabel: 'Delete all binders',
       danger: true,
     });
@@ -245,7 +245,7 @@ export function BindersIndexPage() {
     const ids = Array.from(sel.selected);
     const ok = await confirm({
       title: `Delete ${ids.length} selected binder${ids.length === 1 ? '' : 's'}?`,
-      body: `Their cards will be re-routed through your other binders. Anything that does not match a remaining binder will only show up in the Collection view.`,
+      body: `Their cards route to your other binders. Anything that no longer matches falls back to the Collection view. This can't be undone.`,
       confirmLabel: 'Delete binders',
       danger: true,
     });
@@ -377,7 +377,7 @@ export function BindersIndexPage() {
             <EmptyStateMark />
             <p className="empty-state-tagline">Build your first binder.</p>
             <p className="empty-state-hint">
-              A binder is a rule that catches cards from your collection — one per deck, format, or
+              A binder is a rule that catches cards from your collection: one per deck, format, or
               theme.
             </p>
             <div className="empty-state-actions">
@@ -459,7 +459,7 @@ export function BindersIndexPage() {
                         on.
                       </li>
                       <li>
-                        Reorder from a row's ⋮ menu (Move up / Move down) — you'll get a toast
+                        Reorder from a row's ⋮ menu (Move up / Move down). You'll get a toast
                         showing how many cards moved.
                       </li>
                     </ul>
@@ -654,7 +654,7 @@ function SamplesIntroDialog({
       </h2>
       <p className="choice-dialog-body">
         {bindersOnly
-          ? `This will create ${SAMPLE_BINDERS.length} sample binders that show off the rule system. They will filter against your existing collection — no extra cards are added.`
+          ? `This creates ${SAMPLE_BINDERS.length} sample binders that show off the rule system. They filter your existing collection. No extra cards are added.`
           : `This will create ${SAMPLE_BINDERS.length} sample binders that show off the rule system, plus a starter pack of ${SAMPLE_CARDS.length} cards so each binder has visible matches.`}
       </p>
       <ul className="samples-intro-list">
@@ -668,7 +668,7 @@ function SamplesIntroDialog({
         <strong>Removing samples later:</strong>
       </p>
       <ul className="samples-intro-list">
-        <li>Each sample binder has Delete in its card menu — that removes just that binder.</li>
+        <li>Each sample binder has Delete in its card menu. That removes just that binder.</li>
         {!bindersOnly && (
           <li>
             The bundled cards land in{' '}

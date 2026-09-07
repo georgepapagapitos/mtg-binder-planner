@@ -308,7 +308,7 @@ function ScryfallQueryRow({
       // A query matching nothing no longer lands here: scryfallFetch turns
       // /cards/search's 404 into an empty result set, so the loop above
       // resolves it to zero oracle ids. Reaching this catch is a real failure.
-      setError('Search failed — check the query syntax and try again.');
+      setError('Search failed. Check the query syntax and try again.');
     } finally {
       setLoading(false);
     }
@@ -327,7 +327,7 @@ function ScryfallQueryRow({
         <input
           type="text"
           value={draft}
-          placeholder="e.g. is:shockland"
+          placeholder="is:shockland"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && canRun) {
@@ -356,7 +356,7 @@ function ScryfallQueryRow({
           : loading
             ? 'Searching Scryfall…'
             : value?.resolvedAt !== undefined
-              ? `${value.oracleIds.length.toLocaleString()} ${value.oracleIds.length === 1 ? 'card' : 'cards'} matched${truncated ? ` (capped at ${MAX_RESOLVED_IDS.toLocaleString()})` : ''} · resolved ${new Date(value.resolvedAt).toLocaleDateString()}${applied ? '' : ' · edited — re-run to apply'}`
+              ? `${value.oracleIds.length.toLocaleString()} ${value.oracleIds.length === 1 ? 'card' : 'cards'} matched${truncated ? ` (capped at ${MAX_RESOLVED_IDS.toLocaleString()})` : ''} · resolved ${new Date(value.resolvedAt).toLocaleDateString()}${applied ? '' : ' · edited, re-run to apply'}`
               : trimmed
                 ? 'Press Run to resolve this query.'
                 : 'Matches the live Scryfall result set, snapshot to your owned cards.'}
@@ -400,7 +400,7 @@ export function FilterFieldEditor({
             onChange={(next) => onPatch({ oracleChips: next })}
             suggestions={oracleSuggestions}
             defaultJoiner="OR"
-            placeholder={isBinder ? 'e.g. flying, draw a card' : 'e.g. flying, draw a card…'}
+            placeholder={isBinder ? 'flying, draw a card' : 'flying, draw a card…'}
           />
         </Row>
       )}
@@ -414,7 +414,7 @@ export function FilterFieldEditor({
               Oracle tags{' '}
               <InfoTip
                 label="oracle tags filter"
-                text="Scryfall's community-curated card tags (otags) — pick a concept like 'Mana rock' or 'Removal' and the binder catches every card Scryfall tags that way. More precise than oracle text: 'Mana rock' won't mismatch the word 'addition' the way text 'add' does."
+                text="Scryfall's tags (otags) group cards by concept. Pick “Mana rock” and the binder catches every card tagged that way. More precise than an oracle-text search, which “add” would also match against “addition”."
               />
             </>
           }
@@ -438,7 +438,7 @@ export function FilterFieldEditor({
               Scryfall query{' '}
               <InfoTip
                 label="Scryfall query filter"
-                text="Run any Scryfall search (e.g. is:shockland, is:dual, t:goblin o:haste) and the binder catches every owned card it returns. Scryfall's curated filters can't run offline, so we snapshot the results — re-run after new sets release to pick up new printings."
+                text="Run any Scryfall search, like is:shockland or t:goblin o:haste, and the binder catches every owned card it returns. Searches can't run offline, so results are a snapshot. Re-run after new sets release."
               />
             </>
           }
@@ -534,7 +534,7 @@ export function FilterFieldEditor({
               value={value.supertypeChips ?? EMPTY_EXPR}
               onChange={(next) => onPatch({ supertypeChips: next })}
               defaultJoiner="OR"
-              placeholder="e.g. legendary, basic"
+              placeholder="legendary, basic"
             />
           </Row>
 
@@ -548,7 +548,7 @@ export function FilterFieldEditor({
               value={value.typeTokenChips ?? EMPTY_EXPR}
               onChange={(next) => onPatch({ typeTokenChips: next })}
               defaultJoiner="OR"
-              placeholder="e.g. creature, instant"
+              placeholder="creature, instant"
             />
           </Row>
 
@@ -559,7 +559,7 @@ export function FilterFieldEditor({
               onChange={(next) => onPatch({ subtypeChips: next })}
               suggestions={subtypeSuggestions}
               defaultJoiner="OR"
-              placeholder="e.g. angel, equipment"
+              placeholder="angel, equipment"
             />
           </Row>
         </>

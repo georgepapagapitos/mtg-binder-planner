@@ -127,6 +127,13 @@ interface Props {
    *  instead of double-resolving the same names. */
   rows: EnrichedListRow[];
   loading: boolean;
+  /** True once `loading` has run long enough to read as stuck rather than
+   *  slow — swaps in a retry strip above the skeleton instead of leaving the
+   *  player staring at an unchanging spinner (see `useEnrichedListEntries`). */
+  loadingLong?: boolean;
+  /** Re-runs entry resolution from scratch. Omitted for a dynamic list, which
+   *  never fetches. */
+  onRetry?: () => void;
   /** Dynamic (rule-driven) list: rows are owned collection copies, so the
    *  manual affordances (per-row menu, owned badge, Scryfall add) hide. */
   dynamic?: boolean;
@@ -179,12 +186,20 @@ function SkeletonGrid({ count, style }: { count: number; style?: React.CSSProper
  * binder, finish, price, group-printings) are simply not wired and the dialog
  * hides those sections. Per-row actions live in an overflow menu.
  */
-export function ListDetailView({ list, rows: enrichedRows, loading, dynamic = false }: Props) {
+export function ListDetailView({
+  list,
+  rows: enrichedRows,
+  loading,
+  loadingLong = false,
+  onRetry,
+  dynamic = false,
+}: Props) {
   const removeListEntry = useCollectionStore((s) => s.removeListEntry);
   const moveListEntryToCollection = useCollectionStore((s) => s.moveListEntryToCollection);
   const updateListEntry = useCollectionStore((s) => s.updateListEntry);
   const addListEntry = useCollectionStore((s) => s.addListEntry);
   const ownedCards = useCollectionStore((s) => s.cards);
+  const isRefreshingPrices = useCollectionStore((s) => s.isRefreshingPrices);
 
   // Add a Scryfall result as a list entry — the retarget the collection's
   // InlineCardSearch (which would call addCard) to lists instead.
@@ -680,6 +695,17 @@ export function ListDetailView({ list, rows: enrichedRows, loading, dynamic = fa
         </div>
       </div>
 
+      {loading && loadingLong && (
+        <div className="discover-decks-error" role="alert">
+          <span>This is taking longer than usual.</span>
+          {onRetry && (
+            <button type="button" className="discover-decks-error-retry" onClick={onRetry}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         view === 'grid' ? (
           <SkeletonGrid count={Math.min(Math.max(list.entries.length, 6), 18)} style={gridStyle} />
@@ -692,7 +718,7 @@ export function ListDetailView({ list, rows: enrichedRows, loading, dynamic = fa
             {rows.length > 0
               ? 'No cards match your filters.'
               : dynamic
-                ? "Nothing in your collection matches this list's rule yet — new imports that match will appear here automatically."
+                ? "Nothing in your collection matches this list's rule yet. New imports that match will appear here automatically."
                 : 'No cards in this list yet.'}
           </p>
           {rows.length > 0 && (
@@ -736,6 +762,7 @@ export function ListDetailView({ list, rows: enrichedRows, loading, dynamic = fa
               onActivate={() => setPreviewIndex(i)}
               isLastRow={i === sorted.length - 1}
               priceTitle="Market price for this printing"
+              pricePending={isRefreshingPrices && !((r.card.purchasePrice ?? 0) > 0)}
               menu={dynamic ? undefined : rowMenu(r.entry)}
               ownedBadge={dynamic ? undefined : ownedBadge(r.entry)}
               targetPriceSlot={

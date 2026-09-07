@@ -169,10 +169,7 @@ export function ComboRow({
       {/* ── EDHREC prevalence chip — how common this combo is for THIS
             commander (E63). Only on commander decks where EDHREC lists it. ── */}
       {edhrec && (edhrec.percent != null || edhrec.deckCount > 0) && (
-        <p
-          className="deck-combos-edhrec"
-          title="How often this commander's decks run this combo, per EDHREC"
-        >
+        <p className="deck-combos-edhrec" title="How often decks run this combo">
           <span className="deck-combos-edhrec-tag">EDHREC</span>
           <span>
             {edhrec.percent != null
@@ -249,7 +246,7 @@ export function ComboRow({
               ? ' (owned, not in deck)'
               : ' (not owned)'
             : isNotOwnedInDeck
-              ? ' (not owned — need to acquire)'
+              ? ' (not owned)'
               : ` (${whereLabel})`;
           return (
             <li key={c.oracleId} className={`deck-combos-card-tile${tileClass}`}>
@@ -309,7 +306,7 @@ export function ComboRow({
             owned={missingIsOwned}
             showUnowned
             title={
-              missingIsOwned ? 'Owned — add it to complete this combo' : 'Not in your collection'
+              missingIsOwned ? 'Owned, add it to complete this combo' : 'Not in your collection'
             }
           />
           {missingPrice !== undefined && (
@@ -423,7 +420,7 @@ export function ComboRow({
               {combo.bracket != null && (
                 <p
                   className="deck-combos-row-meta"
-                  title="The bracket this combo is associated with in Commander Spellbook"
+                  title="This combo's bracket in Commander Spellbook"
                 >
                   Bracket {combo.bracket}
                 </p>

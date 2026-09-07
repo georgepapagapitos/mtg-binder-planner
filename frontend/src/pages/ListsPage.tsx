@@ -182,7 +182,7 @@ export function ListsPage() {
   const handleDelete = async (id: string, name: string) => {
     const ok = await confirm({
       title: `Delete "${name}"?`,
-      body: `This list and all of its entries will be removed. This cannot be undone.`,
+      body: `This list and all of its entries will be removed. This can't be undone.`,
       confirmLabel: 'Delete list',
       danger: true,
     });
@@ -192,7 +192,7 @@ export function ListsPage() {
   const handleDeleteAll = async () => {
     const ok = await confirm({
       title: `Delete all ${lists.length} lists?`,
-      body: `Every list and all of its entries will be removed. This cannot be undone.`,
+      body: `Every list and all of its entries will be removed. This can't be undone.`,
       confirmLabel: 'Delete all lists',
       danger: true,
     });
@@ -205,7 +205,7 @@ export function ListsPage() {
     const ids = Array.from(sel.selected);
     const ok = await confirm({
       title: `Delete ${ids.length} selected list${ids.length === 1 ? '' : 's'}?`,
-      body: `Every selected list and all of its entries will be removed. This cannot be undone.`,
+      body: `Every selected list and all of its entries will be removed. This can't be undone.`,
       confirmLabel: 'Delete lists',
       danger: true,
     });
@@ -459,10 +459,10 @@ export function ListsPage() {
           label="List name"
           placeholder={
             nameDialog.mode === 'create' && nameDialog.dynamic
-              ? 'e.g. Commanders I own'
+              ? 'Commanders I own'
               : nameDialog.mode === 'create' && createKind === 'tracking'
-                ? 'e.g. Eligible commanders'
-                : 'e.g. Wishlist, Trade pile'
+                ? 'Eligible commanders'
+                : 'Wishlist, Trade pile'
           }
           initialValue={nameDialog.mode === 'rename' ? nameDialog.current : ''}
           confirmLabel={nameDialog.mode === 'create' ? 'Create list' : 'Rename'}
@@ -479,7 +479,7 @@ export function ListsPage() {
                   onChange={() => setCreateKind('want')}
                 />
                 <span>
-                  <strong>Want list</strong> — cards to acquire. Shows a cost to complete, and
+                  <strong>Want list</strong>: cards to acquire. Shows a cost to complete, and
                   friends who have a card show up in your trade radar.
                 </span>
               </label>
@@ -491,7 +491,7 @@ export function ListsPage() {
                   onChange={() => setCreateKind('tracking')}
                 />
                 <span>
-                  <strong>Tracking list</strong> — a hand-picked set of cards you own, like every
+                  <strong>Tracking list</strong>: a hand-picked set of cards you own, like every
                   eligible commander across your binders. Never treated as wants.
                 </span>
               </label>

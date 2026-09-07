@@ -189,10 +189,7 @@ export function buildGameRecap(game: GameState): RecapStat[] {
     stats.push({
       id: 'eliminations',
       label: 'Eliminations',
-      detail:
-        names.length === 1
-          ? `${names[0]} fell first.`
-          : `${names.join(', then ')} — in that order.`,
+      detail: names.length === 1 ? `${names[0]} fell first.` : `${names.join(', then ')}.`,
     });
   }
 

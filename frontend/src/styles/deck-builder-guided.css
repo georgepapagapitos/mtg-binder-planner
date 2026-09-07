@@ -26,6 +26,14 @@
   max-width: 42rem;
 }
 
+/* "Start brewing" — icon-plus-label (sweep 3: literal arrow character
+   replaced with the app's ArrowRight icon convention). */
+.guided-cta > .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 /* Generation takeover wrapper — full-width, some top breathing room. */
 .guided-takeover-wrap {
   margin-top: var(--space-4);

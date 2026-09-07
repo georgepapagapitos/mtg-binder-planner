@@ -59,8 +59,7 @@ export function SharedCopiesSheet({
             </h2>
             <p className="shared-copies-sub">
               These cards are in <strong>{deckName}</strong>'s list, but their copies are committed
-              elsewhere. A physical copy can only be in one deck — pull one in when you want it
-              here.
+              elsewhere. A physical copy can only be in one deck. Pull one in when you want it here.
             </p>
           </div>
           <button
@@ -74,7 +73,7 @@ export function SharedCopiesSheet({
         </header>
 
         {contested.length === 0 ? (
-          <div className="shared-copies-empty">Every copy this deck needs is assigned here. 🎉</div>
+          <div className="shared-copies-empty">Every copy this deck needs is assigned here.</div>
         ) : (
           <ul className="shared-copies-list" role="list">
             {contested.map((c) => (

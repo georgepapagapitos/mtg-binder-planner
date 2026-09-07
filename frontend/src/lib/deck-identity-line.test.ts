@@ -49,6 +49,16 @@ describe('buildIdentityLine', () => {
     expect(segments[2]).toMatchObject({ kind: 'validation', text: 'All clear', tone: 'success' });
   });
 
+  it('drops the duplicated word when pacing and archetype both resolve to the same label (B6-03)', () => {
+    const segments = buildIdentityLine({
+      identity: { archetypeLabel: 'Midrange', pacingShort: 'Midrange', themes: [] },
+      formatLabel: 'Commander',
+      bracket: undefined,
+      validation: allClearValidation,
+    });
+    expect(segments[0]).toMatchObject({ kind: 'archetype', text: 'Midrange deck' });
+  });
+
   it('omits bracket segment when bracket is undefined', () => {
     const segments = buildIdentityLine({
       identity: mockIdentity,

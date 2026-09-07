@@ -327,7 +327,7 @@ export function FriendsManagement() {
     try {
       await removeFriend(friend.id);
       toast.show({
-        message: `Removed ${formatIdentity(friend).primary} from friends.`,
+        message: `Removed ${formatIdentity(friend).primary} from friends`,
         tone: 'info',
       });
       void loadData();
@@ -543,9 +543,13 @@ export function FriendsManagement() {
           {loading ? (
             <FriendsSkeleton />
           ) : incomingList.length === 0 && outgoingList.length === 0 ? (
-            <p className="friends-empty" role="status">
-              No pending requests.
-            </p>
+            <div className="empty-state" role="status">
+              <EmptyStateMark />
+              <p className="empty-state-tagline">No pending requests.</p>
+              <p className="empty-state-hint">
+                Send one from the search above, or wait for someone to send you one.
+              </p>
+            </div>
           ) : (
             <>
               {incomingList.length > 0 && (

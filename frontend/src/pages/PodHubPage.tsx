@@ -2,6 +2,7 @@ import './PodHubPage.css';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '../components/BackLink';
+import { OverflowMenu } from '../components/OverflowMenu';
 import { Layers, Pencil } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
@@ -490,13 +491,12 @@ export function PodHubPage() {
             <button type="button" className="btn" onClick={() => setInviteOpen(true)}>
               Invite more people
             </button>
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => setDeleteConfirmOpen(true)}
-            >
-              Delete pod
-            </button>
+            <OverflowMenu
+              ariaLabel={`Manage ${pod.name}`}
+              items={[
+                { label: 'Delete pod', onClick: () => setDeleteConfirmOpen(true), danger: true },
+              ]}
+            />
           </div>
         )}
       </header>
@@ -595,7 +595,12 @@ export function PodHubPage() {
                   </button>
                 </p>
               ) : gamesFetch.games.length === 0 ? (
-                <p className="pod-hub-stats-empty">No games yet — get a game night on the books.</p>
+                <div className="pod-hub-stats-empty pod-hub-stats-empty-cta">
+                  <p>No games yet.</p>
+                  <Link to="/play?tab=nights" className="btn btn-primary">
+                    Plan a game night
+                  </Link>
+                </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table className="play-records-table">
@@ -645,7 +650,7 @@ export function PodHubPage() {
                   </button>
                 </p>
               ) : leaderboardFetch.standings.length === 0 ? (
-                <p className="pod-hub-stats-empty">No games yet — get a game night on the books.</p>
+                <p className="pod-hub-stats-empty">No standings yet.</p>
               ) : (
                 <>
                   <div style={{ overflowX: 'auto' }}>
@@ -734,7 +739,7 @@ export function PodHubPage() {
           title={`Remove ${removeTarget.username} from ${pod.name}?`}
           body={
             removeTarget.status === 'invited'
-              ? "The invite is withdrawn — they won't be able to join from it."
+              ? "The invite is withdrawn. They can't join from it anymore."
               : "They'll lose access to the pod immediately."
           }
           confirmLabel={removeBusy ? 'Removing…' : 'Remove'}
@@ -747,7 +752,7 @@ export function PodHubPage() {
       {deleteConfirmOpen && (
         <ConfirmDialog
           title={`Delete "${pod.name}"?`}
-          body="This removes the pod for everyone in it. This cannot be undone."
+          body="This removes the pod for everyone in it. This can't be undone."
           confirmLabel={deleteBusy ? 'Deleting…' : 'Delete'}
           danger
           onConfirm={() => void handleDeletePod()}
@@ -821,7 +826,7 @@ function InviteMembersDialog({
       const result = await invitePodMembers(podId, Array.from(checked));
       onInvited(result.invited.length);
     } catch (err) {
-      setFormError(userMessage(err, "Couldn't send invites — try again."));
+      setFormError(userMessage(err, "Couldn't send invites. Try again."));
     } finally {
       setSaving(false);
     }
@@ -846,7 +851,7 @@ function InviteMembersDialog({
             <p className="pod-hub-invite-hint">Loading friends…</p>
           ) : friendsFetch.status === 'error' ? (
             <p className="pod-hub-invite-hint">
-              Couldn't load your friends list — try again shortly.
+              Couldn't load your friends list. Try again shortly.
             </p>
           ) : candidates.length === 0 ? (
             <p className="pod-hub-invite-hint">

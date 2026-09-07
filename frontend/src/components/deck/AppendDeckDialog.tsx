@@ -157,7 +157,7 @@ export function AppendDeckDialog({ deck, onClose }: Props) {
         {!online && (
           <p className="append-deck-offline" role="status">
             <WifiOff width={14} height={14} strokeWidth={2} aria-hidden />
-            You're offline — reconnect to paste a list. Every other way to add cards still works.
+            You're offline. Reconnect to paste a list. Everything else still works.
           </p>
         )}
 
@@ -173,16 +173,16 @@ export function AppendDeckDialog({ deck, onClose }: Props) {
         {step === 'input' && (
           <>
             <p className="import-deck-hint">
-              Paste a decklist — one card per line. Lines under a <strong>Sideboard</strong> header
-              route to this deck's sideboard; lines under a <strong>Maybeboard</strong> header route
-              to Considering. Everything else goes to the mainboard.
+              Paste a decklist, one card per line. A <strong>Sideboard</strong> header routes to
+              sideboard, <strong>Maybeboard</strong> to Considering. Everything else goes to the
+              mainboard.
             </p>
             <textarea
               className="paste-textarea import-textarea"
               aria-label="Decklist to add"
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
-              placeholder={'1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n...'}
+              placeholder={'1 Sol Ring\n1 Arcane Signet\n1 Cultivate\n…'}
               disabled={isLoading || !online}
               autoFocus
             />
@@ -207,7 +207,7 @@ export function AppendDeckDialog({ deck, onClose }: Props) {
             {plan.skippedDuplicates.length > 0 && (
               <div className="import-deck-warning">
                 <div className="import-deck-warning-title">
-                  Already in the deck at the {formatConfig.label} copy limit — not added again:
+                  Already in the deck at the {formatConfig.label} copy limit, not added again:
                 </div>
                 <ul className="import-deck-unresolved-list">
                   {plan.skippedDuplicates.map((d) => (
@@ -238,17 +238,15 @@ export function AppendDeckDialog({ deck, onClose }: Props) {
 
             {decision?.kind === 'matches-existing' && (
               <p className="import-deck-hint">
-                {decision.commander.name} is already this deck's commander — not added twice.
+                {decision.commander.name} is already this deck's commander, not added twice.
               </p>
             )}
 
             {decision?.kind === 'conflicts-with-existing' && (
               <div className="import-deck-warning">
-                This list's commander (<strong>{decision.pasted.name}</strong>) is different from
-                this deck's current commander, <strong>{decision.existing.name}</strong>. Kept{' '}
-                {decision.existing.name} as commander — {decision.pasted.name} was added as a
-                regular card instead. Use its card row's "Make commander" action if you meant to
-                swap.
+                This list's commander, <strong>{decision.pasted.name}</strong>, differs from{' '}
+                {decision.existing.name}. Kept {decision.existing.name}; {decision.pasted.name} was
+                added as a regular card. Use its row's "Make commander" to swap.
               </div>
             )}
 
@@ -283,7 +281,7 @@ export function AppendDeckDialog({ deck, onClose }: Props) {
                 ) : !showCommanderSearch ? (
                   <>
                     <p className="import-deck-hint">
-                      This deck has no commander yet — pick one from the pasted cards, or skip and
+                      This deck has no commander yet. Pick one from the pasted cards, or skip and
                       set it later.
                     </p>
                     <ul className="import-deck-commander-list">
@@ -343,7 +341,7 @@ export function AppendDeckDialog({ deck, onClose }: Props) {
 
             {plan.addedCount === 0 && (
               <p className="append-deck-nothing-to-add" role="status">
-                Nothing to add — check the pasted list.
+                Nothing to add. Check the pasted list.
               </p>
             )}
           </>

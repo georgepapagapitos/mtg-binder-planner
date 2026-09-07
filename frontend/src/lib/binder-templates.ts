@@ -52,7 +52,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   {
     id: 'one-color',
     label: 'One color',
-    description: 'Single-color cards — pick your color after',
+    description: 'Single-color cards, pick your color after',
     filter: {
       colors: {
         chips: [{ value: 'W', negate: false }],

@@ -199,7 +199,7 @@ export function AddCardSearchPanel({ binderId, autoFocus = true, onEscape }: Pro
         {query.trim().length < 2 && (
           <p className="card-picker-empty">Type at least two characters to search.</p>
         )}
-        {loading && <p className="card-picker-empty">Searching...</p>}
+        {loading && <p className="card-picker-empty">Searching…</p>}
         {error && <p className="card-picker-empty add-card-sheet-error">{error}</p>}
         {!loading && !error && query.trim().length >= 2 && results.length === 0 && (
           <p className="card-picker-empty">No matches.</p>

@@ -94,7 +94,7 @@ describe('usePublishOnCreate — gating', () => {
     online = false;
     const { result } = renderHook(() => usePublishOnCreate(vi.fn()));
     expect(result.current.canPublish).toBe(false);
-    expect(result.current.publicDisabledReason).toBe("You're offline — reconnect to publish.");
+    expect(result.current.publicDisabledReason).toBe("You're offline. Reconnect to publish.");
   });
 
   it('snaps a selected Public back to Private if canPublish goes false underneath it', () => {

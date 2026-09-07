@@ -55,7 +55,7 @@ function ownershipNote(status: AllocationStatus | undefined): string | null {
     case 'orphan':
       return 'Owned copy no longer in your collection';
     case 'claimed-elsewhere':
-      return 'Every copy you own is allocated to another deck';
+      return 'Every copy you own is committed to another deck';
     default:
       return null;
   }
@@ -191,7 +191,7 @@ export function DeckCardPreviewMeta({
             {tagsEdited && (
               <span
                 className="deck-card-preview-meta-tags-edited"
-                title="You've edited the tags on this card — auto-suggestions won't touch it again"
+                title="You edited these tags; no more auto-suggestions"
               >
                 <Pencil width={10} height={10} strokeWidth={2.4} aria-hidden />
                 edited
@@ -224,7 +224,7 @@ export function DeckCardPreviewMeta({
                 disabled={!onSetTags}
                 title={
                   onSetTags
-                    ? `Suggested from this card's role — tap to add`
+                    ? `Suggested from this card's role, tap to add`
                     : `Suggested from this card's role`
                 }
               >

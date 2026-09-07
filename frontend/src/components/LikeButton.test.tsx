@@ -90,7 +90,7 @@ describe('LikeButton', () => {
 
     await waitFor(() => expect(btn.getAttribute('aria-pressed')).toBe('false'));
     expect(useToastsStore.getState().toasts[0]?.message).toBe(
-      "Couldn't like this deck — try again"
+      "Couldn't like this deck. Try again."
     );
   });
 

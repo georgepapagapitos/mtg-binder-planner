@@ -63,6 +63,6 @@ export function formatPointCopy(
  *  what gets announced via its `role="status"`. */
 export function formatRollCopy(signal: GameSignal, players: GamePlayer[]): string {
   if (signal.die === 'coin') return `Coin: ${signal.value === 0 ? 'heads' : 'tails'}`;
-  if (signal.die === 'first') return `${playerName(players, signal.value ?? -1)} goes first!`;
+  if (signal.die === 'first') return `${playerName(players, signal.value ?? -1)} goes first`;
   return `${playerName(players, signal.seat)} rolled ${signal.die}: ${signal.value}`;
 }

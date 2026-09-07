@@ -630,7 +630,7 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
         </div>
         <div className="modal-body">
           <p className="import-deck-hint">
-            Publishing shows your display name on the deck page — set one to continue.
+            Publishing shows your display name on the deck page. Set one to continue.
           </p>
           <div className="field">
             <label htmlFor="import-deck-display-name">Display name</label>
@@ -691,9 +691,7 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
       >
         {isDragging && (
           <div className="import-deck-drop-overlay" aria-hidden="true">
-            <div className="import-deck-drop-message">
-              Drop one or more files — each becomes its own deck
-            </div>
+            <div className="import-deck-drop-message">Drop files, each becomes its own deck</div>
           </div>
         )}
 
@@ -788,7 +786,7 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
                         disabled={isLoading}
                       />
                       <span>
-                        <strong>Separate decks</strong> — one deck per file. You'll review and can
+                        <strong>Separate decks</strong>: one deck per file. You'll review and can
                         change each deck's name, format, and commander before anything is saved.
                       </span>
                     </label>
@@ -801,8 +799,8 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
                         disabled={isLoading}
                       />
                       <span>
-                        <strong>Merge into one deck</strong> — combine every file's cards into a
-                        single {formatConfig.label} deck.
+                        <strong>Merge into one deck</strong>: combine every file into a single{' '}
+                        {formatConfig.label} deck.
                       </span>
                     </label>
                   </fieldset>
@@ -810,7 +808,7 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
                 <p className="import-deck-hint">
                   Click <strong>Upload files</strong> again or drop more to add to this list
                   {batchFiles.length >= MAX_FILES ? ` (${MAX_FILES} max reached)` : ''}. Nothing is
-                  saved yet — files are parsed for review when you continue.
+                  saved yet. Files are parsed for review when you continue.
                 </p>
               </div>
             ) : (
@@ -849,6 +847,9 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
                     <label className="import-link-label" htmlFor={linkInputId}>
                       Google Sheets or Drive link
                     </label>
+                    <p className="import-deck-hint">
+                      The link has to be shared with anyone who has it.
+                    </p>
                     <div className="import-link-row">
                       <input
                         id={linkInputId}
@@ -873,7 +874,7 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
                         className="btn import-link-btn"
                         onClick={handleFetchLink}
                         disabled={isLoading || linkBusy || !linkUrl.trim()}
-                        title="Fetch a deck list from a Google Sheet, or from a file in Drive. The link has to be shared with anyone who has it."
+                        title="Fetch the list from this link"
                       >
                         {linkBusy ? (
                           <span className="spinner" />
@@ -950,8 +951,8 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
           <>
             <div className="import-deck-review-summary">
               <span>
-                Parsed <strong>{drafts.length}</strong> file{drafts.length === 1 ? '' : 's'} —
-                review each deck below. Nothing is saved until you create them.
+                Parsed <strong>{drafts.length}</strong> file{drafts.length === 1 ? '' : 's'}. Review
+                each deck below. Nothing is saved until you create them.
               </span>
             </div>
             <ul className="import-deck-summary-list">
@@ -1223,7 +1224,7 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
               className="btn"
               onClick={handlePickDrive}
               disabled={isLoading || driveBusy}
-              title="Browse your Google Drive — Sheets are exported to CSV automatically"
+              title="Browse Google Drive for a decklist"
             >
               {driveBusy ? (
                 <span className="spinner" />
@@ -1238,7 +1239,7 @@ export function ImportDeckDialog({ onClose, format: initialFormat = 'commander' 
             className="btn"
             onClick={handlePickFile}
             disabled={isLoading}
-            title="Choose one or more files — each becomes its own deck"
+            title="Choose files, each becomes its own deck"
           >
             <Upload width={14} height={14} strokeWidth={1.8} aria-hidden />
             <span>Upload files</span>

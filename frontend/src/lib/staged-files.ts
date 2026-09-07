@@ -72,7 +72,7 @@ export function stagedFilesNotice(
   }
   if (dropped > 0) {
     notes.push(
-      `${dropped} file${dropped === 1 ? '' : 's'} skipped — you can stage up to ${max} at a time.`
+      `${dropped} file${dropped === 1 ? '' : 's'} skipped. You can stage up to ${max} at a time.`
     );
   }
   return notes.length > 0 ? notes.join(' ') : null;

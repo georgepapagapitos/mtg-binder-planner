@@ -90,8 +90,7 @@ function TrendingCommanderTile({
     <Link
       to="/decks/new"
       className="commander-result-card"
-      aria-label={`${commanderName} — opens the deck builder; pick it there.`}
-      title={`Opens the deck builder — pick ${commanderName} there.`}
+      aria-label={`Build a deck with ${commanderName}`}
     >
       <span className="commander-result-art" aria-hidden>
         {art ? (
@@ -180,7 +179,17 @@ function TrendingSkeletonSection({ heading }: { heading: string }) {
  * pattern) -- the real call site below passes `enabled={true}` unconditionally;
  * nothing here blocks initial paint on it.
  */
-export function TrendingRail({ enabled }: { enabled: boolean }) {
+export function TrendingRail({
+  enabled,
+  compactWhenEmpty = false,
+}: {
+  enabled: boolean;
+  /** When the page's own primary content is also empty, a second full
+   *  illustrated empty state here would stack two brand marks bracketing
+   *  the toolbar. Pass true to fall back to a single muted line instead —
+   *  the page-level empty state stays the one brand moment per screen. */
+  compactWhenEmpty?: boolean;
+}) {
   const { data, loading, error, refresh } = useTrendingRail(enabled);
 
   if (loading) {
@@ -231,6 +240,9 @@ export function TrendingRail({ enabled }: { enabled: boolean }) {
   const hasTopCopied = topCopied.length > 0;
 
   if (rising.length === 0 && !hasTopCopied) {
+    if (compactWhenEmpty) {
+      return <p className="trending-rail-compact-empty">Nothing trending yet.</p>;
+    }
     return (
       <section aria-labelledby="trending-rail-heading" className="trending-rail">
         <h2 id="trending-rail-heading" className="deck-combos-title">

@@ -56,7 +56,7 @@ export function NextBestMove({
     return (
       <section className="next-best-move is-clear" aria-label="Next best move">
         <Sparkles className="next-best-move-clear-icon" aria-hidden="true" />
-        <p className="next-best-move-clear-text">Looks dialed in — no changes to suggest.</p>
+        <p className="next-best-move-clear-text">Looks dialed in. No changes to suggest.</p>
       </section>
     );
   }

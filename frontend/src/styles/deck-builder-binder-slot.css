@@ -53,6 +53,24 @@
   }
 }
 
+/* Badge itself stays a small dot at slot scale (12-22px); the tap target
+   grows on a ghost instead (STYLE_GUIDE "44px touch targets"). Anchored to
+   the badge's own corner rather than centered: `.slot` clips overflow (it
+   crops the card art to its rounded corners), so a centered ghost got
+   clipped on its outward half — measured, the right-edge probe fell through
+   to the neighbouring slot's image. Growing only inward, toward slot
+   center, keeps the whole ghost inside the clip. */
+@media (pointer: coarse) {
+  .slot-deck-badge::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* Hover-tooltip variant — anchored over the larger preview image, sized
    to read at a glance without crowding the art. */
 .tooltip-image-wrap {

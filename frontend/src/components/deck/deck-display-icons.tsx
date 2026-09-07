@@ -172,7 +172,7 @@ export function renderArrivalsChip(
         e.stopPropagation();
         onOpen(bucket);
       }}
-      aria-label={`${count} new card${count === 1 ? '' : 's'} in your collection for ${label} — review`}
+      aria-label={`Review ${count} new card${count === 1 ? '' : 's'} in your collection for ${label}`}
     >
       <span aria-hidden>✦</span> {count} new
     </button>

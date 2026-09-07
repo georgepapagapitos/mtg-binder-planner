@@ -208,7 +208,7 @@ export function DeckAiRefine({
     // applies, so the applied Change carries a neutral engine reason instead
     // of misattributing the model's claim to a card it never evaluated.
     const reason = rerollIndex.has(tweak.add)
-      ? `Engine alternative — same role as ${tweak.add}.`
+      ? `Engine alternative, same role as ${tweak.add}.`
       : tweak.why;
     // `name` is the card coming IN and `inName` the one being cut — the
     // direction `fromSwap` and the page's apply handler both use.
@@ -332,7 +332,7 @@ export function DeckAiRefine({
             {pool.length} candidate{pool.length === 1 ? '' : 's'}
           </span>
         )}
-        <ChevronDown width={16} height={16} aria-hidden />
+        <ChevronDown className="deck-ai-strip-chevron" width={16} height={16} aria-hidden />
       </button>
     );
   }
@@ -343,10 +343,10 @@ export function DeckAiRefine({
         title={title}
         blurb={
           isReplace
-            ? `AI can judge whether the card you're adding earns a slot, and which card to cut for it. Turning this on sends this deck's card names, its computed stats and the card you're adding to Anthropic. Nothing is sent until you press an AI button, ${status.limit} a day. Your collection is never sent, and you can turn it back off in Settings.`
+            ? `Judge whether the card you're adding earns a slot, and which card to cut for it. Turning this on sends this deck's card names, its computed stats and the card you're adding to Anthropic. Nothing is sent until you press an AI button, ${status.limit} a day. Your collection is never sent, and you can turn it back off in Settings.`
             : isSuggestions
-              ? `AI can weigh the suggestions on this tab against the deck and pick the few worth making. Turning this on sends this deck's card names, its computed stats and those candidates to Anthropic. Nothing is sent until you press an AI button, ${status.limit} a day. Your collection is never sent, and you can turn it back off in Settings.`
-              : `AI can weigh the candidates the coach already found and suggest a few swaps. Turning this on sends this deck's card names, its computed stats and those candidates to Anthropic. Nothing is sent until you press an AI button, ${status.limit} a day. Your collection is never sent, and you can turn it back off in Settings.`
+              ? `Weigh the suggestions on this tab against the deck and pick the few worth making. Turning this on sends this deck's card names, its computed stats and those candidates to Anthropic. Nothing is sent until you press an AI button, ${status.limit} a day. Your collection is never sent, and you can turn it back off in Settings.`
+              : `Weigh the candidates the coach already found and suggest a few swaps. Turning this on sends this deck's card names, its computed stats and those candidates to Anthropic. Nothing is sent until you press an AI button, ${status.limit} a day. Your collection is never sent, and you can turn it back off in Settings.`
         }
         onDismiss={() => setInviteDismissed(true)}
       />
@@ -405,7 +405,7 @@ export function DeckAiRefine({
                       </div>
                       {rerolled ? (
                         <p className="deck-ai-tweak-why deck-ai-tweak-why--engine">
-                          Engine alternative — same role as {t.add}.{' '}
+                          Engine alternative, same role as {t.add}.{' '}
                           <button
                             type="button"
                             className="deck-ai-tweak-reset"
@@ -464,8 +464,8 @@ export function DeckAiRefine({
                rather than leaving the panel looking broken. */
             <p className="deck-ai-tweak-none">
               {isReplace
-                ? `AI wouldn't cut a card for ${incoming} — the deck holds together as it stands.`
-                : 'No changes worth making — the build already holds together.'}
+                ? `No cut needed for ${incoming}. The deck already holds together.`
+                : 'No changes worth making. The build already holds together.'}
             </p>
           )}
         </div>
@@ -510,20 +510,20 @@ export function DeckAiRefine({
         <div className="deck-ai-idle">
           <p className="deck-ai-idle-text">
             {isReplace
-              ? `AI can judge whether ${incoming} earns a slot in this deck — and if it does, which card to cut for it. It only ever names cards already in the deck.`
+              ? `Judges whether ${incoming} earns a slot, and what to cut if it does. Never names a card outside the deck.`
               : isSuggestions
-                ? `AI can read the deck and pick the few of these ${pool.length} suggestions worth making — what to add, and what to cut to make room${
+                ? `Picks the few of these ${pool.length} suggestions worth making${
                     ownedOnly ? ', from cards you own' : ''
-                  }. It only chooses cards the app already found, never invented ones.`
+                  }, never a card the coach hasn't already found.`
                 : pool.length === 0
-                  ? 'Once the coach has candidates for this deck, AI can weigh them and suggest a few swaps.'
+                  ? 'Once the coach has candidates for this deck, it weighs them and suggests a few swaps.'
                   : /* Deliberately says "this deck", not "what the generator
                        built": since #1673 the Coach mount is no longer gated to
                        generated decks, and this same string renders on
                        hand-built ones, where a generator never existed. */
-                    `AI can read this deck and suggest a few changes${
+                    `Suggests a few changes${
                       ownedOnly ? ' from cards you own' : ''
-                    } — chosen from the ${pool.length} candidates the coach already found, never invented.`}
+                    }, chosen from the ${pool.length} candidates the coach already found.`}
           </p>
           <div className="deck-ai-idle-actions">
             <button
@@ -540,7 +540,7 @@ export function DeckAiRefine({
             </button>
             <span className="deck-ai-remaining">
               {remaining === 0
-                ? 'Daily limit reached — resets at midnight UTC.'
+                ? 'Daily limit reached. Resets at midnight UTC.'
                 : `${remaining} of ${status.limit} left today`}
             </span>
           </div>
@@ -593,7 +593,7 @@ function RefineProse({
     }
     return seen.map((name) => ({
       name,
-      label: cardsByName.has(name) ? 'Named in the reading' : 'Suggested — not in this deck',
+      label: cardsByName.has(name) ? 'Named in the reading' : 'Suggested, not in this deck',
       card: cardsByName.get(name),
     }));
   }, [paragraphs, names, cardsByName]);

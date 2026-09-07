@@ -225,8 +225,7 @@ export function blendTagPageIntoPool(input: BlendInput): BlendResult {
 export function summarizeSeatedBlend(
   injectedNames: readonly string[],
   finalDeck: readonly { name: string }[],
-  themeName: string | undefined,
-  commanderNumDecks: number | undefined
+  themeName: string | undefined
 ): { names: string[] | undefined; note: string | undefined } {
   if (injectedNames.length === 0 || !themeName) return { names: undefined, note: undefined };
 
@@ -234,13 +233,8 @@ export function summarizeSeatedBlend(
   const names = injectedNames.filter((n) => inDeck.has(n.toLowerCase()));
   if (names.length === 0) return { names: undefined, note: undefined };
 
-  const decks = commanderNumDecks ?? 0;
-  const sample =
-    decks > 0
-      ? ` — this commander has only ${decks.toLocaleString()} deck${decks === 1 ? '' : 's'} on record, so the theme page filled the gaps.`
-      : ` — the theme page filled gaps this commander's own page couldn't.`;
   return {
     names,
-    note: `${names.length} card${names.length === 1 ? '' : 's'} in this deck came from the ${themeName} archetype page${sample}`,
+    note: `${names.length} card${names.length === 1 ? '' : 's'} came from the ${themeName} archetype page.`,
   };
 }

@@ -256,15 +256,11 @@ async function download(doc: PickedDoc, accessToken: string): Promise<File> {
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) {
-    throw new Error(
-      res.status === 403 || res.status === 404
-        ? `Google wouldn't return “${doc.name}”. Try picking it again.`
-        : `Couldn't download “${doc.name}” from Google Drive. Try picking it again.`
-    );
+    throw new Error(`Couldn't download “${doc.name}” from Google Drive. Try picking it again.`);
   }
   const text = await res.text();
   if (text.length > MAX_BYTES) {
-    throw new Error(`“${doc.name}” is too big to import — over 5 MB of text.`);
+    throw new Error(`“${doc.name}” is too big to import: over 5 MB of text.`);
   }
   const name = isSheet && !/\.csv$/i.test(doc.name) ? `${doc.name}.csv` : doc.name;
   return new File([text], name, { type: 'text/csv' });

@@ -194,14 +194,14 @@ export function LifeAdjustPanel({
             type="button"
             disabled={!counterText.trim()}
             onClick={submitCounter}
-            aria-label="add counter"
+            aria-label="Add counter"
           >
             Add
           </button>
         </div>
       </div>
       {defeated && (
-        <p className="playtest-life-panel__defeated">Defeated — heal to bring them back</p>
+        <p className="playtest-life-panel__defeated">Defeated. Heal to bring them back.</p>
       )}
     </>
   );

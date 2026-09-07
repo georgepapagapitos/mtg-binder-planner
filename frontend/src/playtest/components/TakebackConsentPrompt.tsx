@@ -97,7 +97,7 @@ function TakebackConsentCard({ request: incoming }: { request: GameRequest }) {
       // once the store's onlineRequests update lands (status turns terminal),
       // unmounting this prompt entirely.
     } catch (err) {
-      setError(userMessage(err, "Couldn't respond — try again."));
+      setError(userMessage(err, "Couldn't respond. Try again."));
       setResponding(null);
     }
   }

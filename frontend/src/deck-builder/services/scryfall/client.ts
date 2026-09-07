@@ -370,7 +370,7 @@ async function offlineGetCardByNameImpl(name: string): Promise<ScryfallCard> {
     // A non-playable hit means the offline name index resolved to an art card
     // shadowing the real one (poisoned pre-#304 bulk). Treat it as a miss and
     // don't cache it — resolved for good once the client re-syncs.
-    throw new Error(`Card "${name}" not found in offline data.`);
+    throw new Error(`Couldn't find ${name} in your offline card data. Reconnect to load it.`);
   }
   // memoryCache, not cardCache — never persist slim offline data (see cardCache).
   memoryCache.set(card.name, card);
@@ -400,9 +400,7 @@ export async function getCardById(id: string): Promise<ScryfallCard> {
 
   const card = await scryfallFetch<ScryfallCard>(`/cards/${encodeURIComponent(id)}`);
   if (!isPlayableCard(card)) {
-    throw new Error(
-      `Card id "${id}" resolved to a non-playable ${card.layout ?? 'unknown'} printing.`
-    );
+    throw new Error(`That printing of ${card.name} can't be played. Try another printing.`);
   }
   cardCache.set(card.id, card);
   return freshCopy(card);
@@ -1430,9 +1428,7 @@ export function withPlayableFilter(repo: CardRepository): CardRepository {
     async getCardByName(name) {
       const card = await repo.getCardByName(name);
       if (!isPlayableCard(card)) {
-        throw new Error(
-          `Card "${name}" resolved to a non-playable ${card.layout ?? 'unknown'} printing.`
-        );
+        throw new Error(`That printing of ${name} can't be played. Try another printing.`);
       }
       return card;
     },

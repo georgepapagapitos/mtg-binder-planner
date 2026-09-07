@@ -124,6 +124,18 @@ describe('TrendingRail', () => {
     expect(screen.getByText('Publish a deck to be the first commander on the board.')).toBeTruthy();
   });
 
+  it('collapses to a single muted line when compactWhenEmpty and both sub-sections are empty', async () => {
+    stubFetchResolved({ risingCommanders: [] });
+    render(
+      <MemoryRouter>
+        <TrendingRail enabled={true} compactWhenEmpty={true} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText('Nothing trending yet.')).toBeTruthy());
+    expect(screen.queryByText('Publish a deck to be the first commander on the board.')).toBeNull();
+    expect(screen.queryByText('Trending')).toBeNull();
+  });
+
   it('renders only the rising sub-section when topCopiedDecks is absent', async () => {
     stubFetchResolved({ risingCommanders: risingFixture });
     renderRail();
@@ -193,11 +205,11 @@ describe('TrendingRail', () => {
       await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
 
       const link = screen.getByRole('link', {
-        name: `${risingFixture[0].commanderName} — opens the deck builder; pick it there.`,
+        name: `Build a deck with ${risingFixture[0].commanderName}`,
       });
       expect(link.getAttribute('href')).toBe('/decks/new');
       expect(screen.queryByRole('button', { name: /praetors/i })).toBeNull();
-      expect(link.getAttribute('title')).not.toMatch(/prefill|pre-fill|prefilled/i);
+      expect(link.getAttribute('title')).toBeNull();
       expect(mockUseCardThumb).toHaveBeenCalledWith("Atraxa, Praetors' Voice", 'normal');
     });
 
@@ -212,7 +224,7 @@ describe('TrendingRail', () => {
         </MemoryRouter>
       );
       await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
-      fireEvent.click(screen.getAllByRole('link', { name: /opens the deck builder/i })[0]);
+      fireEvent.click(screen.getAllByRole('link', { name: /build a deck with/i })[0]);
       await waitFor(() => expect(screen.getByText('New deck sentinel')).toBeTruthy());
     });
   });

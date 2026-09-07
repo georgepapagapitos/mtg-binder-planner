@@ -429,7 +429,7 @@ export function getRolesGrade(roleDeficits: RoleDeficit[]): GradeResult {
   );
 
   if (totalDeficit === 0)
-    return { letter: 'A', message: 'All roles on target — well-balanced deck.' };
+    return { letter: 'A', message: 'All roles on target. A well-balanced deck.' };
   if (totalDeficit <= 3 && maxSingleDeficit <= 2)
     return {
       letter: 'B',
@@ -438,12 +438,12 @@ export function getRolesGrade(roleDeficits: RoleDeficit[]): GradeResult {
   if (totalDeficit <= 6 && rolesMet >= 2)
     return {
       letter: 'C',
-      message: `${rolesMet}/${totalRoles} roles met. Consider more ${worstRole?.label?.toLowerCase() || 'role cards'}.`,
+      message: `${rolesMet}/${totalRoles} roles met. Add more ${worstRole?.label?.toLowerCase() || 'role cards'}.`,
     };
   if (totalDeficit <= 10 || rolesMet >= 1)
     return {
       letter: 'D',
-      message: `Significant gaps — ${worstRole?.label || 'a role'} is ${worstRole?.deficit || 0} short.`,
+      message: `Significant gaps. ${worstRole?.label || 'a role'} is ${worstRole?.deficit || 0} short.`,
     };
   return {
     letter: 'F',
@@ -463,7 +463,7 @@ const ROLE_FLAVOR: Record<
     whyItMatters: "you'll fall behind on mana while opponents pull ahead",
     excessHint: 'extra slots could go toward threats or interaction',
     zeroMsg:
-      "No ramp at all — you'll be stuck playing one land per turn while opponents pull ahead. Even the fastest decks run mana rocks or dorks to keep up.",
+      "No ramp at all. You'll be stuck playing one land per turn while opponents pull ahead. Even the fastest decks run mana rocks or dorks to keep up.",
   },
   removal: {
     noun: 'removal',
@@ -471,7 +471,7 @@ const ROLE_FLAVOR: Record<
     whyItMatters: "opponents' biggest threats will go unchecked",
     excessHint: 'you might be answering threats instead of building your own board',
     zeroMsg:
-      "No removal at all — you have no way to deal with an opponent's key combo piece, threatening commander, or game-winning enchantment. Interaction is non-negotiable in Commander.",
+      "No removal at all. You have no way to deal with an opponent's key combo piece, threatening commander, or game-winning enchantment. Interaction is non-negotiable in Commander.",
   },
   boardwipe: {
     noun: 'board wipe',
@@ -479,7 +479,7 @@ const ROLE_FLAVOR: Record<
     whyItMatters: "you'll struggle to recover when opponents flood the board",
     excessHint: 'too many resets can stall your own board development',
     zeroMsg:
-      "No board wipes — if even one opponent builds a wide board, you'll have no way to reset. A single well-timed wipe can turn a losing game around.",
+      "No board wipes. If even one opponent builds a wide board, you'll have no way to reset. A single well-timed wipe can turn a losing game around.",
   },
   cardDraw: {
     noun: 'card draw',
@@ -487,7 +487,7 @@ const ROLE_FLAVOR: Record<
     whyItMatters: "you'll be topdecking while opponents still have full hands",
     excessHint: 'drawing cards is great, but you need things worth casting too',
     zeroMsg:
-      "No card draw at all — you'll empty your hand by turn 5-6 and be topdecking the rest of the game while opponents refuel. Card advantage is how you stay in the game.",
+      "No card draw at all. You'll empty your hand by turn 5-6 and be topdecking the rest of the game while opponents refuel. Card advantage is how you stay in the game.",
   },
 };
 
@@ -529,7 +529,7 @@ export function getManaGrade(
   if (allGood) {
     message = 'Mana base is solid across the board.';
   } else if (letter === 'A' || letter === 'B') {
-    message = `Looking good — ${weakest.label.toLowerCase()} could use a small bump.`;
+    message = `Looking good. Give ${weakest.label.toLowerCase()} a small bump.`;
   } else {
     message = `${weakest.label} is the weak spot.`;
   }
@@ -598,11 +598,11 @@ export function getCurveGrade(phases: CurvePhaseAnalysis[]): GradeResult {
   const shape = curveShapeFromAvgCmc(avgCmc) ?? 'uneven';
 
   const messages: Record<string, string> = {
-    A: 'Excellent curve — plays on time consistently.',
+    A: 'Excellent curve. Plays on time consistently.',
     B: 'Good curve with minor gaps.',
-    C: `Curve is a bit ${shape} — may stall at some points.`,
-    D: `Curve is ${shape} — expect awkward turns.`,
-    F: 'Poor curve — likely to miss plays or waste mana often.',
+    C: `Curve is a bit ${shape}, and may stall early.`,
+    D: `Curve is ${shape}. Expect awkward turns.`,
+    F: 'Poor curve. Likely to miss plays or waste mana often.',
   };
 
   return { letter, message: messages[letter] || messages.F };
@@ -1027,7 +1027,7 @@ export function getDeckSummaryData(analysis: DeckAnalysis, deckExcess?: number):
   let headline: string;
 
   if (deckExcess && deckExcess > 0) {
-    headline = `${deckExcess} cards over target — the weakest fits are listed below.`;
+    headline = `${deckExcess} cards over target. The weakest fits are listed below.`;
   } else {
     // Identify strong roles (met target without crowding it out) — excludes
     // anything already called out as overbuilt below, so the same role never
@@ -1111,7 +1111,7 @@ export function getDeckSummaryData(analysis: DeckAnalysis, deckExcess?: number):
           : ''
       }`;
     } else {
-      headline = 'Balanced across roles, curve, and mana.';
+      headline = 'Balanced across the board.';
     }
   }
 
@@ -1197,7 +1197,7 @@ export function getDeckSummaryData(analysis: DeckAnalysis, deckExcess?: number):
       icon: 'curve',
       label: 'Curve',
       tab: 'curve',
-      text: `avg mana value is ${avgCmc.toFixed(1)} — too many expensive spells`,
+      text: `avg mana value is ${avgCmc.toFixed(1)}, too many expensive spells`,
       hint: "you'll be sitting on uncastable hands while opponents develop their boards",
     });
   } else if (curveShape === 'bottom-heavy') {
@@ -1205,7 +1205,7 @@ export function getDeckSummaryData(analysis: DeckAnalysis, deckExcess?: number):
       icon: 'curve',
       label: 'Curve',
       tab: 'curve',
-      text: `avg mana value is ${avgCmc.toFixed(1)} — skews very low`,
+      text: `avg mana value is ${avgCmc.toFixed(1)}, skews very low`,
       hint: "you'll run out of gas in the late game when opponents play their haymakers",
     });
   }
@@ -1405,7 +1405,7 @@ export function computeOptimizeSwaps(
   // Co-played with 2+ of the deck's key cards → package-connected, never cut.
   const isLiftProtected = (name: string) => (liftEntryOf(name)?.liftedBy.length ?? 0) >= 2;
   const offPackageTrusted = liftSignal != null && liftSignal.seedCount >= LIFT_OFFPACKAGE_MIN_SEEDS;
-  const OFF_PACKAGE_REASON = 'Off-package — no co-play links with your key cards';
+  const OFF_PACKAGE_REASON = 'Off-package: no co-play links with your key cards';
 
   type CandidateCard = OptimizeCard & { sortScore: number };
 
@@ -1624,7 +1624,7 @@ export function computeOptimizeSwaps(
         name,
         reason:
           cutCount > 1
-            ? `Oversupplied basic — cut ${cutCount} (${g.color} has more basics than its share of mana pips)`
+            ? `Oversupplied basic: cut ${cutCount} (${g.color} has more basics than its share of mana pips)`
             : `Oversupplied basic (${g.color} has more basics than its share of mana pips)`,
         reasonCategory: 'oversupplied-basic',
         inclusion: null,
@@ -1699,7 +1699,7 @@ export function computeOptimizeSwaps(
         const art = /^[AEIOU]/.test(shortBasic) ? 'an' : 'a';
         removalCandidates.push({
           name: overBasic,
-          reason: `Swap for ${art} ${shortBasic} — ${COLOR_WORD[worstOver.color] ?? worstOver.color} has more basics than its pips need`,
+          reason: `Swap for ${art} ${shortBasic}: ${COLOR_WORD[worstOver.color] ?? worstOver.color} has more basics than its pips need`,
           reasonCategory: 'color-rebalance',
           inclusion: null,
           cmc: 0,
@@ -1709,7 +1709,7 @@ export function computeOptimizeSwaps(
         });
         rebalanceAdditions.push({
           name: shortBasic,
-          reason: `${COLOR_WORD[worstShort.color] ?? worstShort.color} is short on sources — swap in for a ${overBasic}`,
+          reason: `${COLOR_WORD[worstShort.color] ?? worstShort.color} is short on sources: swap in for a ${overBasic}`,
           reasonCategory: 'color-rebalance',
           inclusion: null,
           cmc: 0,
@@ -2207,7 +2207,7 @@ export function analyzeDeck(
   } else if (landDelta < 0) {
     verdict = 'slightly-low';
     verdictMessage = hasStrongRamp
-      ? `${currentLands} lands with ${rampCount} ramp pieces (${manaProducerCount} producers) — your mana base can support this.`
+      ? `${currentLands} lands with ${rampCount} ramp pieces (${manaProducerCount} producers). Your mana base can support this.`
       : `${currentLands} lands is a touch light. Adding ${Math.abs(landDelta)} more would improve consistency.`;
   } else if (landDelta > 3) {
     verdict = 'high';
@@ -2215,7 +2215,7 @@ export function analyzeDeck(
   } else {
     verdict = 'ok';
     verdictMessage = hasStrongRamp
-      ? `${currentLands} lands with ${rampCount} ramp pieces — solid mana base.`
+      ? `${currentLands} lands with ${rampCount} ramp pieces: solid mana base.`
       : `${currentLands} lands looks good for this deck.`;
   }
 
@@ -2604,23 +2604,23 @@ export function analyzeDeck(
   let msMessage: string;
   if (msTotal >= threshA.ramp && msEarly >= threshA.early && msProducers >= threshA.producers) {
     msGrade = 'A';
-    msMessage = `${msTotal} ramp with ${msEarly} early pieces — fast and reliable.`;
+    msMessage = `${msTotal} ramp with ${msEarly} early pieces: fast and reliable.`;
   } else if (
     msTotal >= threshB.ramp &&
     msEarly >= threshB.early &&
     msProducers >= threshB.producers
   ) {
     msGrade = 'B';
-    msMessage = `${msTotal} ramp with ${msProducers} producers — solid acceleration.`;
+    msMessage = `${msTotal} ramp with ${msProducers} producers: solid acceleration.`;
   } else if (msTotal >= threshC) {
     msGrade = 'C';
     msMessage =
       msEarly < threshB.early
-        ? `${msTotal} ramp but only ${msEarly} early pieces — slow to accelerate.`
+        ? `${msTotal} ramp but only ${msEarly} early pieces, slow to accelerate.`
         : `${msTotal} ramp is decent. A couple more would smooth things out.`;
   } else if (msTotal >= threshD) {
     msGrade = 'D';
-    msMessage = `Only ${msTotal} ramp cards — this deck will fall behind.`;
+    msMessage = `Only ${msTotal} ramp cards. This deck will fall behind.`;
   } else {
     msGrade = 'F';
     msMessage =
@@ -2858,7 +2858,7 @@ export function analyzeDeck(
   } else if (fixingScore >= 70) {
     fixingGrade = 'B';
     fixingGradeMessage = weakColorName
-      ? `Solid base — ${weakColorName} is slightly underrepresented (${weakColorSources} sources).`
+      ? `Solid base. ${weakColorName[0].toUpperCase() + weakColorName.slice(1)} is slightly underrepresented (${weakColorSources} sources).`
       : `Solid base with minor distribution imbalance.`;
   } else if (fixingScore >= 50) {
     fixingGrade = 'C';
@@ -2868,13 +2868,13 @@ export function analyzeDeck(
   } else if (fixingScore >= 30) {
     fixingGrade = 'D';
     fixingGradeMessage = weakColorName
-      ? `${weakColorName[0].toUpperCase() + weakColorName.slice(1)} has just ${weakColorSources} source${weakColorSources !== 1 ? 's' : ''} — most ${weakColorName} spells will be hard to cast on curve.`
+      ? `${weakColorName[0].toUpperCase() + weakColorName.slice(1)} has just ${weakColorSources} source${weakColorSources !== 1 ? 's' : ''}. Most ${weakColorName} spells will be hard to cast on curve.`
       : `Multiple colors lack the sources to cast spells reliably.`;
   } else {
     fixingGrade = 'F';
     fixingGradeMessage =
       minSourceCount === 0
-        ? `At least one color has zero sources — those spells are uncastable.`
+        ? `At least one color has zero sources. Those spells are uncastable.`
         : `Too few sources across the board (worst: ${minSourceCount}). Consider more dual lands and mana rocks.`;
   }
 

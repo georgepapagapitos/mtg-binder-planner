@@ -260,7 +260,7 @@ describe('BuildReportPanel', () => {
           report={makeReport({ synergyFills: [{ name: 'Fill A', matchedTags: [] }] })}
         />
       );
-      expect(screen.getByText('Slot filler — no shared synergy with the deck')).toBeTruthy();
+      expect(screen.getByText('Slot filler, no shared synergy with the deck')).toBeTruthy();
     });
   });
 
@@ -614,7 +614,7 @@ describe('BuildReportPanel', () => {
         />
       );
       expect(container.textContent).toContain(
-        '2 combos are one card away — you own 1 missing piece'
+        '2 combos are one card away, you own 1 missing piece'
       );
       const rows = container.querySelectorAll('details .build-report-sub');
       // Owned-missing combo ranks first despite far lower popularity.
@@ -708,7 +708,7 @@ describe('combo-seed confirmation (E215)', () => {
   it('confirms assembly when nothing was skipped', () => {
     render(<BuildReportPanel report={makeReport()} comboSeedContext={comboSeedContext} />);
     expect(screen.getByText('The combo you built around is in this deck')).toBeTruthy();
-    expect(screen.getByText('Sanguine Bond + Exquisite Blood — all seated.')).toBeTruthy();
+    expect(screen.getByText('Sanguine Bond + Exquisite Blood, all in the deck.')).toBeTruthy();
   });
 
   it("flags a partial assembly using the generator's own skip note, without double-printing it", () => {
@@ -784,7 +784,7 @@ describe('committedExcluded (mirror note for "Available only" builds)', () => {
       />
     );
     const note = container.querySelector('.build-report-conflict-note');
-    expect(note?.textContent).toMatch(/Skipped 3 cards in these colors you own/);
+    expect(note?.textContent).toMatch(/Skipped 3 cards in these colors/);
     expect(note?.textContent).toMatch(/Only my cards/);
   });
 
@@ -823,7 +823,7 @@ describe('BuildReportPanel — bracket-1 (Exhibition) expectations', () => {
     const line = container.querySelector('.build-report-bracket');
     expect(line?.textContent).toMatch(/Exhibition/);
     expect(line?.textContent).toMatch(/themed-build intent/);
-    expect(line?.textContent).toMatch(/expected, not a miss/);
+    expect(line?.textContent).toMatch(/always estimate at Core \(2\) or/);
   });
 });
 

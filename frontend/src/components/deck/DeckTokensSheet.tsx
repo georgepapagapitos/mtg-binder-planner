@@ -54,12 +54,13 @@ export function DeckTokensSheet({
             <h2 id={titleId} className="deck-tokens-sheet-title">
               Tokens to prep
             </h2>
+            {/* B6-17: the sheet only opens when the deck has tokens (the
+                deck-action row gates onTokens on deckTokens.length > 0), so
+                a zero-tokens empty state here can never render. Deleted
+                rather than kept as dead code. */}
             <p className="deck-tokens-sheet-sub">
-              {tokens.length === 0
-                ? 'This deck makes no tokens.'
-                : `Grab these before you play — ${tokens.length} ${
-                    tokens.length === 1 ? 'token' : 'tokens'
-                  }.`}
+              Grab these before you play. {tokens.length} {tokens.length === 1 ? 'token' : 'tokens'}
+              .
             </p>
           </div>
           <button

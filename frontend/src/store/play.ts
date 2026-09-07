@@ -797,7 +797,7 @@ export const usePlayStore = create<PlayState>()(
                   // state (never the null short-circuit).
                   await recoverFromServerState(
                     code,
-                    'Action lost a race — refreshed.',
+                    'Someone else moved first. Refreshed.',
                     null, // 409: silently ignore !fresh / fetch errors (poll will catch up)
                     set
                   );

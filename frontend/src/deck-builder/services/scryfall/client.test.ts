@@ -203,7 +203,7 @@ describe('getCardById', () => {
     });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => artCard }));
 
-    await expect(getCardById('art-1')).rejects.toThrow(/non-playable/);
+    await expect(getCardById('art-1')).rejects.toThrow(/can't be played/);
   });
 });
 
@@ -317,7 +317,7 @@ describe('user-facing failure messages', () => {
     );
 
     await expect(searchCards('t:zzzzoffline', [])).rejects.toThrow(
-      /Couldn't reach Scryfall — check your connection/
+      /Couldn't reach Scryfall\. Check your connection/
     );
   });
 

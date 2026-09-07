@@ -264,7 +264,7 @@ function BracketGroup({ customization, update }: DeckCustomizerProps) {
         </fieldset>
         {customization.targetBracket === 1 && (
           <p className="deck-customizer-hint">
-            Exhibition is a themed-build intent, not a power level — expect the build report to
+            Exhibition is a themed-build intent, not a power level. Expect the build report to
             estimate it at Core (2) or higher.
           </p>
         )}
@@ -369,8 +369,8 @@ function SaltGroup({ customization, update }: DeckCustomizerProps) {
         >
           EDHREC&apos;s salt scores
         </a>{' '}
-        tally votes for the most-hated cards in the format — think Stax, Armageddon, Cyclonic Rift.
-        Slide left to leave them out, right to lean into them.
+        tally votes for the most-hated cards in the format: Stax, Armageddon, Cyclonic Rift. Slide
+        left to leave them out, right to lean into them.
       </p>
       <input
         type="range"
@@ -452,7 +452,7 @@ function BrewGroup({ customization, update }: DeckCustomizerProps) {
             max={1}
             step={0.25}
             value={value}
-            aria-label="Staples to Theme dial — how much to favor EDHREC's most-played cards over cards that fit your commander's mechanics"
+            aria-label="Staples to Theme dial: how much to favor EDHREC's most-played cards over cards that fit your commander's mechanics"
             aria-valuetext={label}
             onChange={(e) => update({ brewLevel: Number(e.target.value) })}
             style={{
@@ -492,7 +492,7 @@ function CollectionGroup({ customization, update }: DeckCustomizerProps) {
         : strategy === 'available'
           ? 'Generator will only use copies not committed to other decks.'
           : strategy === 'prefer'
-            ? 'Builds the best deck it can while favoring cards you already own — no card is excluded.'
+            ? 'Builds the best deck it can while favoring cards you already own. No card is excluded.'
             : 'Generator will only suggest cards you own.'
       : 'Constrain the build to your owned cards.';
   return (
@@ -708,7 +708,7 @@ const MP_AXES: {
   {
     key: 'greedy',
     label: 'Utility',
-    hint: 'Favors lands with a real ability — draw, scry, damage — over plain fixing.',
+    hint: 'Favors lands with a real ability, like draw, scry, or damage, over plain fixing.',
     color: 'var(--info)',
   },
   {
@@ -736,7 +736,7 @@ function ManaPhilosophyGroup({ customization, update }: DeckCustomizerProps) {
     <div className="mana-philosophy-group">
       <p className="deck-customizer-hint">
         Blend four priorities for the nonbasic lands the generator picks: reliable color fixing,
-        useful abilities, modal spell-lands, and price. Off by default — every deck keeps today's
+        useful abilities, modal spell-lands, and price. Off by default: every deck keeps today's
         land priority until you turn this on.
       </p>
       <label className="collection-group-row">
@@ -755,7 +755,7 @@ function ManaPhilosophyGroup({ customization, update }: DeckCustomizerProps) {
           <span className="collection-group-sub">
             {active
               ? 'Blending the four priorities below into the nonbasic land picks.'
-              : 'Off — lands use the default priority order.'}
+              : 'Off. Lands use the default priority order.'}
           </span>
         </span>
       </label>
@@ -822,7 +822,7 @@ function ManaPhilosophyGroup({ customization, update }: DeckCustomizerProps) {
           })}
 
           <p className="deck-customizer-slider-desc">
-            Every priority keeps a small floor — none ever drops to zero, so even a maxed-out slider
+            Every priority keeps a small floor. None ever drops to zero, so even a maxed-out slider
             still leaves the others a little room.
           </p>
         </div>
@@ -1107,7 +1107,7 @@ function TempoGroup({ customization, update }: DeckCustomizerProps) {
           opacity: 0.75,
         }}
       >
-        Tempo shapes the mana curve and play pattern — aggressive decks load up on cheap threats,
+        Tempo shapes the mana curve and play pattern. Aggressive decks load up on cheap threats,
         late-game decks lean on big payoffs. Auto-detect picks a profile from{' '}
         <a
           href="https://edhrec.com"
@@ -1154,7 +1154,7 @@ function ScryfallGroup({ customization, update }: DeckCustomizerProps) {
         className="deck-customizer-text-input"
         aria-label="Additional Scryfall query"
         value={customization.scryfallQuery}
-        placeholder="e.g. -is:reprint or set:mkm"
+        placeholder="-is:reprint or set:mkm"
         onChange={(e) => update({ scryfallQuery: e.target.value })}
       />
     </Field>

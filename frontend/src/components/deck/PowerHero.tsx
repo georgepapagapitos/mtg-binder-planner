@@ -97,11 +97,11 @@ function HeroLink({
 /** Options for the Target bracket SelectMenu. "Auto" clears the override. */
 const TARGET_OPTIONS: SelectOption<string>[] = [
   { value: '', label: 'Auto (no target)', triggerLabel: 'Auto' },
-  { value: '1', label: '1 — Exhibition', triggerLabel: '1 · Exhibition' },
-  { value: '2', label: '2 — Core', triggerLabel: '2 · Core' },
-  { value: '3', label: '3 — Upgraded', triggerLabel: '3 · Upgraded' },
-  { value: '4', label: '4 — Optimized', triggerLabel: '4 · Optimized' },
-  { value: '5', label: '5 — cEDH', triggerLabel: '5 · cEDH' },
+  { value: '1', label: '1 · Exhibition', triggerLabel: '1 · Exhibition' },
+  { value: '2', label: '2 · Core', triggerLabel: '2 · Core' },
+  { value: '3', label: '3 · Upgraded', triggerLabel: '3 · Upgraded' },
+  { value: '4', label: '4 · Optimized', triggerLabel: '4 · Optimized' },
+  { value: '5', label: '5 · cEDH', triggerLabel: '5 · cEDH' },
 ];
 
 /**

@@ -419,7 +419,7 @@ describe('validateGeneratedLandFloor', () => {
 
   it('rejects an absurdly low land count in a 99-card singleton deck', () => {
     expect(validateGeneratedLandFloor(5, commander)).toBe(
-      'Only 5 lands — below the 25-land floor for a 99-card singleton deck'
+      'Only 5 lands, below the 25-land floor for a 99-card singleton deck'
     );
   });
 
@@ -431,7 +431,7 @@ describe('validateGeneratedLandFloor', () => {
   it('scales the floor proportionally for a smaller singleton mainboard', () => {
     const brawl = DECK_FORMAT_CONFIGS.brawl; // mainboardSize 59
     expect(validateGeneratedLandFloor(14, brawl)).toBe(
-      'Only 14 lands — below the 15-land floor for a 59-card singleton deck'
+      'Only 14 lands, below the 15-land floor for a 59-card singleton deck'
     );
     expect(validateGeneratedLandFloor(15, brawl)).toBeNull();
   });

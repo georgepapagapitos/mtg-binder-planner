@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { Search, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Search, X } from 'lucide-react';
 import './BrewSlotPanel.css';
 import '@/styles/deck-builder-skeleton.css';
 import { DeckCardRow } from '@/components/deck/DeckCardRow';
@@ -181,7 +181,7 @@ export function BrewSlotPanel(): JSX.Element {
   const displayed: BrewCandidate[] = searchResults ?? hand;
   const manaCosts = useResolvedManaCosts(displayed.map((c) => c.name));
 
-  if (!slot) return <p className="brew-slot-empty">Nothing left to brew — on to the manabase.</p>;
+  if (!slot) return <p className="brew-slot-empty">Nothing left to brew. On to the manabase.</p>;
 
   const current = accepted[slot.key]?.length ?? 0;
   const met = slot.target > 0 && current >= slot.target;
@@ -194,7 +194,7 @@ export function BrewSlotPanel(): JSX.Element {
         <p className="brew-slot-purpose">{slot.purpose}</p>
         <p className="brew-slot-progress">
           {current} of {slot.target} picked
-          {met && <span className="brew-slot-progress-met"> — target met</span>}
+          {met && <span className="brew-slot-progress-met"> · target met</span>}
         </p>
       </header>
 
@@ -207,7 +207,13 @@ export function BrewSlotPanel(): JSX.Element {
             if (showSearch) clearSearch();
           }}
         >
-          {showSearch ? 'Back to suggestions' : 'Find a mechanic instead →'}
+          {showSearch ? (
+            'Back to suggestions'
+          ) : (
+            <>
+              Find a mechanic instead <ArrowRight width={14} height={14} aria-hidden />
+            </>
+          )}
         </button>
       </div>
 
@@ -272,10 +278,11 @@ export function BrewSlotPanel(): JSX.Element {
 
       <div className="brew-slot-nav">
         <button type="button" className="btn" onClick={prevSlot} disabled={slotIndex === 0}>
-          ← Back
+          <ArrowLeft width={14} height={14} aria-hidden /> Back
         </button>
         <button type="button" className="btn btn-primary" onClick={() => void nextSlot()}>
-          {isLastSlot ? 'Continue to manabase →' : met ? 'Next slot →' : 'Skip this slot →'}
+          {isLastSlot ? 'Continue to manabase' : met ? 'Next slot' : 'Skip this slot'}
+          <ArrowRight width={14} height={14} aria-hidden />
         </button>
       </div>
     </section>

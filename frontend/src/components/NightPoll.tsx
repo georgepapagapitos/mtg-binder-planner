@@ -109,7 +109,7 @@ export function NightPoll({
             <p className="night-poll-tally">
               {o.voters.length === 0
                 ? 'No votes yet'
-                : `${o.voters.length} can make it — ${o.voters.join(', ')}`}
+                : `${o.voters.length} can make it: ${o.voters.join(', ')}`}
             </p>
             {onLock && (
               <button

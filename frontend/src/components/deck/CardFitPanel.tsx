@@ -162,7 +162,7 @@ export function CardFitPanel({
               <span className="card-fit-signal-value">
                 {!color.withinIdentity
                   ? "Outside your commander's color identity"
-                  : 'Colorless — slots into any deck'}
+                  : 'Colorless, slots into any deck'}
               </span>
             </li>
           )}
@@ -171,8 +171,8 @@ export function CardFitPanel({
         <div className="card-fit-cuts">
           <p className="card-fit-cuts-head">
             {rankedCuts.length > 0
-              ? 'Make room — cut a related card:'
-              : 'No related cut found — add it and trim later.'}
+              ? 'Make room: cut a related card.'
+              : 'No related cut found. Add it and trim later.'}
           </p>
           {rankedCuts.length > 0 && (
             <ul className="card-fit-cuts-list" role="list">

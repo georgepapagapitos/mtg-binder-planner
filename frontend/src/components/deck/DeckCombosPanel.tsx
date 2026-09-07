@@ -248,7 +248,7 @@ export const DeckCombosPanel = forwardRef<DeckCombosPanelHandle, Props>(function
       )}
 
       {!embedded && isCollapsed && (
-        <div className="sr-only">Combos panel collapsed — click to expand.</div>
+        <div className="sr-only">Combos panel collapsed. Click to expand.</div>
       )}
 
       <div
@@ -346,14 +346,14 @@ export const DeckCombosPanel = forwardRef<DeckCombosPanelHandle, Props>(function
                   {deckEntered && oneAwayCount > 0 && (
                     <p className="deck-combos-empty-secondary">
                       {oneAwayCount === 1
-                        ? '1 combo is one card away — check the next tab.'
-                        : `${oneAwayCount} combos are one card away — check the next tab.`}
+                        ? '1 combo is one card away. Check the next tab.'
+                        : `${oneAwayCount} combos are one card away. Check the next tab.`}
                     </p>
                   )}
                   {deckEntered && oneAwayCount === 0 && (
                     <p className="deck-combos-empty-secondary">
-                      Spellbook curates a few thousand documented combos — many casual decks
-                      (precons especially) genuinely have none.
+                      Many casual decks, precons included, have none. Spellbook tracks a few
+                      thousand documented combos.
                     </p>
                   )}
                 </>
@@ -361,7 +361,7 @@ export const DeckCombosPanel = forwardRef<DeckCombosPanelHandle, Props>(function
             ) : ownedOracleIds.length === 0 ? (
               <p>Import cards to your collection to surface near-miss combos.</p>
             ) : (
-              <p>No combos one card away — try expanding your collection.</p>
+              <p>No combos one card away. Try expanding your collection.</p>
             )}
           </div>
         )}

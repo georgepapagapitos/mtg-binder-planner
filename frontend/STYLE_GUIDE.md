@@ -129,6 +129,79 @@ never what the app "is."
 6. **Use contractions** — "Couldn't add {card}", not "Could not add". They match
    the human register everywhere user-facing (errors, confirms, hints).
 
+7. **No em-dashes.** The em-dash is retired from UI copy (sweep-3, 2026-09-06). The
+   "claim — justification" shape was the single strongest "a model wrote this"
+   signal in the app (709 strings). Use a period and a second short sentence, a
+   colon before a list or value, a comma for a genuine aside, or cut the second
+   half (usually the right answer: it only restated or defended the first). The
+   mid-dot `·` stays the separator for label/meta pairs ("Bracket 4 · Optimized").
+   A lone trailing `—` is the unknown-value placeholder, not prose. Card names and
+   oracle text are data and keep their source punctuation. Guarded by
+   `src/copy-guards.test.ts`.
+8. **No parenthetical asides.** No `(e.g. …)`, no jargon gloss `term (plain
+   meaning)`, no `(not X)`. A count qualifier `(4 of 10)` is fine. Placeholders
+   show the example itself (`placeholder="Friday commander"`), never "e.g. …".
+9. **Never narrate the app as the subject.** Not "SpellControl routes…", "the app
+   bundles…", "we built…", "AI can judge…". State the result ("Cards file into the
+   first matching binder") or address the player. The AI-written pill already
+   discloses provenance; prose never repeats it.
+10. **State a fact once.** No reassurance stacked on a correct fact ("this is
+    expected, not a miss", "no matter what you pick", "nothing is left worse
+    off"). A heading, subtitle and hint on one surface never say one thing three
+    ways: keep the one that names the action. If a computed result looks
+    surprising, give the surprising case its own visible branch.
+11. **Action over mechanism.** A hint says what to do or what it means, never how
+    the engine computed it ("rules read live card data…", "the substitute-ranking
+    index couldn't be loaded", "Draw-per-turn model:"). If the mechanism is
+    load-bearing it goes second, in its own sentence.
+12. **No lists of three or more in running prose.** Two items joined by and/or is
+    a sentence; three reads as a spec sheet. Cut to the one that matters or
+    render a real list.
+13. **Length budgets.** Toast ≤ 12 words. Empty-state hint: one sentence, ≤ 20
+    words. Confirm body ≤ 2 sentences. InfoTip ≤ 35 words as one paragraph (past
+    that: one lead sentence + a bullet list, the `DRIFT_TIP` shape). Dialog
+    helper sentence ≤ 25 words. `title=` on a labeled control ≤ 8 words; longer
+    detail moves to a visible caption or an `InfoTip` (touch can't hover). Filled
+    with a real card name and count, a generated reason line still fits a phone
+    row (~45 characters per line inside a 3-line clamp).
+14. **Canonical strings.** The finality clause is exactly `This can't be undone.`
+    The ellipsis is the single `…` glyph. No "please", no "simply", no "just" as
+    filler, no exclamation marks. Banned adjectives: curated, tailored,
+    intelligent, powerful, comprehensive, elevate, unlock, leverage, seamless,
+    robust, effortless (the proper noun "Comprehensive Rules" is exempt). Plurals
+    are computed (`copies`), never `copy(ies)`. Sentence case applies to assembled
+    strings too (aria-labels and stepper labels built from templates capitalise
+    the verb).
+15. **No hedging in verdicts.** "may stall", "could use a small bump", "Consider
+    adding…" become the fact and the move: "Curve is heavy. Expect slow turns." /
+    "Add 2 lands."
+16. **Sibling parity.** Two branches of one conditional string, two variants of
+    one option, two adjacent confirm dialogs, the on/off toasts of one toggle:
+    same tense, same sentence count, same punctuation. Read them side by side.
+17. **A generated reason line states one claim and stops.** Build Report rows,
+    coherence findings, gap notes and swap reasons: one clause for WHAT,
+    optionally one short sentence for WHY, never a clause narrating HOW the
+    engine decided. Several issues render as several short lines, never one
+    semicolon-joined sentence.
+18. **Shared facts are shared strings.** A fact stated on more than one surface
+    (ownership status = "committed to another deck", the hand verdict
+    `Keepable` / `Mulligan`, `Bracket N · Label` via `formatBracketLabel()`, the
+    build-health words `Dialed in` / `Needs work`) is one constant, not
+    independently authored prose per file.
+
+**Model-tells checklist** (run over any new copy before it ships):
+
+- An em-dash anywhere? A `(…)` aside? Three items in a row?
+- Is the app, a feature, "we", or "AI" the grammatical subject?
+- Does it explain how the engine did it instead of what to do?
+- Does it reassure or hedge ("may", "might", "consider", "this is expected")?
+- Do the heading, subtitle and hint say the same thing twice?
+- A marketing adjective, "please", "simply", an exclamation mark, `...`?
+- Is there a sibling string (the other branch, the adjacent dialog) that should match?
+- Filled with a real name and count, does it still fit a phone row?
+- Would a `title=` survive on touch? If not, it's a caption or an InfoTip.
+
+
 **Primary empty states are two parts: tagline + hint.** A short tagline naming
 the state ("No decks yet."), then ONE hint sentence giving the reason and the
 action that changes it ("Build a deck from scratch…"). Never a bare line, never
@@ -233,7 +306,7 @@ either "in progress" (loading) **or** a **picker/selector action** — one that
 lets you choose an item from a list ("Move to another deck…", "Pick another
 card…", the "Save As…" convention); never decorative. It does **not** extend
 to general CRUD dialog openers — "Plan a game night", "Edit night", "New
-deck" open a form, not a picker, and stay bare. One em-dash max per string.
+deck" open a form, not a picker, and stay bare. Em-dashes are retired from UI copy (rule 7).
 
 **A hint names the control, never a place on the screen.** "Search the card
 index below" was true when the deck editor had a card rail; the same surface is
@@ -1410,6 +1483,21 @@ var(--overlay-sheet) }` in `binder-card-management.css`. A new sheet on this
   `margin-bottom: -1px` to leave a 1px block-axis scroll range for touch
   momentum to rubber-band against. Write `overflow-y: hidden` explicitly.
 
+**Sweep-3 rulings.** (1) A whole-table, session-ending overlay (the win recap) renders
+screen-relative and unrotated, like the ticker's public surfaces, even though it shows
+one seat's name and color; per-seat rotation is for ongoing play only. (2) An in-panel
+cover whose content can exceed the smallest realistically-full panel (`SeatMenu` in a
+2-player game, not only the 6-player seat) carries a scroll-edge fade or a visible
+scrollbar; `overflow-y: auto` with `justify-content: center` hides both ends silently.
+(3) A `right: 0`-anchored popover clamps so its computed left edge never goes negative;
+verify at 320–360px (the deck kebab rendered at `left: -20px`). (4) Shortcut entries
+with more than one key state `join: 'alt'` (rendered " / ") or `join: 'chord'`
+(rendered "+"); "then" is reserved for a true multi-step sequence, and none exist.
+(5) A page resolving an entity by id from a persisted store gates its not-found branch
+on the store's `hydrated` flag AND on the sync driver's first pull (`getSyncState() ===
+'syncing'`): a fresh device hydrates an empty IndexedDB first and the deck only arrives
+with the pull (the deck editor showed "That deck no longer exists" for ~16s).
+
 ### Play setup — desktop composes config beside the table
 
 The Local and Online-host setup forms are two-panel at ≥1024px
@@ -1917,6 +2005,12 @@ implementation (`components/deck/BetweenYourDecks.tsx`):
   should be near-identical to what an inline surface would have shown, just
   gated behind one tap instead of always-on real estate.
 
+**Known instances (sweep-3).** `BetweenYourDecks` (reference), `BuildTimeCoachStrip` /
+`WedgeHintStrip` (navigating variant), and `ReadinessSpotlight` (migrated in #1748; it
+had rendered three full cards and pushed the first deck card to y=934 on a 780px
+phone). Any advisor surface renders as a collapsed 44px row and reserves its height,
+so an async fetch never shifts the grid when it resolves.
+
 ## Empty states (E182)
 
 A surface whose primary content is a **generated list** (deck card list,
@@ -1955,6 +2049,14 @@ reference fix (`.deck-empty-state` in `DeckDisplay.tsx` +
   (`cards.length === 0`) that can drift from what the grouping logic actually
   produces — a commander-only deck has 0 mainboard cards but 1 non-empty
   group (its Commander section), and the empty state must not fire there.
+
+**Nested empties (sweep-3).** When a sub-section's own empty state (a Trending rail)
+renders inside a page whose primary region is also empty, the sub-section falls back
+to one muted line: the page-level `EmptyStateMark` is the one brand moment per screen.
+A rail on a guest-landing or marketing surface hides itself below its data threshold
+(the `FreshDecksRail` rule) rather than rendering an empty state. A pending state inside
+a large fixed-height sheet fills the remaining height with skeleton rows, never one line
+of text.
 
 ## Build-time coach strip (E169 Half B) — a NAVIGATING insight strip
 
@@ -2293,6 +2395,15 @@ tooltip; reuse this so they behave identically everywhere.
   formula). The multi-factor "why this card" behind a cut/swap suggestion is
   different content — use the `WhyBreakdown` disclosure (see Suggestion feeds →
   Why disclosure), not an `ⓘ` on every row.
+
+**Sweep-3 rulings (2026-09-06).** An InfoTip body is ≤ 35 words as one paragraph and
+leads with what the number or label means to the player; how it was computed comes
+second, if at all. A legend that already lists per-item definitions needs no sentence
+above it re-describing what a legend is for. A `title=` on a labeled control over 8
+words is the signal that the detail belongs somewhere touch can reach (a visible
+caption or an InfoTip) — the `AvailableToggle`, the flagged-cards badge, the
+`ListEntriesView` badges and the offline-settings buttons all shipped their only
+explanation in a hover title.
 
 ### Deck-row "why it's here" affordances (E120)
 
@@ -2943,6 +3054,15 @@ gated, so the test is what holds the line — mirror of `radius-tokens.test.ts`)
   is the reference implementation; it wraps to rows of 4 below 600px rather than
   shrink seven cards into slivers.
 
+- **Verify a shared control's coarse floor in EVERY density it renders in** (grid
+  tile, list row, compact row). `.card-edit-btn` (`CardRowMenu`) measured 20×20 in
+  list view while grid view was clean; `.slot-deck-badge` measured 12×12 on binder
+  pages. Both now carry ghosts and sit in the `overlay-containment.test.ts` allowlist,
+  which proves the convention; `.claude/tools/audit-matrix.mjs` measures the boxes.
+- **`.btn`/`.pill-btn` stay at desktop density on touch by the RULING above; state-
+  committing rows take 44px.** The bulk-select toolbar's Delete/Move/Mark actions
+  (`.card-list-bulk-toolbar .toolbar-pill`) are on the floor as of sweep-3.
+
 ## Accessibility
 
 - **Every interactive element with a `:hover` rule also needs a `:focus-visible`
@@ -3052,6 +3172,21 @@ className="app-main">`; a page inside it never adds another `<main>` (the
   browser-screenshot check). Add a new route there when you add a page; an
   environment-only false positive goes in that route's `allow` list with its
   reason, never a global rule switch.
+
+**Sweep-3 rulings.** (1) Programmatically focused scroll anchors (`scrollToHeading`
+targets, the h1 after a route change) are not controls: their default outline is
+suppressed by the shared `.scroll-heading-target` rule with the rationale in a comment,
+because the scroll is the sighted cue and the announcement still fires. (2) Route
+changes update `document.title` and move focus to the new page's `<h1>` from
+`LayoutShell`'s pathname effect; the pattern is shared, never per page. (3) A per-row
+destructive-action table embedded in a long page keeps one focusable trigger per row (a
+menu), not N buttons × rows (the Admin users table injected 30 destructive tab stops
+into `/you`). (4) An unmatched route renders "Page not found" inside the Layout with one
+CTA, never a silent redirect. (5) A page reached only via a button from its hub (not
+itself a hub tab) gets a `BackLink` to that hub, matching its siblings at the same depth
+(`/decks/new`, `/decks/new/brew`, `/decks/compare`, `/decks/cube`). (6) Social hub pages
+share one of two content caps (640px; 760px for the trade give/get layout) so a new page
+can't ship uncapped (`/pods` did).
 
 ## CSS file layout
 

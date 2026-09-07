@@ -33,7 +33,7 @@ export function TokenCreator({ onCreate, onClose }: Props) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Token name (e.g. Treasure)"
+            placeholder="Treasure"
             className="card-picker-search"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && name.trim()) {

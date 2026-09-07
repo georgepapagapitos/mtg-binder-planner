@@ -125,7 +125,7 @@ describe('BracketBreakdown', () => {
     // normalized textContent of the line element.
     const line = container.querySelector('.bracket-breakdown-summary-line');
     expect(line?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Floor Bracket 4 + power signal 78/100 → Bracket 4 (Optimized)'
+      'Floor Bracket 4 + power signal 78/100 → Bracket 4 · Optimized'
     );
   });
 
@@ -150,11 +150,11 @@ describe('BracketBreakdown', () => {
     });
     const { container } = render(<BracketBreakdown estimation={est} />);
 
-    expect(screen.getByText('No hard floors — bracket set by soft score.')).toBeTruthy();
+    expect(screen.getByText('No hard floors. Bracket set by soft score.')).toBeTruthy();
     const line = container.querySelector('.bracket-breakdown-summary-line');
     // UX-315: summary uses "power signal" language
     expect(line?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Floor Bracket 1 + power signal 5/100 → Bracket 1 (Exhibition)'
+      'Floor Bracket 1 + power signal 5/100 → Bracket 1 · Exhibition'
     );
   });
 });
@@ -182,7 +182,7 @@ describe('BracketBreakdown — distance to the next threshold', () => {
       />
     );
     expect(distanceText(container)).toBe(
-      '8 more power points (58 → 66) would move this to Bracket 4 (Optimized).'
+      '8 more power points (58 → 66) would move this to Bracket 4 · Optimized.'
     );
   });
 
@@ -197,7 +197,7 @@ describe('BracketBreakdown — distance to the next threshold', () => {
       />
     );
     expect(distanceText(container)).toBe(
-      '14 more power points (66 → 80) would move this to Bracket 5 (cEDH).'
+      '14 more power points (66 → 80) would move this to Bracket 5 · cEDH.'
     );
   });
 

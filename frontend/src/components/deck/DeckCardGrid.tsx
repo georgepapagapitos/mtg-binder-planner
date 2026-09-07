@@ -136,7 +136,7 @@ export function DeckCardGrid({
                       type="button"
                       className={`deck-card-grid-tile${foilTileClass(row)}`}
                       onClick={() => onRowClick(row.name)}
-                      aria-label={`${row.name} (${row.qty} in deck — ${allocationSummary(row)})`}
+                      aria-label={`${row.name} (${row.qty} in deck, ${allocationSummary(row)})`}
                     >
                       {row.imageNormal ? (
                         <img

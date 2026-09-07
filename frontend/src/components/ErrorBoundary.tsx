@@ -35,8 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 honest line regardless of what actually threw. */}
             <h1 className="auth-title">Something went wrong</h1>
             <p className="auth-subtitle">
-              SpellControl hit an unexpected error. Your data on this device is safe — try again, or
-              reload if that doesn't help.
+              Your data on this device is safe. Try again, or reload if that doesn't help.
             </p>
             <div className="error-boundary-actions">
               <button className="btn btn-primary" onClick={() => this.setState({ error: null })}>

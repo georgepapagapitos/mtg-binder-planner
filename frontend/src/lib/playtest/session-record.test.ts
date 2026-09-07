@@ -423,7 +423,7 @@ describe('sessionHeadline', () => {
   });
 
   it('falls back to a neutral headline with no kill', () => {
-    expect(sessionHeadline(makeRecord({ killTurn: null, turns: 5 }))).toBe('Turn 5 — game ended');
+    expect(sessionHeadline(makeRecord({ killTurn: null, turns: 5 }))).toBe('Turn 5: game ended');
   });
 });
 

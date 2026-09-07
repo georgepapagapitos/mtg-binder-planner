@@ -41,6 +41,7 @@ import {
   type FilterChipDescriptor,
 } from '../components/shared/FilterChipsRow';
 import { OverflowMenu } from '../components/OverflowMenu';
+import { InfoTip } from '../components/InfoTip';
 import {
   SelectToggle,
   BulkSelectBar,
@@ -655,7 +656,7 @@ export function DecksIndexPage() {
         {pendingDelete && (
           <ConfirmDialog
             title={`Delete "${pendingDelete.name}"?`}
-            body="This cannot be undone."
+            body="This can't be undone."
             confirmLabel="Delete"
             danger
             onConfirm={confirmDelete}
@@ -681,7 +682,7 @@ export function DecksIndexPage() {
         {confirmDeleteAll && (
           <ConfirmDialog
             title={`Delete all ${decks.length} decks?`}
-            body="Every deck will be permanently removed. Your collection and binders are unaffected. This cannot be undone."
+            body="Every deck will be permanently removed. This can't be undone."
             confirmLabel="Delete all decks"
             danger
             onConfirm={confirmDeleteAllDecks}
@@ -856,21 +857,47 @@ export function DecksIndexPage() {
                         <div className="decks-index-card-name">
                           <span>{deck.name}</span>
                           {flaggedCount > 0 && (
+                            // Wrapper intercepts the click (InfoTip's own trigger
+                            // has none — hover/focus only) so tapping it on touch
+                            // opens the tooltip instead of following the card's
+                            // enclosing Link — see STYLE_GUIDE "Info tooltips".
                             <span
-                              className="decks-index-card-issues"
-                              title={`${flaggedCount} card${
-                                flaggedCount === 1 ? '' : 's'
-                              } flagged in ${formatCfg?.label ?? deck.format}:\n${issues
-                                .slice(0, 5)
-                                .map((i) => `• ${i.cardName}: ${i.detail}`)
-                                .join(
-                                  '\n'
-                                )}${issues.length > 5 ? `\n…and ${issues.length - 5} more` : ''}`}
-                              aria-label={`${flaggedCount} card${
-                                flaggedCount === 1 ? '' : 's'
-                              } flagged`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                             >
-                              <CircleAlert width={18} height={18} strokeWidth={1.6} aria-hidden />
+                              <InfoTip
+                                className="decks-index-card-issues"
+                                icon={
+                                  <CircleAlert
+                                    width={18}
+                                    height={18}
+                                    strokeWidth={1.6}
+                                    aria-hidden
+                                  />
+                                }
+                                label="flagged cards"
+                                ariaLabel={`${flaggedCount} card${
+                                  flaggedCount === 1 ? '' : 's'
+                                } flagged`}
+                                text={
+                                  <>
+                                    <p className="info-tip-lead">
+                                      {flaggedCount} card{flaggedCount === 1 ? '' : 's'} flagged in{' '}
+                                      {formatCfg?.label ?? deck.format}
+                                    </p>
+                                    <ul className="info-tip-list">
+                                      {issues.slice(0, 5).map((i) => (
+                                        <li key={i.cardName}>
+                                          {i.cardName}: {i.detail}
+                                        </li>
+                                      ))}
+                                      {issues.length > 5 && <li>+{issues.length - 5} more</li>}
+                                    </ul>
+                                  </>
+                                }
+                              />
                             </span>
                           )}
                           {pull && (
@@ -897,7 +924,7 @@ export function DecksIndexPage() {
                           {publicDeckIds.has(deck.id) && (
                             <span
                               className="decks-index-card-public-badge"
-                              title="Published — visible to everyone"
+                              title="Published. Visible to everyone."
                               aria-label="Public"
                             >
                               <Globe width={14} height={14} strokeWidth={2} aria-hidden />

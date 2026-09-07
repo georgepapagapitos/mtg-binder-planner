@@ -73,14 +73,14 @@ export function StatsBar({ open, onClose }: Props) {
     <>
       {showStaleBanner && (
         <div className="warn-banner">
-          Your cards are missing some Scryfall fields — re-import your collection to use the new
-          format / oracle / layout / finish filters.
+          Some cards are missing newer Scryfall fields. Re-import your collection to filter by
+          format, oracle text, layout, or finish.
         </div>
       )}
       {scryfallMisses > 0 && (
         <div className="warn-banner">
           {scryfallMisses} card{scryfallMisses !== 1 ? 's' : ''} couldn't be enriched with Scryfall
-          data — color/mana value/type sorting may be inaccurate for those cards.
+          data. Color, mana value, and type sorting may be inaccurate for them.
         </div>
       )}
 

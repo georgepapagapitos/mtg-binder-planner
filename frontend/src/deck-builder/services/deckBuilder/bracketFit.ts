@@ -519,7 +519,7 @@ function computeDownshiftPlanWithTarget(
       items: mldQueue,
       signal: 'mass-land-denial',
       reason: () =>
-        `Mass land denial isn't allowed below Bracket 4 — cut it to reach Bracket ${target}.`,
+        `Mass land denial isn't allowed below Bracket 4. Cut it to reach Bracket ${target}.`,
     },
     {
       items: gcOverAllowance,
@@ -535,7 +535,7 @@ function computeDownshiftPlanWithTarget(
     {
       items: staxQueue,
       signal: 'stax',
-      reason: () => `Too many stax pieces for Bracket ${target} — thin them out.`,
+      reason: () => `Too many stax pieces for Bracket ${target}. Thin them out.`,
     },
     {
       items: extraTurnQueue,
@@ -575,7 +575,7 @@ function computeDownshiftPlanWithTarget(
 
   let note: string | undefined;
   if (!achievable) {
-    note = `Couldn't reach Bracket ${target} even after every available cut — the deck still estimates at Bracket ${finalEstimate.bracket}. Some power sources here can't be removed without rebuilding.`;
+    note = `Couldn't reach Bracket ${target}. Still Bracket ${finalEstimate.bracket} after every available cut.`;
   }
 
   const summary = achievable
@@ -761,7 +761,7 @@ function computeUpshiftPlanWithTarget(
         imageUrl: poolCard?.image_uris?.[0]?.normal,
         isGameChanger: poolCard?.isGameChanger,
       },
-      `Completes a combo — adding this single card finishes a known infinite, a deterministic jump toward Bracket ${target}.`,
+      `Completes a combo. Adding this single card finishes a known infinite, a deterministic jump toward Bracket ${target}.`,
       'upshift-combo'
     );
   }
@@ -792,7 +792,7 @@ function computeUpshiftPlanWithTarget(
           imageUrl: c.image_uris?.[0]?.normal,
           isGameChanger: true,
         },
-        `Game Changer the deck lacks — the most direct way to raise it toward Bracket ${target}.`,
+        `Game Changer the deck lacks. The most direct way to raise it toward Bracket ${target}.`,
         'upshift-gc'
       );
     }
@@ -812,7 +812,7 @@ function computeUpshiftPlanWithTarget(
           typeLine: g.typeLine,
           imageUrl: g.imageUrl,
         },
-        `Popular high-power inclusion for this commander — tightens the deck toward Bracket ${target}.`,
+        `Popular high-power inclusion for this commander. Tightens the deck toward Bracket ${target}.`,
         'upshift-fill'
       );
       filled++;
@@ -850,13 +850,12 @@ function computeUpshiftPlanWithTarget(
   let note: string | undefined;
   if (ceiling) {
     note =
-      'Already at the build ceiling — Bracket 5 is mindset and metagame, not more cards. Showing combo-completion opportunities only.';
+      'Already at the build ceiling. Bracket 5 is mindset and metagame, not more cards. Showing combo-completion opportunities only.';
   }
 
   const offlineDegraded = input.targetPool === null;
   if (offlineDegraded && moves.length === 0) {
-    note =
-      note ?? 'Connect to EDHREC for power-up suggestions — no card pool is available offline.';
+    note = note ?? 'Connect to EDHREC for power-up suggestions. No card pool is available offline.';
   }
 
   const verb = pairedCount > 0 ? 'Swap in' : 'Add';
@@ -926,8 +925,8 @@ export function buildBracketFitPlan(
       summary: 'Exhibition (Bracket 1) is a theme-first build, not a power level you tune down to.',
       note:
         detected <= EXHIBITION_TUNES_TO
-          ? "Your deck already sits at the Core (Bracket 2) floor. Exhibition is about building around a concept over winning — a deckbuilding choice the power estimate can't measure."
-          : "These cuts bring the deck down to the Core (Bracket 2) floor. Reaching Exhibition itself is a theme-build choice the power estimate can't measure.",
+          ? 'Your deck already sits at the Core (Bracket 2) floor. Exhibition is a theme-first build, not a lower power level.'
+          : 'These cuts bring the deck down to the Core (Bracket 2) floor. Exhibition is a theme-first build, not a lower power level.',
     };
   }
 
@@ -964,7 +963,7 @@ function alignedPlan(target: 1 | 2 | 3 | 4 | 5, detected: number): BracketFitPla
     targetBracket: target,
     detectedBracket: detected,
     moves: [],
-    summary: `Aligned — the deck plays at Bracket ${target}.`,
+    summary: `Aligned. The deck plays at Bracket ${target}.`,
     achievable: true,
     note: `Deck plays at Bracket ${target}.`,
   };

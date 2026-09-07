@@ -291,12 +291,12 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
       setReadiness((prev) => new Map(prev).set(key, 'loading'));
       try {
         const data = await fetchCommanderData(name);
-        const score = computeReadiness(data.cardlists.allNonLand, ownedCardNames, name);
+        const score = computeReadiness(data.cardlists.allNonLand, ownedCardNames);
         readinessDone.current.add(key);
         setReadiness((prev) => new Map(prev).set(key, score));
       } catch {
         readinessDone.current.add(key);
-        setReadiness((prev) => new Map(prev).set(key, computeReadiness([], ownedCardNames, name)));
+        setReadiness((prev) => new Map(prev).set(key, computeReadiness([], ownedCardNames)));
       } finally {
         readinessInflight.current.delete(key);
       }
@@ -918,7 +918,7 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
                 Plays like
                 <InfoTip
                   label="Plays like"
-                  text="Playstyles detected from this commander's rules text — a quick read on how the deck wants to win. Switch to the “By playstyle” tab to find more commanders like this."
+                  text="How this commander tends to win, read from its rules text. Try the “By playstyle” tab for more like it."
                 />
               </span>
               {playstyleMatches.map((m) => (
@@ -1066,12 +1066,11 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
         </label>
       )}
 
-      {/* Readiness legend — explains the % chip and that it loads on hover.
+      {/* Readiness legend — explains the % chip.
           Hidden for PDH: readiness is EDHREC-staple-based and never loads there. */}
       {!pdh && collectionCards.length > 0 && (
         <p className="commander-readiness-hint">
-          The <strong>%</strong> beside a commander is how many of its staple cards you already own
-          — hover a commander to load it.
+          The <strong>%</strong> beside a commander is how many staples you already own.
         </p>
       )}
 

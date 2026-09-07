@@ -123,7 +123,7 @@ function ThemePickerList({
       <h2 className="deck-builder-section-title">Themes</h2>
       <p className="deck-builder-themes-hint">
         {selectedSlugs.size === 0
-          ? "No theme selected — we'll build from this commander's overall top cards."
+          ? "No theme selected. Build defaults to this commander's overall top cards."
           : 'Pick any themes the deck should lean into. Themes guide the EDHREC card pool.'}
       </p>
       <div className="deck-builder-theme-chips">

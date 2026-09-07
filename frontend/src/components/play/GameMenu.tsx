@@ -123,7 +123,7 @@ export function GameMenu({
                             onClose();
                           }}
                         >
-                          Rematch — same players
+                          Rematch · same players
                         </button>
                       )}
                       {game.mode === 'online' && (

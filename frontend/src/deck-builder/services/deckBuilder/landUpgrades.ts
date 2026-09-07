@@ -190,20 +190,24 @@ export function computeLandUpgrades(
   return moves;
 }
 
+// Owned/unowned status already shows as its own "Owned" chip on the row
+// (B6-09), so the reason itself never repeats it — it leads straight with the
+// fixing fact, and only the unowned case gets a lead sentence ("Worth picking
+// up.") since that framing isn't shown anywhere else on the row.
 function buildReason(
   out: { card: ScryfallCard; colors: Set<string> },
   pick: Candidate,
   fixesShort: string[]
 ): string {
-  const source = pick.owned ? 'you own' : 'worth acquiring';
+  const lead = pick.owned ? '' : 'Worth picking up. ';
   if (fixesShort.length > 0) {
     const names = fixesShort.map((c) => COLOR_NAME[c] ?? c).join(' and ');
-    return `Stronger land (${source}) — adds ${names} fixing you're short on, over ${out.card.name}.`;
+    return `${lead}Adds ${names} fixing you're short on, over ${out.card.name}.`;
   }
   const extra = [...pick.colors].filter((c) => !out.colors.has(c));
   if (extra.length > 0) {
     const names = extra.map((c) => COLOR_NAME[c] ?? c).join(' and ');
-    return `A better land (${source}) — keeps your colors and adds ${names}, over ${out.card.name}.`;
+    return `${lead}Keeps your colors and adds ${names}, over ${out.card.name}.`;
   }
-  return `A stronger land (${source}) — better fixing or upside than ${out.card.name}.`;
+  return `${lead}Better fixing or upside than ${out.card.name}.`;
 }

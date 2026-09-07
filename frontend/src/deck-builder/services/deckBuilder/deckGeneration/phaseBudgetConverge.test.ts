@@ -316,7 +316,7 @@ describe('applyBudgetConvergence', () => {
       const result = await applyBudgetConvergence(state, baseCtx({ deckBudget: 20 }));
       const pricey = result.repairs.find((r) => r.cut === 'Pricey Card');
       expect(pricey?.reason).toBe(
-        'Saves $27.00 — similar card type; swapped a protection/free-interaction piece to fit your budget'
+        'Saves $27.00: similar card type; swapped a protection/free-interaction piece to fit your budget'
       );
     } finally {
       vi.mocked(isProtectionPiece).mockReturnValue(false);
@@ -347,7 +347,7 @@ describe('applyBudgetConvergence', () => {
       const result = await applyBudgetConvergence(state, baseCtx({ deckBudget: 20 }));
       const pricey = result.repairs.find((r) => r.cut === 'Pricey Card');
       expect(pricey?.reason).toBe(
-        'Saves $27.00 — similar card type; swapped a free-interaction piece to fit your budget'
+        'Saves $27.00: similar card type; swapped a free-interaction piece to fit your budget'
       );
     } finally {
       vi.mocked(isFreeInteraction).mockReturnValue(false);
@@ -727,7 +727,7 @@ describe('applyBudgetConvergence', () => {
     const result = await applyBudgetConvergence(state, baseCtx({ deckBudget: 20 }));
     const pricey = result.repairs.find((r) => r.cut === 'Pricey Card');
     expect(pricey?.reason).toBe(
-      'Saves $27.00 — similar card type; swapped a synergy engine piece to fit your budget'
+      'Saves $27.00: similar card type; swapped a synergy engine piece to fit your budget'
     );
     vi.mocked(isLoadBearing).mockReturnValue(false);
   });

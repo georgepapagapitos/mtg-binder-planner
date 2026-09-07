@@ -310,7 +310,7 @@ function buildGaps(
   if (shortfall > 0) {
     gaps.push({
       severity: 'short',
-      text: `You own ${poolSize} non-basic singles — ${shortfall} short of a ${size}-card cube. Import more of your collection, or pick a smaller size.`,
+      text: `You own ${poolSize} non-basic singles, ${shortfall} short of a ${size}-card cube. Import more or pick a smaller size.`,
     });
   }
 
@@ -322,7 +322,7 @@ function buildGaps(
         severity: 'short',
         text: `Light on ${COLOR_NAME[c]} (${Math.round(share * 100)}% vs the ${Math.round(
           band.color[c].p25 * 100
-        )}–${Math.round(band.color[c].p75 * 100)}% real ${size}-card cubes run) — you own fewer good ${COLOR_NAME[
+        )}–${Math.round(band.color[c].p75 * 100)}% real ${size}-card cubes run). You own fewer good ${COLOR_NAME[
           c
         ].toLowerCase()} cards than the template wants.`,
       });
@@ -333,7 +333,7 @@ function buildGaps(
   if (got.land < band.fixingLands.p25) {
     gaps.push({
       severity: 'short',
-      text: `Only ${got.land} fixing lands — good ${size}-card cubes run ${Math.round(
+      text: `Only ${got.land} fixing lands. Good ${size}-card cubes run ${Math.round(
         band.fixingLands.p25
       )}–${Math.round(band.fixingLands.p75)}. Drafters may struggle to cast multicolor cards.`,
     });
@@ -361,7 +361,7 @@ function buildGaps(
       const [axis, n] = strong;
       gaps.push({
         severity: 'note',
-        text: `Strong ${AXIS_LABEL.get(axis) ?? axis} support — ${n.producers} enablers / ${n.payoffs} payoffs in your collection. Slide toward Synergy to lean in.`,
+        text: `Strong ${AXIS_LABEL.get(axis) ?? axis} support: ${n.producers} enablers / ${n.payoffs} payoffs in your collection. Slide toward Synergy to lean in.`,
       });
     }
 
@@ -373,13 +373,13 @@ function buildGaps(
       if (n.payoffs === 0) {
         gaps.push({
           severity: 'short',
-          text: `${label}: ${n.producers} enablers but no payoff in your collection — fuel with nothing to cash it in. Add payoff cards to make it draftable.`,
+          text: `${label}: ${n.producers} enablers but no payoff in your collection. Add payoff cards to make it draftable.`,
         });
         reported++;
       } else if (n.producers < enablerFloor || n.payoffs < payoffFloor) {
         gaps.push({
           severity: 'short',
-          text: `${label}: ${n.producers} enablers / ${n.payoffs} payoffs — thin for a draftable archetype (good ${size}-card cubes want ~${enablerFloor} / ~${payoffFloor}). More in your collection would deepen it.`,
+          text: `${label}: ${n.producers} enablers / ${n.payoffs} payoffs, thin for a draftable archetype (good ${size}-card cubes want ~${enablerFloor} / ~${payoffFloor}). More in your collection would deepen it.`,
         });
         reported++;
       }
@@ -393,7 +393,7 @@ function buildGaps(
   if (max > 0 && min / max >= 0.85 && shortfall === 0) {
     gaps.push({
       severity: 'note',
-      text: 'Colors are evenly balanced — the hallmark of a well-built cube.',
+      text: 'Colors are evenly balanced, the hallmark of a well-built cube.',
     });
   }
 

@@ -172,7 +172,8 @@ describe('PodHubPage — owner vs member vs invited controls', () => {
     renderPage();
 
     expect(await screen.findByRole('button', { name: /invite more people/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /delete pod/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /manage friday crew/i }));
+    expect(screen.getByRole('menuitem', { name: /delete pod/i })).toBeTruthy();
     expect(screen.getByTitle('Rename pod')).toBeTruthy();
     expect(screen.getByRole('button', { name: /remove bob from pod/i })).toBeTruthy();
   });
@@ -276,7 +277,8 @@ describe('PodHubPage — remove member / delete pod', () => {
     vi.mocked(getPod).mockResolvedValue(podDetail());
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: /delete pod/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /manage friday crew/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete pod/i }));
     expect(deletePod).not.toHaveBeenCalled();
 
     const dialog = await screen.findByRole('dialog');

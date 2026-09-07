@@ -222,15 +222,12 @@ export function BulkEditDeckDialog({ deck, onClose, mode = 'edit' }: Props) {
             <p className="import-deck-hint">
               {mode === 'resync' ? (
                 <>
-                  Paste the updated list from wherever you keep it — Moxfield, Archidekt, anywhere.
-                  It's diffed against this deck, and you see exactly what changed before you save.
-                  Cards you keep unchanged stay bound to the same physical copy.
+                  Paste the updated list from Moxfield, Archidekt, or anywhere else. It's diffed
+                  against this deck. Review the changes before you save.
                 </>
               ) : (
                 <>
-                  Edit the whole decklist as <strong>qty name</strong> lines, one per row. Cards you
-                  keep unchanged stay bound to the same physical copy — only genuine additions and
-                  removals touch your collection's allocations.
+                  Edit the whole decklist as <strong>qty name</strong> lines, one per row.
                 </>
               )}
             </p>
@@ -242,9 +239,8 @@ export function BulkEditDeckDialog({ deck, onClose, mode = 'edit' }: Props) {
             {divergedSinceSync && (
               <div className="import-deck-warning" role="alert">
                 <div className="import-deck-warning-title">Edited since the last sync</div>
-                You've changed this deck locally since it was last synced. If the pasted list
-                doesn't include those changes, they'll show up as removed below — check the diff
-                before saving so a stale paste doesn't overwrite them.
+                You've changed this deck locally since it last synced. If your paste doesn't include
+                those edits, they'll show as removed below. Check the diff before saving.
               </div>
             )}
             {fetchError && (
@@ -262,8 +258,8 @@ export function BulkEditDeckDialog({ deck, onClose, mode = 'edit' }: Props) {
             {emptyError && (
               <div className="error-banner" role="alert">
                 <span>
-                  Nothing to save — the list is empty. Add at least a commander or one card, or
-                  close this dialog to leave the deck unchanged.
+                  Nothing to save. The list is empty. Add a commander or a card, or close this
+                  dialog.
                 </span>
                 <button
                   className="banner-dismiss"
@@ -297,15 +293,15 @@ export function BulkEditDeckDialog({ deck, onClose, mode = 'edit' }: Props) {
             {plan.commanderMissing && (
               <div className="import-deck-warning" role="alert">
                 <div className="import-deck-warning-title">Commander is missing</div>
-                This format requires a commander, and the Commander section is now empty (or the
-                name didn't resolve). Go back and restore it before saving.
+                This format needs a commander, and the Commander section is empty or unresolved. Go
+                back and restore it before saving.
               </div>
             )}
 
             {offlineNames.length > 0 && (
               <p className="append-deck-offline" role="status">
                 <WifiOff width={14} height={14} strokeWidth={2} aria-hidden />
-                You're offline — {offlineNames.length} new card
+                You're offline. {offlineNames.length} new card
                 {offlineNames.length === 1 ? '' : 's'} couldn't be resolved and will be skipped.
                 Everything else in this edit still applies.
               </p>
@@ -315,7 +311,7 @@ export function BulkEditDeckDialog({ deck, onClose, mode = 'edit' }: Props) {
               <div className="import-deck-warning">
                 <div className="import-deck-warning-title">
                   {fetchErrorNames.length} card{fetchErrorNames.length === 1 ? '' : 's'} couldn't be
-                  fetched — the card service was unreachable. They'll be skipped:
+                  fetched. The card service was unreachable and they'll be skipped:
                 </div>
                 <ul className="import-deck-unresolved-list">
                   {fetchErrorNames.map((name) => (

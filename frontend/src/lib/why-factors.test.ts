@@ -99,7 +99,7 @@ describe('buildSynergyPickFactors', () => {
   it('frames payoff vs producer against the axis, in different words', () => {
     const payoff = buildSynergyPickFactors({ axisLabel: 'Tokens', side: 'payoff', inclusion: 12 });
     const producer = buildSynergyPickFactors({ axisLabel: 'Tokens', side: 'producer' });
-    expect(payoff[0].text).toMatch(/payoff for your Tokens engine/);
+    expect(payoff[0].text).toMatch(/Pays off your Tokens engine/);
     expect(producer[0].text).toMatch(/Feeds your Tokens payoffs/);
     expect(payoff[0].text).not.toBe(producer[0].text);
   });
@@ -107,7 +107,7 @@ describe('buildSynergyPickFactors', () => {
   it('owns the off-meta framing when inclusion is unknown, play-rate when known', () => {
     const offMeta = buildSynergyPickFactors({ axisLabel: 'Blink', side: 'payoff' });
     const known = buildSynergyPickFactors({ axisLabel: 'Blink', side: 'payoff', inclusion: 9 });
-    expect(offMeta.some((x) => /off-meta edge/.test(x.text))).toBe(true);
+    expect(offMeta.some((x) => /off-meta pick/.test(x.text))).toBe(true);
     expect(known.some((x) => /9% of similar decks/.test(x.text))).toBe(true);
   });
 });

@@ -87,7 +87,7 @@ describe('HoldButton', () => {
     await act(async () => {
       usePlayStore.setState({ onlineRequests: { 0: raised } });
     });
-    expect(screen.getByRole('button', { name: 'Holding — release' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Release' })).toBeTruthy();
   });
 
   it('release cancels this seat’s pending hold by id and flips back to Hold', async () => {
@@ -105,9 +105,9 @@ describe('HoldButton', () => {
     await act(async () => {
       usePlayStore.setState({ onlineRequests: { 0: pending } });
     });
-    expect(screen.getByRole('button', { name: 'Holding — release' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Release' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Holding — release' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Release' }));
     expect(usePlayStore.getState().cancelGameRequest).toHaveBeenCalledWith('hold1');
     expect(screen.getByRole('button', { name: 'Hold' })).toBeTruthy();
   });

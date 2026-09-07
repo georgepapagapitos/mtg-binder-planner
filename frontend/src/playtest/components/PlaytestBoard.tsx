@@ -16,6 +16,7 @@ import type { ScryfallCard } from '@/deck-builder/types';
 import { useDecksStore } from '@/store/decks';
 import { usePlaytestStore } from '../store';
 import { useNarrowViewport } from '../hooks/use-narrow-viewport';
+import { useRegisterShortcuts } from '@/lib/shortcut-registry';
 import { useOnlineTable } from '../hooks/use-online-table';
 import { usePlayStore } from '@/store/play';
 import { useTakeback } from '../hooks/use-takeback';
@@ -52,9 +53,20 @@ import { commanderTaxAmount } from '../lib/zones';
 import { LifeStrip } from './LifeStrip';
 import { ManaPool } from './ManaPool';
 import { useSealMoment } from '@/components/shared/SealMoment';
+import { CardPreview } from '@/components/CardPreview';
+import { scryfallToEnrichedCard } from '@/lib/scryfall-to-enriched';
 
 interface Props {
   state: PlaytestState;
+  /** B6-04: rendered as a compact "back" control folded into the ActionBar's
+   *  own row, shown only in the short-landscape tier — the standalone
+   *  `.playtest-page__header` this duplicates is a full 44px+ touch-target
+   *  row on its own, and hiding it there is the single highest-leverage way
+   *  to keep the battlefield at a usable height without shrinking any
+   *  control below its 44px floor. Optional so PlaytestBoard's existing
+   *  tests (no header context) don't need to supply it. */
+  deckName?: string;
+  onBack?(): void;
 }
 
 type ViewerMode = { zone: Zone } | null;
@@ -74,13 +86,25 @@ const FALLBACK_CARD_H = 126;
  *  the fraction-space analogue of the old fixed `x: 40, y: 40` pixel default. */
 const FALLBACK_DROP_POS = { x: 0.05, y: 0.05 };
 
+/** B6-16: the desktop keydown handler below is the actual implementation —
+ *  this just makes those shortcuts discoverable via the app's `?` overlay. */
+const PLAYTEST_SHORTCUTS = [
+  { keys: ['D'], description: 'Draw a card' },
+  { keys: ['N'], description: 'Next turn' },
+  { keys: ['U'], description: 'Untap all' },
+  { keys: ['Z'], description: 'Take back' },
+  { keys: ['Ctrl/⌘+C'], description: 'Copy selected cards' },
+  { keys: ['Ctrl/⌘+V'], description: 'Paste copied cards' },
+  { keys: ['Esc'], description: 'Clear selection' },
+];
+
 function parseDraggable(id: string): { source: 'bf' | 'hand' | 'zone'; cardId: string } | null {
   const m = /^(bf|hand|zone):(.+)$/.exec(id);
   if (!m) return null;
   return { source: m[1] as 'bf' | 'hand' | 'zone', cardId: m[2] };
 }
 
-export function PlaytestBoard({ state }: Props) {
+export function PlaytestBoard({ state, deckName, onBack }: Props) {
   const dispatch = usePlaytestStore((s) => s.dispatch);
   const phase = usePlaytestStore((s) => s.phase);
   const mulliganCount = usePlaytestStore((s) => s.mulliganCount);
@@ -124,6 +148,10 @@ export function PlaytestBoard({ state }: Props) {
   const battlefieldRef = useRef<HTMLDivElement | null>(null);
   const [viewer, setViewer] = useState<ViewerMode>(null);
   const [ctx, setCtx] = useState<ContextState>(null);
+  // B6-07: card previewed from a battlefield permanent's context menu — a
+  // single-card CardPreview, same shared component OpeningHandSheet/
+  // ZoneViewerModal use.
+  const [previewCardId, setPreviewCardId] = useState<string | null>(null);
   const [tokenCreator, setTokenCreator] = useState(false);
   const [showScry, setShowScry] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -464,6 +492,8 @@ export function PlaytestBoard({ state }: Props) {
     prevTableDefeatedRef.current = tableDefeatedTurn;
   }, [tableDefeatedTurn, deck, fireSealMoment]);
 
+  useRegisterShortcuts('Playtest', PLAYTEST_SHORTCUTS);
+
   // Desktop keyboard shortcuts (Moxfield parity): D draw, N next turn, U untap
   // all, Z / Ctrl+Z undo, Ctrl/⌘+C / +V copy-paste the selection, Esc clears
   // it. Ignored while typing or while any sheet/modal/context menu is open;
@@ -536,6 +566,8 @@ export function PlaytestBoard({ state }: Props) {
         turn={state.turn}
         libraryCount={state.zones.library.length}
         isNarrow={isNarrow}
+        deckName={deckName}
+        onBack={onBack}
         onDraw={() => {
           haptics.tap();
           dispatch({ type: 'DRAW', n: 1 });
@@ -627,7 +659,7 @@ export function PlaytestBoard({ state }: Props) {
       ) : showTableDefeatedBanner ? (
         <ResistanceBanner
           key={`table-defeated-${tableDefeatedTurn}`}
-          message={`Table defeated — turn ${tableDefeatedTurn}`}
+          message={`Table defeated: turn ${tableDefeatedTurn}`}
           onDismiss={() => setShowTableDefeatedBanner(false)}
         />
       ) : lastSessionRecord && lastSessionRecord.id !== dismissedSessionRecordId ? (
@@ -701,7 +733,7 @@ export function PlaytestBoard({ state }: Props) {
                   {clipboard.length > 0 && ` · ${clipboard.length} copied`}
                 </span>
                 <button type="button" onClick={() => setClipboard([...selected])}>
-                  Copy <kbd>⌘C</kbd>
+                  Copy <kbd>Ctrl/⌘C</kbd>
                 </button>
                 <button
                   type="button"
@@ -711,7 +743,7 @@ export function PlaytestBoard({ state }: Props) {
                   }}
                   disabled={clipboard.length === 0}
                 >
-                  Paste <kbd>⌘V</kbd>
+                  Paste <kbd>Ctrl/⌘V</kbd>
                 </button>
                 <button type="button" onClick={clearSelection}>
                   Clear <kbd>Esc</kbd>
@@ -795,6 +827,7 @@ export function PlaytestBoard({ state }: Props) {
                 }
               : undefined
           }
+          cardLookup={cardLookup}
         />
       )}
 
@@ -814,6 +847,14 @@ export function PlaytestBoard({ state }: Props) {
             setCtx(null);
           }}
           tax={commanderTaxAmount(state.commanderTax, ctxCard.card.id)}
+          onPreview={
+            cardLookup?.has(ctxCard.card.id)
+              ? () => {
+                  setPreviewCardId(ctxCard.card.id);
+                  setCtx(null);
+                }
+              : undefined
+          }
           canTransform={Boolean(ctxCard.card.backImageUrl)}
           phased={ctxCard.phased ?? false}
           variant={isNarrow ? 'sheet' : 'floating'}
@@ -858,6 +899,25 @@ export function PlaytestBoard({ state }: Props) {
           }}
         />
       )}
+
+      {previewCardId &&
+        cardLookup?.has(previewCardId) &&
+        (() => {
+          const enriched = scryfallToEnrichedCard(cardLookup.get(previewCardId)!);
+          return (
+            <CardPreview
+              source="playtest"
+              cards={[enriched]}
+              index={0}
+              binderName="Battlefield"
+              sectionLabels={['Battlefield']}
+              pageNumbers={[1]}
+              totalPages={1}
+              onIndexChange={() => {}}
+              onClose={() => setPreviewCardId(null)}
+            />
+          );
+        })()}
 
       {tokenCreator && (
         <TokenCreator
@@ -914,6 +974,7 @@ export function PlaytestBoard({ state }: Props) {
           mode={takeback.mode}
           onSelect={takeback.setMode}
           onClose={() => setShowTakebackSettings(false)}
+          online={onlineTable !== null}
         />
       )}
 

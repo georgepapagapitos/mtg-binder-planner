@@ -200,7 +200,11 @@ export function PlaytestPage() {
         </button>
         <h1>Playtest</h1>
       </header>
-      <PlaytestBoard state={state} />
+      <PlaytestBoard
+        state={state}
+        deckName={deck.name}
+        onBack={() => navigate(`/decks/${deck.id}`)}
+      />
       {confirmDialog}
     </div>
   );

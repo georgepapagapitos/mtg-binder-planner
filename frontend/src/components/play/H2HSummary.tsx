@@ -35,11 +35,11 @@ export function H2HSummary({ data }: { data: H2HResponse }) {
         <table className="play-records-table h2h-matchups">
           <thead>
             <tr>
-              <th>Your deck</th>
-              <th>Their deck</th>
-              <th>You</th>
-              <th>Them</th>
-              <th>Played</th>
+              <th scope="col">Your deck</th>
+              <th scope="col">Their deck</th>
+              <th scope="col">You</th>
+              <th scope="col">Them</th>
+              <th scope="col">Played</th>
             </tr>
           </thead>
           <tbody>

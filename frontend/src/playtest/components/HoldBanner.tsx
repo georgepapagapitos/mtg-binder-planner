@@ -101,11 +101,11 @@ export function HoldBanner() {
             <span className="playtest-hold-banner__message">
               {isMine ? (
                 <>
-                  <strong>You're</strong> holding — the table's waiting
+                  <strong>You're</strong> holding. The table's waiting.
                 </>
               ) : (
                 <>
-                  <strong>{name}</strong> holds — {hold.payload.summary}
+                  <strong>{name}</strong> holds: {hold.payload.summary}
                 </>
               )}
             </span>

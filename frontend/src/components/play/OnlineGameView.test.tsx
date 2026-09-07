@@ -253,7 +253,7 @@ describe('Finished state', () => {
     );
     render(<OnlineGameView game={game} />);
 
-    expect(screen.getByText('Game over — no winner')).toBeTruthy();
+    expect(screen.getByText('Game over. No winner.')).toBeTruthy();
   });
 });
 
@@ -395,6 +395,66 @@ describe('Presence + status render states', () => {
   });
 });
 
+describe('Leave confirmation (OGV-01)', () => {
+  it('confirms before the host leaves an active game, and only leaves on confirm', () => {
+    const onLeave = vi.fn();
+    const game = makeTestGame([
+      makeTestPlayer({ id: 'p0', userId: 'user_1', seat: 0, name: 'Alice' }),
+      makeTestPlayer({ id: 'p1', userId: 'user_2', seat: 1, name: 'Bob' }),
+    ]);
+    render(<OnlineGameView game={game} onLeave={onLeave} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
+    expect(onLeave).not.toHaveBeenCalled();
+    expect(screen.getByText('End the table for everyone?')).toBeTruthy();
+    expect(screen.getByText(/ends the game for the other player still seated/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'End table' }));
+    expect(onLeave).toHaveBeenCalledOnce();
+  });
+
+  it('dismisses without leaving on cancel', () => {
+    const onLeave = vi.fn();
+    const game = makeTestGame([
+      makeTestPlayer({ id: 'p0', userId: 'user_1', seat: 0, name: 'Alice' }),
+      makeTestPlayer({ id: 'p1', userId: 'user_2', seat: 1, name: 'Bob' }),
+    ]);
+    render(<OnlineGameView game={game} onLeave={onLeave} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onLeave).not.toHaveBeenCalled();
+    expect(screen.queryByText('End the table for everyone?')).toBeNull();
+  });
+
+  it('a non-host leaves immediately, no confirmation', () => {
+    mockAuthUserId.current = 'user_2';
+    const onLeave = vi.fn();
+    const game = makeTestGame([
+      makeTestPlayer({ id: 'p0', userId: 'user_1', seat: 0, name: 'Alice' }),
+      makeTestPlayer({ id: 'p1', userId: 'user_2', seat: 1, name: 'Bob' }),
+    ]);
+    render(<OnlineGameView game={game} onLeave={onLeave} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(screen.queryByText('End the table for everyone?')).toBeNull();
+  });
+
+  it('names the count of others seated when more than one', () => {
+    const onLeave = vi.fn();
+    const game = makeTestGame([
+      makeTestPlayer({ id: 'p0', userId: 'user_1', seat: 0, name: 'Alice' }),
+      makeTestPlayer({ id: 'p1', userId: 'user_2', seat: 1, name: 'Bob' }),
+      makeTestPlayer({ id: 'p2', userId: 'user_3', seat: 2, name: 'Carol' }),
+    ]);
+    render(<OnlineGameView game={game} onLeave={onLeave} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
+    expect(screen.getByText(/ends the game for all 2 other players still seated/)).toBeTruthy();
+  });
+});
+
 describe('Phase clock (T101)', () => {
   const twoPlayers = () => [
     makeTestPlayer({ id: 'p0', userId: 'user_1', seat: 0, name: 'Alice' }),
@@ -483,7 +543,7 @@ describe('Hold (T101)', () => {
     const game = makeTestGame(twoPlayers());
     render(<OnlineGameView game={game} />);
 
-    const banner = screen.getByText(/holds — responding/).closest('div')!;
+    const banner = screen.getByText(/has the table on hold/).closest('div')!;
     expect(within(banner).getByText('Bob')).toBeTruthy();
     expect(within(banner).queryByRole('button')).toBeNull();
   });
@@ -495,13 +555,13 @@ describe('Hold (T101)', () => {
     };
     const game = makeTestGame(twoPlayers());
     render(<OnlineGameView game={game} />);
-    expect(screen.getByText(/holds — responding/)).toBeTruthy();
+    expect(screen.getByText(/has the table on hold/)).toBeTruthy();
 
     // 1000ms to the deadline + the 2000ms grace window.
     act(() => {
       vi.advanceTimersByTime(3001);
     });
 
-    expect(screen.queryByText(/holds — responding/)).toBeNull();
+    expect(screen.queryByText(/has the table on hold/)).toBeNull();
   });
 });

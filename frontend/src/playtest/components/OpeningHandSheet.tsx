@@ -235,8 +235,8 @@ export function OpeningHandSheet({
           </div>
           {isMulliganBottom ? (
             <p className="playtest-opening-hint">
-              Tap {requiredBottom} card{requiredBottom === 1 ? '' : 's'} to send to the bottom of
-              your library, in the order you tap them. Long-press to preview · drag to reorder.{' '}
+              Tap {requiredBottom} card{requiredBottom === 1 ? '' : 's'} to send to the bottom, in
+              order. Long-press to preview, drag to reorder.{' '}
               <strong>
                 {selected.length}/{requiredBottom} selected
               </strong>
@@ -265,8 +265,8 @@ export function OpeningHandSheet({
               style={{ '--hand-n': orderedHand.length } as CSSProperties}
               aria-label={
                 isMulliganBottom
-                  ? 'Hand — drag to reorder, tap to select, long-press to preview'
-                  : 'Opening hand — drag to reorder, tap to preview'
+                  ? 'Hand: drag to reorder, tap to select, long-press to preview'
+                  : 'Opening hand: drag to reorder, tap to preview'
               }
             >
               {orderedHand.map((c, i) => {
@@ -301,7 +301,7 @@ export function OpeningHandSheet({
                 handStats.keepable ? 'is-keepable' : 'is-mulligan'
               }`}
             >
-              {handStats.keepable ? 'Keepable' : 'Mulligan?'}
+              {handStats.keepable ? 'Keepable' : 'Mulligan'}
             </span>
             {avgLands !== null && (
               <span className="playtest-opening-avg">
@@ -326,7 +326,7 @@ export function OpeningHandSheet({
               <span className="playtest-opening-variant__text">
                 <span className="playtest-opening-variant__label">Free mulligans</span>
                 <span className="playtest-opening-variant__desc">
-                  Redraw a full seven — nothing goes to the bottom.
+                  Redraw a full seven. Nothing goes to the bottom.
                 </span>
               </span>
             </label>
@@ -480,7 +480,7 @@ function SortableHandCard({
       {...listeners}
       {...touchHandlers}
       aria-pressed={isMulliganBottom ? isSelected : undefined}
-      aria-label={`${card.name}${isSelected ? ` — selected, position ${selectedOrdinal}` : ''}`}
+      aria-label={`${card.name}${isSelected ? `: selected, position ${selectedOrdinal}` : ''}`}
       disabled={!tappable}
     >
       {card.imageUrl && !imgError ? (

@@ -525,7 +525,7 @@ describe('usePlayStore — online flow', () => {
       .getState()
       .dispatchOnline({ type: 'life', seat: 0, delta: -1, actorSeat: 0 });
     expect(usePlayStore.getState().online).toBe(fresh);
-    expect(usePlayStore.getState().onlineError).toBe('Action lost a race — refreshed.');
+    expect(usePlayStore.getState().onlineError).toBe('Someone else moved first. Refreshed.');
   });
 
   it('dispatchOnline surfaces a 403 and refetches authoritative state', async () => {

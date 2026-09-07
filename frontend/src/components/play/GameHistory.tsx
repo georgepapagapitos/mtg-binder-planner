@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { GameEvent, GameState, GameSummary } from '../../lib/game-state';
 import { isKeyMoment, summarizeGame } from '../../lib/game-state';
 import { describeGameEvent } from '../../lib/game-event-text';
@@ -223,7 +223,9 @@ function GameLog({ game }: { game: GameState }) {
       </header>
       {rows.length === 0 ? (
         <p className="game-history-empty">
-          {all.length === 0 ? 'No events yet.' : 'Nothing notable yet — just life changes so far.'}
+          {all.length === 0
+            ? 'No events yet.'
+            : 'No key moments yet. Life changes are in the full log.'}
         </p>
       ) : (
         <Timeline game={game} rows={rows} />
@@ -322,6 +324,7 @@ function formatRelative(ts: number, now: number): string {
  */
 function LifeChart({ game }: { game: GameState }) {
   const data = useMemo(() => buildLifeSeries(game), [game]);
+  const legendId = useId();
 
   if (data.series.length === 0 || data.totalPoints <= 1) {
     return <p className="game-history-empty">Not enough life changes yet to chart.</p>;
@@ -348,6 +351,7 @@ function LifeChart({ game }: { game: GameState }) {
         preserveAspectRatio="none"
         role="img"
         aria-label="Player life over time"
+        aria-describedby={legendId}
       >
         {/* Starting-life baseline */}
         <line
@@ -377,7 +381,7 @@ function LifeChart({ game }: { game: GameState }) {
           );
         })}
       </svg>
-      <ul className="life-chart-legend">
+      <ul className="life-chart-legend" id={legendId}>
         {data.series.map((s) => {
           const player = game.players.find((p) => p.seat === s.seat);
           const palette = paletteForSeat(game.id, s.seat);

@@ -401,10 +401,12 @@ function LocalSetup({
       ? Math.max(MIN_LOCAL_PLAYERS, Math.min(seed.players.length, MAX_LOCAL_PLAYERS))
       : MIN_LOCAL_PLAYERS
   );
+  // Empty, not a live "Player N" value — the placeholder already shows that
+  // suggestion, and a real seeded value (only `name` matters is used
+  // instead) means typing over it can't concatenate into "Player 1Alice"
+  // (B7-05).
   const [players, setPlayers] = useState<LocalGameSetup['players']>(() =>
-    Array.from({ length: MAX_LOCAL_PLAYERS }, (_, i) =>
-      blankPlayer(seed?.players[i] ?? `Player ${i + 1}`)
-    )
+    Array.from({ length: MAX_LOCAL_PLAYERS }, (_, i) => blankPlayer(seed?.players[i] ?? ''))
   );
 
   function applyFormat(next: GameFormat) {
@@ -430,12 +432,8 @@ function LocalSetup({
     setPlayers((prev) => {
       const next = [...prev];
       next.splice(index, 1);
-      next.push(blankPlayer(`Player ${next.length + 1}`));
-      // Re-number the placeholder names that the user hasn't customized so
-      // the visible list reads Player 1 / Player 2 / … sequentially.
-      return next.map((p, i) =>
-        /^Player \d+$/.test(p.name) ? { ...p, name: `Player ${i + 1}` } : p
-      );
+      next.push(blankPlayer(''));
+      return next;
     });
     setCount((c) => Math.max(c - 1, MIN_LOCAL_PLAYERS));
   }
@@ -450,7 +448,9 @@ function LocalSetup({
           startingLife,
           commanderDamageEnabled,
           poisonEnabled,
-          players: players.slice(0, count),
+          players: players
+            .slice(0, count)
+            .map((p, i) => ({ ...p, name: p.name.trim() || `Player ${i + 1}` })),
         });
       }}
     >
@@ -725,6 +725,12 @@ function DeckPicker({
   value: string | null;
   onChange: (deck: Deck | null) => void;
 }) {
+  // B7-04: same-named decks behind the same commander (a common "rebuilding
+  // around a favorite commander" scenario) otherwise render identical rows —
+  // append the card count only to labels that actually collide.
+  const baseLabels = decks.map((d) => (d.commander ? `${d.name} · ${d.commander.name}` : d.name));
+  const labelCounts = new Map<string, number>();
+  for (const label of baseLabels) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
   return (
     <SelectMenu<string>
       ariaLabel="Deck"
@@ -733,10 +739,13 @@ function DeckPicker({
         onChange(next === DECK_PICKER_NONE ? null : (decks.find((d) => d.id === next) ?? null))
       }
       options={[
-        { value: DECK_PICKER_NONE, label: '— None —' },
-        ...decks.map((d) => ({
+        { value: DECK_PICKER_NONE, label: 'None' },
+        ...decks.map((d, i) => ({
           value: d.id,
-          label: d.commander ? `${d.name} · ${d.commander.name}` : d.name,
+          label:
+            (labelCounts.get(baseLabels[i]) ?? 0) > 1
+              ? `${baseLabels[i]} · ${d.cards.length} cards`
+              : baseLabels[i],
         })),
       ]}
     />
@@ -1140,12 +1149,12 @@ function HistoryTab({
           <table className="play-records-table">
             <thead>
               <tr>
-                <th>Deck</th>
-                <th>Played</th>
-                <th>W</th>
-                <th>L</th>
-                <th>Win %</th>
-                <th>Last played</th>
+                <th scope="col">Deck</th>
+                <th scope="col">Played</th>
+                <th scope="col">W</th>
+                <th scope="col">L</th>
+                <th scope="col">Win %</th>
+                <th scope="col">Last played</th>
               </tr>
             </thead>
             <tbody>
@@ -1169,15 +1178,17 @@ function HistoryTab({
           <table className="play-records-table">
             <thead>
               <tr>
-                <th>Deck A</th>
-                <th className="play-matchup-vs">vs</th>
-                <th>Deck B</th>
-                <th>Played</th>
-                <th>W</th>
-                <th>L</th>
-                <th>W/L</th>
-                <th>Win%</th>
-                <th>Last played</th>
+                <th scope="col">Deck A</th>
+                <th scope="col" className="play-matchup-vs">
+                  vs
+                </th>
+                <th scope="col">Deck B</th>
+                <th scope="col">Played</th>
+                <th scope="col">W</th>
+                <th scope="col">L</th>
+                <th scope="col">W/L</th>
+                <th scope="col">Win%</th>
+                <th scope="col">Last played</th>
               </tr>
             </thead>
             <tbody>
@@ -1223,6 +1234,7 @@ function HistoryTab({
                   <button
                     type="button"
                     className="play-history-rematch"
+                    aria-label={`Rematch: ${new Date(rec.endedAt).toLocaleString()}`}
                     onClick={() => onRematch(rec)}
                   >
                     Rematch
@@ -1230,7 +1242,7 @@ function HistoryTab({
                   <button
                     type="button"
                     className="play-history-remove"
-                    aria-label="Remove game"
+                    aria-label={`Remove game: ${new Date(rec.endedAt).toLocaleString()}`}
                     onClick={() => removeHistory(rec.id)}
                   >
                     ×
@@ -1323,7 +1335,7 @@ function EndGameDialog({
   return (
     <Modal onClose={onCancel} label="End game">
       <h2 className="choice-dialog-title">End the game?</h2>
-      <p className="choice-dialog-body">Pick the winner — or end without one.</p>
+      <p className="choice-dialog-body">Pick the winner, or end without one.</p>
       {/* Already native radios — the wrapper just needed to be a real fieldset
           instead of a div carrying role="radiogroup". */}
       <fieldset className="play-end-winners" aria-label="Winner">

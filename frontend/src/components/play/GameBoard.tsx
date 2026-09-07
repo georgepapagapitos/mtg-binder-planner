@@ -263,25 +263,12 @@ export function GameBoard({
         )}
       </div>
 
-      {game.status === 'finished' &&
-        (() => {
-          // A draw (winnerSeat null) still gets the overlay — no seat to
-          // rotate toward, so it renders unrotated.
-          const winnerSeatIdx =
-            game.winnerSeat != null
-              ? game.players.findIndex((p) => p.seat === game.winnerSeat)
-              : -1;
-          const winnerSlot = winnerSeatIdx >= 0 ? board.seats[winnerSeatIdx] : null;
-          const winnerRot = isShared && winnerSlot ? winnerSlot.rot : 0;
-          return (
-            <WinCelebration
-              game={game}
-              rotation={winnerRot}
-              onDone={onLeave}
-              onRematch={onRematch}
-            />
-          );
-        })()}
+      {game.status === 'finished' && (
+        // Whole-table moment, not per-seat gameplay: screen-relative, never
+        // rotated to the winner's seat (B7-01) — everyone at the table reads
+        // it the same way, the same as the confetti layer above it.
+        <WinCelebration game={game} onDone={onLeave} onRematch={onRematch} />
+      )}
 
       {menuOpen && (
         <GameMenu
@@ -622,7 +609,7 @@ function PlayerPanel({
         data-sideways={isSideways || undefined}
         aria-label={
           isCmdSplit
-            ? `${player.name}: commander damage dealt to ${cmdTarget!.name} — ${cmdSourceLabel} ${cmdValue}, ${player.partner} ${cmdPartnerValue}`
+            ? `${player.name}: commander damage dealt to ${cmdTarget!.name}, ${cmdSourceLabel} ${cmdValue}, ${player.partner} ${cmdPartnerValue}`
             : cmdTarget
               ? `${cmdSourceLabel}: ${cmdValue} commander damage dealt to ${cmdTarget.name}`
               : `${player.name}: ${player.life} life`
@@ -668,7 +655,7 @@ function PlayerPanel({
               type="button"
               className="player-panel-name"
               title={player.name}
-              aria-label={`${player.name} — seat menu`}
+              aria-label={`${player.name}: seat menu`}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -765,7 +752,7 @@ function PlayerPanel({
                 aria-label={
                   cmdTarget
                     ? `${cmdValue} commander damage from ${cmdSourceLabel}`
-                    : `Set life — currently ${player.life}`
+                    : `Set life: currently ${player.life}`
                 }
                 aria-live="polite"
                 // No set-by-keypad for commander damage: the number isn't this
@@ -1276,12 +1263,10 @@ function markCelebrationSeen(gameId: string): void {
 
 function WinCelebration({
   game,
-  rotation = 0,
   onDone,
   onRematch,
 }: {
   game: GameState;
-  rotation?: number;
   /** Leave the finished table (clear it locally / leave it online). */
   onDone?: () => void;
   onRematch?: () => void;
@@ -1317,7 +1302,7 @@ function WinCelebration({
     <div
       className="win-celebration"
       role="dialog"
-      aria-label={winner ? `${winner.name} wins` : 'Game over — no winner'}
+      aria-label={winner ? `${winner.name} wins` : 'Game over. No winner.'}
       onClick={() => setDismissed(true)}
     >
       {winner && (
@@ -1339,10 +1324,7 @@ function WinCelebration({
       )}
       <div
         className="win-celebration-card"
-        style={{
-          ...(palette ? { ['--win-accent' as never]: palette.edge } : undefined),
-          transform: rotation ? `rotate(${rotation}deg)` : undefined,
-        }}
+        style={palette ? { ['--win-accent' as never]: palette.edge } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         {winner ? (
@@ -1354,7 +1336,7 @@ function WinCelebration({
             <span className="win-celebration-sub">wins the game</span>
           </>
         ) : (
-          <span className="win-celebration-sub">Game over — no winner</span>
+          <span className="win-celebration-sub">Game over. No winner.</span>
         )}
         <GameRecap game={game} />
         {/* The recap is the end of the session: Done leaves the table (the

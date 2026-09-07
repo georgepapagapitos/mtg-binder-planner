@@ -409,7 +409,7 @@ export function ShareDialog({ kind, resourceId, resourceLabel, colorIdentity, on
   };
 
   const LADDER_OPTIONS: { value: LadderValue; label: string; hint: string }[] = [
-    { value: 'private', label: 'Private', hint: 'Not shared — only you can see this.' },
+    { value: 'private', label: 'Private', hint: 'Not shared. Only you can see this.' },
     {
       value: 'link',
       label: 'Anyone with link',
@@ -418,7 +418,7 @@ export function ShareDialog({ kind, resourceId, resourceLabel, colorIdentity, on
     {
       value: 'friends',
       label: 'My friends',
-      hint: "Only your accepted friends can open this — they'll need to be signed in.",
+      hint: "Only your accepted friends can open this. They'll need to be signed in.",
     },
     ...(kind === 'deck'
       ? [
@@ -547,7 +547,7 @@ export function ShareDialog({ kind, resourceId, resourceLabel, colorIdentity, on
                 <p className="choice-dialog-body">Loading friends…</p>
               ) : friends.length === 0 ? (
                 <p className="choice-dialog-body">
-                  You have no friends yet — add some on the{' '}
+                  You have no friends yet. Add some on the{' '}
                   <Link to="/friends" onClick={onClose}>
                     Friends page
                   </Link>
@@ -585,7 +585,7 @@ export function ShareDialog({ kind, resourceId, resourceLabel, colorIdentity, on
         <>
           {audience === 'direct' && recipientName && (
             <p className="share-dialog-sent" role="status">
-              Sent to @{recipientName} — they'll see it in their inbox. You can also copy the link
+              Sent to @{recipientName}. They'll see it in their inbox. You can also copy the link
               below.
             </p>
           )}
@@ -653,7 +653,6 @@ export function ShareDialog({ kind, resourceId, resourceLabel, colorIdentity, on
               className="btn btn-primary"
               onClick={() => void handleConfirmPublic()}
               disabled={working}
-              aria-label={working ? 'Publishing…' : 'Make it public — anyone can view'}
             >
               {working ? 'Publishing…' : 'Make it public'}
             </button>
@@ -664,7 +663,7 @@ export function ShareDialog({ kind, resourceId, resourceLabel, colorIdentity, on
       {ladder === 'public' && pendingPublicConfirm && needsDisplayName && (
         <div className="share-public-confirm" ref={confirmBlockRef}>
           <p className="choice-dialog-body">
-            Publishing shows your display name on the deck page — set one to continue.
+            Publishing shows your display name on the deck page. Set one to continue.
           </p>
           <div className="field">
             <label htmlFor={displayNameId}>Display name</label>

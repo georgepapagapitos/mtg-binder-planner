@@ -744,24 +744,32 @@
 
 /* Carousel slide-content animations — the skeleton shimmer and the ambient
    foil drift (holographic.css) — run only on the ACTIVE slide, and only while
-   the track is at rest. Both animate background-position, which repaints on
-   the main thread every frame; with ~120 pockets in the binder's render
-   window that turned every pan frame into a full repaint + re-raster
-   (measured over one 2.5s pan: 29k paint records / 4.5k raster tasks → 82 /
-   111 with these paused). `is-scrolling` is set on the track by SnapCarousel
-   for the duration of a scroll plus its settle window. `paused`, not `none`,
-   so each animation resumes where it left off once the pan settles. Selector
-   depth is deliberate: it must outrank holographic.css's
-   `.binder-pages-cell.is-foil .card-preview-foil-shine`, which loads later. */
+   the track is at rest. `is-scrolling` is set on the track by SnapCarousel for
+   the duration of a scroll plus its settle window. The shimmer animates
+   background-position (a main-thread repaint per tick — with ~120 pockets in
+   the binder's render window that turned every pan frame into a full repaint
+   + re-raster: 29k paint records / 4.5k raster tasks per 2.5s pan → 82 / 111
+   once paused). The drift is a compositor transform now, so what this buys
+   there is layer count: a non-active slide's foils get `animation: none`
+   (no animation → no compositor layer) rather than `paused`. Selector depth
+   is deliberate: it must outrank holographic.css's
+   `.binder-pages-cell.is-foil .card-preview-foil-shine::before`, which
+   loads later. */
 .card-preview-track.is-scrolling .card-preview-slide .card-preview-image-skeleton,
-.card-preview-track.is-scrolling .card-preview-slide .card-preview-foil-shine,
 .card-preview-track .card-preview-slide:not(.is-active) .card-preview-image-skeleton,
-.card-preview-track .card-preview-slide:not(.is-active) .card-preview-foil-shine,
 .binder-pages-track.is-scrolling .binder-pages-cell .binder-pages-cell-skeleton,
-.binder-pages-track.is-scrolling .binder-pages-cell .card-preview-foil-shine,
-.binder-pages-track .binder-pages-slide:not(.is-active) .binder-pages-cell-skeleton,
-.binder-pages-track .binder-pages-slide:not(.is-active) .card-preview-foil-shine {
+.binder-pages-track .binder-pages-slide:not(.is-active) .binder-pages-cell-skeleton {
   animation-play-state: paused;
+}
+
+.card-preview-track.is-scrolling .card-preview-slide .card-preview-foil-shine::before,
+.binder-pages-track.is-scrolling .binder-pages-cell .card-preview-foil-shine::before {
+  animation-play-state: paused;
+}
+
+.card-preview-track .card-preview-slide:not(.is-active) .card-preview-foil-shine::before,
+.binder-pages-track .binder-pages-slide:not(.is-active) .card-preview-foil-shine::before {
+  animation: none;
 }
 
 /* Holographic foil engine moved to src/styles/holographic.css */

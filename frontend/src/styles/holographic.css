@@ -47,6 +47,40 @@
 }
 
 .card-preview-foil-shine {
+  /* The rainbow lives on ::before (a 3.2× canvas, below) and MOVES BY
+     TRANSFORM — cursor parallax and the ambient drift alike — so every update
+     is a compositor translate, never a main-thread repaint. The former
+     background-position version repainted each animating foil every frame:
+     a binder spread with 18 foil pockets was a permanent paint storm even at
+     rest, and the whole render window during a pan (#1772 follow-up). */
+  overflow: hidden;
+  /* Parallax curve, unchanged: these are the old background-position values. */
+  --foil-x: calc((50% - var(--mx, 50%)) * 2 + 50%);
+  --foil-y: calc((50% - var(--my, 50%)) * 2.5 + 50%);
+  mix-blend-mode: var(--foil-blend, overlay);
+  opacity: calc(var(--active, 0) * var(--foil-strength, 0.35));
+  /* Inner vignette: foil at full strength across the central ~75% of the
+     card, fading to invisible at the corners. Without this the rainbow
+     covers art edge-to-edge and competes with frame/text/borders. */
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    black 0%,
+    black 60%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 0%, black 60%, transparent 100%);
+}
+
+/* background-size: 320% ≡ a canvas 3.2× the card; background-position P% ≡
+   translating that canvas by −P% × (3.2 − 1) / 3.2 = −0.6875 × P% of its own
+   size. Same picture, same stripe scale, but transform is compositor-only. */
+.card-preview-foil-shine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320%;
+  height: 320%;
   background-image: var(
     --foil-rainbow,
     repeating-linear-gradient(
@@ -69,21 +103,13 @@
       #c929f1
     )
   );
-  background-size: 320% 320%;
-  background-position: calc((50% - var(--mx, 50%)) * 2 + 50%)
-    calc((50% - var(--my, 50%)) * 2.5 + 50%);
-  mix-blend-mode: var(--foil-blend, overlay);
-  opacity: calc(var(--active, 0) * var(--foil-strength, 0.35));
-  /* Inner vignette: foil at full strength across the central ~75% of the
-     card, fading to invisible at the corners. Without this the rainbow
-     covers art edge-to-edge and competes with frame/text/borders. */
-  -webkit-mask-image: radial-gradient(
-    ellipse 100% 100% at 50% 50%,
-    black 0%,
-    black 60%,
-    transparent 100%
-  );
-  mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 0%, black 60%, transparent 100%);
+  transform: translate(calc(var(--foil-x) * -0.6875), calc(var(--foil-y) * -0.6875));
+}
+
+/* The cursor-tracked preview shine updates on every pointer move — keep it on
+   its own layer so those updates stay off the main thread too. */
+.card-preview-image-frame.is-foil .card-preview-foil-shine::before {
+  will-change: transform;
 }
 
 .card-preview-foil-glare {
@@ -271,7 +297,6 @@
 @media (hover: none) {
   .card-preview-foil-shine {
     opacity: var(--foil-strength, 0.35);
-    animation: foil-drift 8s ease-in-out infinite alternate;
     /* Android WebView silently drops mix-blend-mode when the same element
        also carries a mask — the mask promotes the layer offscreen and the
        blend then has no backdrop. Touch devices (including Capacitor) run
@@ -279,6 +304,9 @@
        drop the vignette mask here to let the blend composite normally. */
     -webkit-mask-image: none;
     mask-image: none;
+  }
+  .card-preview-foil-shine::before {
+    animation: foil-drift 8s ease-in-out infinite alternate;
   }
   .card-preview-foil-glare {
     opacity: 0.25;
@@ -290,12 +318,15 @@
   }
 }
 
+/* Drift = translating the 3.2× canvas from its 0% to its 100% position
+   (see .card-preview-foil-shine::before). Transform-only: runs on the
+   compositor, zero paint per frame. */
 @keyframes foil-drift {
   0% {
-    background-position: 0% 0%;
+    transform: translate(0, 0);
   }
   100% {
-    background-position: 100% 100%;
+    transform: translate(-68.75%, -68.75%);
   }
 }
 
@@ -303,9 +334,9 @@
    shared motion block in global.css) so it stays AFTER the hover:none
    drift in cascade order and continues to win for RM + touch users. */
 @media (prefers-reduced-motion: reduce) {
-  .card-preview-foil-shine {
-    background-position: 50% 50%;
+  .card-preview-foil-shine::before {
     animation: none;
+    transform: translate(-34.375%, -34.375%); /* the old 50% 50% */
   }
 }
 
@@ -326,6 +357,11 @@
 .deck-card-grid-tile.is-foil .card-preview-foil-shine,
 .binder-pages-cell.is-foil .card-preview-foil-shine {
   opacity: var(--foil-strength, 0.35);
+}
+
+.collection-grid-item.is-foil .card-preview-foil-shine::before,
+.deck-card-grid-tile.is-foil .card-preview-foil-shine::before,
+.binder-pages-cell.is-foil .card-preview-foil-shine::before {
   animation: foil-drift 8s ease-in-out infinite alternate;
 }
 
@@ -341,11 +377,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .collection-grid-item.is-foil .card-preview-foil-shine,
-  .deck-card-grid-tile.is-foil .card-preview-foil-shine,
-  .binder-pages-cell.is-foil .card-preview-foil-shine {
+  .collection-grid-item.is-foil .card-preview-foil-shine::before,
+  .deck-card-grid-tile.is-foil .card-preview-foil-shine::before,
+  .binder-pages-cell.is-foil .card-preview-foil-shine::before {
     animation: none;
-    background-position: 50% 50%;
+    transform: translate(-34.375%, -34.375%);
   }
 }
 

@@ -19,12 +19,11 @@
   text-shadow:
     0 0 2px rgba(0, 0, 0, 0.55),
     0 1px 1px rgba(0, 0, 0, 0.45);
-  background-image: var(
-    --foil-rainbow,
-    repeating-linear-gradient(110deg, #c929f1, #0dbde9, #21e985, #eedf10, #f80e35, #c929f1)
-  );
-  background-size: 320% 320%;
-  animation: foil-drift 6s ease-in-out infinite alternate;
+  /* The rainbow is ::after (3.2× canvas, drifting by transform — see
+     holographic.css); isolate so its z-index:-1 stays inside the chip. */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.55),
     0 0 4px rgba(255, 255, 255, 0.35);
@@ -36,6 +35,21 @@
   content: 'F';
 }
 
+.foil-badge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320%;
+  height: 320%;
+  z-index: -1;
+  background-image: var(
+    --foil-rainbow,
+    repeating-linear-gradient(110deg, #c929f1, #0dbde9, #21e985, #eedf10, #f80e35, #c929f1)
+  );
+  animation: foil-drift 6s ease-in-out infinite alternate;
+}
+
 /* Standalone pip nudged off the preceding text/chip. */
 .collection-list-name > .foil-badge,
 .card-picker-meta > .foil-badge,
@@ -44,8 +58,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .foil-badge {
+  .foil-badge::after {
     animation: none;
-    background-position: 50% 50%;
+    transform: translate(-34.375%, -34.375%);
   }
 }

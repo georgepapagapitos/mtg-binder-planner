@@ -266,7 +266,7 @@ export function validateGeneratedLandFloor(
   if (!config.isSingleton) return null; // floor only meaningful for singleton/commander-style generation
   const floor = Math.round(config.mainboardSize * GENERATED_LAND_FLOOR_RATIO);
   if (landCount < floor) {
-    return `Only ${landCount} land${landCount === 1 ? '' : 's'} — below the ${floor}-land floor for a ${config.mainboardSize}-card singleton deck`;
+    return `Only ${landCount} land${landCount === 1 ? '' : 's'}, below the ${floor}-land floor for a ${config.mainboardSize}-card singleton deck`;
   }
   return null;
 }

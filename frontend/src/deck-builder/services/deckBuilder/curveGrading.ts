@@ -56,31 +56,33 @@ export function pacingAwarePhaseTargets(pacing: Pacing): Record<CurvePhaseKey, n
   return { early: raw.early / sum, mid: raw.mid / sum, late: raw.late / sum };
 }
 
-export function gradeFromDeviation(deviation: number): string {
-  if (deviation <= 0.1) return 'A';
-  if (deviation <= 0.2) return 'B';
-  if (deviation <= 0.35) return 'C';
-  if (deviation <= 0.55) return 'D';
-  return 'F';
+/** Band word for how close a phase's share is to its target — no letter
+ *  grades anywhere in the UI (STYLE_GUIDE ## One scoring vocabulary). */
+export type CurveBand = 'on target' | 'a little off' | 'off target';
+
+export function bandFromDeviation(deviation: number): CurveBand {
+  if (deviation <= 0.2) return 'on target';
+  if (deviation <= 0.55) return 'a little off';
+  return 'off target';
 }
 
 /**
- * Grade one phase against its target. Early/Mid penalize only being **under**
+ * Band one phase against its target. Early/Mid penalize only being **under**
  * target (extra cheap/mid cards never hurt); Late is two-sided — top-heavy is the
  * classic Commander mistake — so it's penalized for deviating either way.
  */
-export function gradePhase(key: CurvePhaseKey, share: number, target: number): string {
-  if (target <= 0) return 'A';
+export function gradePhase(key: CurvePhaseKey, share: number, target: number): CurveBand {
+  if (target <= 0) return 'on target';
   const raw = (target - share) / target; // >0 means under target
   const penalized = key === 'late' ? Math.abs(raw) : Math.max(0, raw);
-  return gradeFromDeviation(penalized);
+  return bandFromDeviation(penalized);
 }
 
 export interface CurvePhaseGrade extends CurvePhaseDef {
   count: number;
   share: number;
   target: number;
-  grade: string;
+  grade: CurveBand;
 }
 
 export interface CurveGrading {

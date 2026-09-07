@@ -254,6 +254,7 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
         const deficit = mostDeficitRole(roleCounts, roleTargets);
         if (!deficit) continue;
         const label = roleLabel(deficit.role);
+        const labelLower = label.charAt(0).toLowerCase() + label.slice(1);
         const gap = gapForRole(gapAnalysis, deficit.role, usedCards, ownedNames, ownedOnly);
         const owns = gap != null && (ownedNames?.has(gap.name) ?? false);
         moves.push({
@@ -263,9 +264,9 @@ export function buildNextBestMoves(input: NextBestMoveInput): NextBestMove[] {
           cardName: gap?.name,
           detail: gap
             ? owns
-              ? `Light on ${label} (${deficit.current} of ${deficit.target}). You own ${gap.name}, played in ${Math.round(gap.inclusion)}% of decks like this.`
-              : `Light on ${label} (${deficit.current} of ${deficit.target}). Add ${gap.name}, played in ${Math.round(gap.inclusion)}% of decks like this.`
-            : `Light on ${label} (${deficit.current} of ${deficit.target}). Add more ${label} to hit the target.`,
+              ? `Light on ${labelLower} (${deficit.current} of ${deficit.target}). You own ${gap.name}, played in ${Math.round(gap.inclusion)}% of decks like this.`
+              : `Light on ${labelLower} (${deficit.current} of ${deficit.target}). Add ${gap.name}, played in ${Math.round(gap.inclusion)}% of decks like this.`
+            : `Light on ${labelLower} (${deficit.current} of ${deficit.target}). Add more ${labelLower} to hit the target.`,
           navigateTo: SUBSCORE_VIEW.roles,
           focus: 'fill-gaps',
         });

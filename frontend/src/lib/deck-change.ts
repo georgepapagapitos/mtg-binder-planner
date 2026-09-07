@@ -524,7 +524,7 @@ export function mergeImprove(changes: readonly Change[]): Change[] {
 export function fromBracketFitMove(move: BracketFitMove, ownership?: ChangeOwnership): Change {
   if (move.type === 'swap' && move.inName) {
     // Render the replacement as the primary card; fold the cut into the reason.
-    const reason = `Replaces ${move.name} — ${move.reason}`;
+    const reason = `Replaces ${move.name}: ${move.reason}`;
     return {
       id: `bracket-fit:swap:${move.name}`,
       type: 'swap',

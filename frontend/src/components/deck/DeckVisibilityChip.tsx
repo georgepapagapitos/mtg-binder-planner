@@ -40,7 +40,7 @@ export function DeckVisibilityChip({ deckId, deckName, colorIdentity }: Props) {
         type="button"
         className="deck-visibility-chip"
         onClick={() => setOpen(true)}
-        aria-label={`Sharing: ${label} — change visibility`}
+        aria-label={`Sharing: ${label}. Change visibility`}
       >
         <Icon width={14} height={14} strokeWidth={1.8} aria-hidden />
         {/* "Sharing:" on the face, not only in the aria-label: a chip that

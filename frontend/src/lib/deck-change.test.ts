@@ -358,7 +358,7 @@ describe('fromBracketFitMove', () => {
     expect(c.id).toBe('bracket-fit:swap:Cyclonic Rift');
     expect(c.name).toBe('Evacuation'); // primary = the incoming card
     expect(c.inName).toBe('Cyclonic Rift'); // the slot to cut
-    expect(c.reason).toBe('Replaces Cyclonic Rift — Game Changer over the Bracket 2 limit.');
+    expect(c.reason).toBe('Replaces Cyclonic Rift: Game Changer over the Bracket 2 limit.');
     expect(c.ownership).toBe('unowned');
     expect(c.isGameChanger).toBe(false); // downshift replacement is never a GC
   });

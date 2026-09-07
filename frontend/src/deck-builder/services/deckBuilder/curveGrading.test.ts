@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  gradeCurve,
-  gradeFromDeviation,
-  gradePhase,
-  pacingAwarePhaseTargets,
-} from './curveGrading';
+import { bandFromDeviation, gradeCurve, gradePhase, pacingAwarePhaseTargets } from './curveGrading';
 
 describe('pacingAwarePhaseTargets', () => {
   it('returns the base 45/35/20 band for balanced pacing', () => {
@@ -38,30 +33,30 @@ describe('pacingAwarePhaseTargets', () => {
   });
 });
 
-describe('gradeFromDeviation', () => {
-  it('maps deviation magnitude to letter bands', () => {
-    expect(gradeFromDeviation(0)).toBe('A');
-    expect(gradeFromDeviation(0.1)).toBe('A');
-    expect(gradeFromDeviation(0.15)).toBe('B');
-    expect(gradeFromDeviation(0.3)).toBe('C');
-    expect(gradeFromDeviation(0.5)).toBe('D');
-    expect(gradeFromDeviation(0.6)).toBe('F');
+describe('bandFromDeviation', () => {
+  it('maps deviation magnitude to band words (no letter grades)', () => {
+    expect(bandFromDeviation(0)).toBe('on target');
+    expect(bandFromDeviation(0.1)).toBe('on target');
+    expect(bandFromDeviation(0.15)).toBe('on target');
+    expect(bandFromDeviation(0.3)).toBe('a little off');
+    expect(bandFromDeviation(0.5)).toBe('a little off');
+    expect(bandFromDeviation(0.6)).toBe('off target');
   });
 });
 
 describe('gradePhase', () => {
   it('does not penalize early/mid for being over target (one-sided)', () => {
-    expect(gradePhase('early', 0.6, 0.45)).toBe('A');
-    expect(gradePhase('mid', 0.5, 0.35)).toBe('A');
+    expect(gradePhase('early', 0.6, 0.45)).toBe('on target');
+    expect(gradePhase('mid', 0.5, 0.35)).toBe('on target');
   });
 
   it('penalizes early/mid for being under target', () => {
-    expect(gradePhase('early', 0.3, 0.45)).toBe('C'); // (0.45-0.30)/0.45 = 0.33
+    expect(gradePhase('early', 0.3, 0.45)).toBe('a little off'); // (0.45-0.30)/0.45 = 0.33
   });
 
   it('penalizes late for deviating in either direction (top-heavy hurts)', () => {
-    expect(gradePhase('late', 0.2, 0.2)).toBe('A');
-    expect(gradePhase('late', 0.4, 0.2)).toBe('F'); // double the target → way over
+    expect(gradePhase('late', 0.2, 0.2)).toBe('on target');
+    expect(gradePhase('late', 0.4, 0.2)).toBe('off target'); // double the target → way over
   });
 });
 
@@ -86,7 +81,7 @@ describe('gradeCurve', () => {
     // band grades well instead of being dinged against the static 20%.
     const lateLate = late.phases.find((p) => p.key === 'late')!;
     expect(lateLate.target).toBeGreaterThan(0.2);
-    expect(lateLate.grade).toBe('A');
+    expect(lateLate.grade).toBe('on target');
   });
 
   it('reports counts and total, and handles an empty curve', () => {

@@ -78,16 +78,15 @@ function ConflictDialog({
     <Modal onClose={onDismiss} labelledBy={headingId} className="modal conflict-panel">
       <p className="conflict-panel-eyebrow">
         {moreWaiting > 0
-          ? `Sync conflict — ${moreWaiting} more ${moreWaiting === 1 ? 'deck' : 'decks'} waiting`
+          ? `Sync conflict: ${moreWaiting} more ${moreWaiting === 1 ? 'deck' : 'decks'} waiting`
           : 'Sync conflict'}
       </p>
       <h2 id={headingId} className="conflict-panel-title">
-        &ldquo;{name}&rdquo; changed on another device
+        &quot;{name}&quot; changed on another device
       </h2>
       <p className="conflict-panel-body">
-        You edited this deck here, but another device saved a newer version first. The server&apos;s
-        version is already saved — review what differs below, then keep it or restore your edits on
-        top of it.
+        You edited this deck here, but another device saved a newer version first. Review what
+        differs below, then keep the server&apos;s version or restore your edits on top of it.
       </p>
 
       {diff == null ? (
@@ -97,7 +96,7 @@ function ConflictDialog({
         </p>
       ) : untouched ? (
         <p className="deck-compare-empty-hint">
-          No card differences — only deck details (name, bracket, notes) changed.
+          No card differences. Only deck details (name, bracket, notes) changed.
         </p>
       ) : (
         <div className="conflict-panel-diff">

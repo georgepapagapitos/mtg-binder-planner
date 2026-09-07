@@ -92,7 +92,7 @@ function AxisBalance({
           type="button"
           className="engine-axis-btn"
           onClick={onTap}
-          aria-label={`Show ${axis.label} cards — ${axis.producers} producers, ${axis.payoffs} payoffs`}
+          aria-label={`Show ${axis.label} cards: ${axis.producers} producers, ${axis.payoffs} payoffs`}
         >
           {inner}
         </button>
@@ -290,8 +290,7 @@ export function EnginePanel({
           </div>
         ) : (
           <p className="engine-empty">
-            No off-meta suggestions right now — your engine looks balanced, or no clear engine was
-            detected.
+            {axes.length > 0 ? 'Your engine looks balanced.' : 'No clear engine detected yet.'}
           </p>
         ))}
 

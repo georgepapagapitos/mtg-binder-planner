@@ -6,10 +6,8 @@ import type { ScryfallCard, Archetype } from '@/deck-builder/types';
 import type { ComboMatch } from '@/types/combos';
 import type { LaneId } from '@/lib/deck-change';
 import { usePanelCascade, panelCascadeClass } from '@/lib/use-panel-cascade';
-import {
-  bracketLabel,
-  type BracketEstimation,
-} from '@/deck-builder/services/deckBuilder/bracketEstimator';
+import type { BracketEstimation } from '@/deck-builder/services/deckBuilder/bracketEstimator';
+import { formatBracketLabel } from '@/lib/format-bracket-label';
 import type { PlanScore } from '@/deck-builder/services/deckBuilder/planScore';
 import { computeRoleCounts } from '@/deck-builder/services/deckBuilder/commanderDeckAnalysis';
 import { computeRoleDensity } from '@/deck-builder/services/deckBuilder/roleDensity';
@@ -207,7 +205,6 @@ export function DeckAnalysisView({
               averageCmc={manaData.averageCmc}
               onNavigate={onNavigateToTune}
               cards={allCards}
-              revealKey={scoreRevealKey}
             />
           </div>
           {/* Mana curve — full-width so the stacked curve reads well. */}
@@ -294,8 +291,9 @@ export function DeckAnalysisView({
               <Panel id="deck-power-bracket" title="Bracket">
                 <div className="deck-stats-bracket">
                   <strong>
-                    Bracket {effectiveBracketValue} —{' '}
-                    {effectiveBracketValue != null ? bracketLabel(effectiveBracketValue) : '—'}
+                    {effectiveBracketValue != null
+                      ? formatBracketLabel(effectiveBracketValue)
+                      : 'Bracket —'}
                     {bracketOverridden && <span className="deck-stats-bracket-tag"> manual</span>}
                   </strong>
                   <BracketVerdictStrip
@@ -317,7 +315,7 @@ export function DeckAnalysisView({
                       self-explaining without re-providing a redundant control. */}
                   {bracketOverridden && (
                     <p className="deck-stats-bracket-override-note">
-                      Target set in Power level above.{' '}
+                      Target set in Power level.{' '}
                       {onSetBracketOverride && (
                         <button
                           type="button"

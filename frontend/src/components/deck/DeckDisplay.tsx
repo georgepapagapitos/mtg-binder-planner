@@ -882,7 +882,7 @@ export function DeckDisplay({
       fireSealMoment(colors);
       haptics.success();
       toast.show({
-        message: `Deck complete — legal for ${formatConfig.label}`,
+        message: `Deck complete, legal for ${formatConfig.label}`,
         tone: 'success',
       });
     }
@@ -1425,7 +1425,7 @@ export function DeckDisplay({
                 <span className="deck-bulk-count">
                   {selection
                     ? `${selection.keys.size} ${selection.keys.size === 1 ? 'card' : 'cards'} selected`
-                    : 'Select cards…'}
+                    : 'Select cards'}
                 </span>
                 {selection && onBulkMove && selection.zone === 'cards' && showSideboardTab && (
                   <button
@@ -1502,7 +1502,7 @@ export function DeckDisplay({
             {confirmBulkRemove && selection && onBulkRemove && (
               <ConfirmDialog
                 title={`Remove ${selection.keys.size} ${selection.keys.size === 1 ? 'card' : 'cards'}?`}
-                body="This removes the selected cards from the deck. You can undo it from the editor's undo history right after."
+                body="Removes the selected cards. Undo from the editor's history right after."
                 confirmLabel="Remove"
                 danger
                 onConfirm={() => {
@@ -1577,8 +1577,8 @@ export function DeckDisplay({
                   label="role filter"
                   text={
                     <p className="info-tip-lead">
-                      Automatic role classification — the same read as the row badges. Tap a chip to
-                      spotlight those cards; tap it again to clear.
+                      Matches the role badges on each row. Tap a chip to spotlight cards with that
+                      role, tap again to clear.
                     </p>
                   }
                 />
@@ -1594,8 +1594,8 @@ export function DeckDisplay({
               <div className="deck-tag-honesty-banner">
                 <TagIcon width={14} height={14} strokeWidth={2} aria-hidden />
                 <span>
-                  Tags can overlap — a multi-tagged card appears in every group it's tagged with.
-                  The card count above is always the true deck size.
+                  Tags can overlap: a multi-tagged card appears in every group it's tagged with. The
+                  deck-size count stays the true total.
                 </span>
                 {deckTags.length > 0 && (onRenameDeckTag || onRemoveDeckTag) && (
                   <ToolbarPopover
@@ -1641,8 +1641,8 @@ export function DeckDisplay({
                             This deck needs a commander first.
                           </p>
                           <p className="deck-empty-state-detail">
-                            Suggestions, color identity, and legality all follow your commander —
-                            add one to get started.
+                            Add a commander to get started. Suggestions and legality checks follow
+                            from it.
                           </p>
                         </>
                       ) : (
@@ -1857,8 +1857,7 @@ export function DeckDisplay({
                       ))
                     ) : (
                       <p className="deck-outzone-empty">
-                        Nothing parked here yet — cards you're unsure about land here from import,
-                        suggestions, or "Move to considering" on any card.
+                        Nothing parked here yet. Move a card here when you're unsure about it.
                       </p>
                     )}
                   </div>
@@ -1875,7 +1874,7 @@ export function DeckDisplay({
                     <span className="deck-display-scryfall-trigger-text">
                       <span className="deck-display-scryfall-trigger-title">Search Scryfall</span>
                       <span className="deck-display-scryfall-trigger-sub">
-                        for "{search.trim()}" — add a card not in this deck
+                        for "{search.trim()}", add a card not in this deck
                       </span>
                     </span>
                   </button>

@@ -101,7 +101,7 @@ export function PartnerImportPicker({
     <div className="import-deck-commander-section import-deck-partner-section">
       <div className="import-deck-section-title">Partner commander (optional)</div>
       <p className="import-deck-hint">
-        {commander.name} can have a partner — add a second commander to combine both color
+        {commander.name} can have a partner. Add a second commander to combine both color
         identities.
       </p>
       <ul className="import-deck-commander-list">
@@ -227,7 +227,7 @@ export function ImportParseSummary({
         <div className="import-deck-warning">
           <div className="import-deck-warning-title">
             {result.fetchErrors.length} card{result.fetchErrors.length === 1 ? '' : 's'} couldn't be
-            fetched — the card service was unreachable. They aren't in this deck yet:
+            fetched. The card service was unreachable and they aren't in this deck yet:
           </div>
           <ul className="import-deck-unresolved-list">
             {result.fetchErrors.slice(0, 12).map((name) => (

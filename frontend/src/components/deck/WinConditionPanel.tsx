@@ -74,15 +74,12 @@ export function assemblyClockTip(): JSX.Element {
   return (
     <>
       <span className="info-tip-lead">
-        Across 1,000 simulated games: mulligan to a keepable seven, then each turn draw, make a land
-        drop, and spend that turn&apos;s mana — ramp, card draw, tutors and win-path pieces. The
-        clock stops when the path is fully cast: every piece of one combo, or an alt-win card. A
-        tutor costs its mana and fetches to hand, so what it finds still has to be cast.
+        1,000 simulated games: mulligan to a keepable seven, then draw and spend mana every turn
+        until the win path is fully cast. A tutor still has to cast what it finds.
       </span>
       <span className="info-tip-lead">
-        This path wins on resolution, so that turn is the kill turn. Colors, rituals and opponents
-        aren&apos;t modeled, and every draw spell counts as two cards: it&apos;s a goldfish
-        estimate, not a promise.
+        Colors, rituals and opponents aren&apos;t modeled, and every draw spell counts as two cards.
+        It&apos;s a goldfish estimate, not a promise.
       </span>
     </>
   );
@@ -249,8 +246,8 @@ export function WinConditionPanel({
           No clear win condition detected
         </p>
         <p className="win-con-empty">
-          The deck doesn't have a dominant path to victory. Consider adding combo pieces, a damage
-          plan, or building around a synergy strategy.
+          This deck has no dominant path to victory yet. Add a combo, a damage plan, or a synergy
+          engine to give it one.
         </p>
         {taggedSection}
         {carousel.preview}

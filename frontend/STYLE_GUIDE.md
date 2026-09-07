@@ -2727,6 +2727,22 @@ single `skeleton-shimmer` keyframe (declared once in `footer-card-preview.css`);
 do not declare a bespoke `@keyframes *-shimmer` clone. `motion-tokens.test.ts`
 fails CI on any other `*-shimmer` keyframe.
 
+**Infinite animations inside a scroll-snap carousel run on the active, resting
+slide only (2026-09-07 ruling, #1772).** `skeleton-shimmer` and the ambient
+`foil-drift` both animate `background-position`, which is _not_ compositor
+accelerated — every tick repaints the element on the main thread. Inside the
+binder flipbook's render window that is ~120 pockets, and it turned every
+trackpad-pan frame into a full repaint + re-raster (measured over one 2.5s pan:
+29k paint records / 4.5k raster tasks; 82 / 111 once paused) — the "stuttery,
+glitchy swipe". The rule set in `footer-card-preview.css` pauses
+(`animation-play-state: paused`, so they resume in place) every slide-content
+animation on `:not(.is-active)` slides and on all slides while the track
+carries `is-scrolling` (set by `SnapCarousel` for the scroll plus its 150ms
+settle). Anything new that loops inside a `.card-preview-slide` /
+`.binder-pages-slide` must join that selector list, and nothing may assume a
+`background-position` (or `background-size`, `box-shadow`, `filter`) animation
+is cheap because "it's just a gradient".
+
 ## Color & spacing
 
 **Material system (restyle T53).** The palette is built from physical binder

@@ -117,11 +117,11 @@ export function GenerationModePicker({
       {showCards && (
         <>
           <h2 className="deck-builder-section-title" id={groupLabelId}>
-            How should we build?
+            Pick a build method
           </h2>
           <p className="gen-mode-intro">
-            Generate the deck a different way — by what cards <em>do</em>, what they <em>depict</em>
-            , or when they were <em>printed</em>.
+            Build by what cards <em>do</em>, what they <em>depict</em>, or when they were{' '}
+            <em>printed</em>.
           </p>
 
           {!online && (
@@ -177,8 +177,7 @@ export function GenerationModePicker({
       {/* Standard mode in the guided 'config' slot: nothing to tune — say so. */}
       {section === 'config' && mode === 'edhrec' && (
         <p className="gen-mode-explain">
-          Standard mode uses EDHREC's popular picks for your commander — no extra tuning needed
-          here.
+          Standard mode uses EDHREC's popular picks for your commander. No extra tuning needed here.
         </p>
       )}
 
@@ -212,8 +211,8 @@ function OracleConfig({ customization, update }: Pick<Props, 'customization' | '
   return (
     <>
       <p className="gen-mode-explain">
-        Skips crowd data and picks the strongest cards for each <strong>role</strong> in your colors
-        — a solid functional deck for any commander, even ones EDHREC barely covers.
+        Skips crowd data and picks the strongest cards for each <strong>role</strong> in your
+        colors. A solid functional deck for any commander, even ones EDHREC barely covers.
       </p>
       <label className="gen-mode-toggle">
         <input
@@ -224,7 +223,7 @@ function OracleConfig({ customization, update }: Pick<Props, 'customization' | '
         <span>
           <strong>Permanents only</strong>
           <span className="gen-mode-toggle-hint">
-            No instants or sorceries — every nonland is a permanent, so the deck dodges
+            No instants or sorceries. Every nonland is a permanent, so the deck dodges
             counterspells.
           </span>
         </span>
@@ -247,8 +246,8 @@ function ArtConfig({
   return (
     <>
       <p className="gen-mode-explain">
-        Pick a motif. Every nonland card will <strong>depict it</strong> — and we'll choose the
-        printing whose art matches, so the finished list reads like a gallery.
+        Pick a motif. Every nonland card <strong>depicts it</strong>, in the printing whose art
+        matches. The finished list reads like a gallery.
       </p>
       <div className="gen-mode-chips" role="group" aria-label="Art motifs">
         {ART_THEME_PRESETS.map((p) => (
@@ -269,7 +268,7 @@ function ArtConfig({
           type="text"
           className="gen-mode-input"
           value={tag}
-          placeholder="e.g. lightning, ship, skull…"
+          placeholder="lightning, ship, skull…"
           onChange={(e) => update({ artThemeTag: e.target.value })}
           autoComplete="off"
           spellCheck={false}
@@ -281,7 +280,7 @@ function ArtConfig({
         caption={(n) =>
           `≈${n.toLocaleString()} cards depict ${labelFor(tag)}${commanderName ? ` in ${commanderName}'s colors` : ''}`
         }
-        emptyHint={`No cards depict “${tag.trim()}” in these colors — try another motif.`}
+        emptyHint={`No cards depict “${tag.trim()}” in these colors. Try another motif.`}
       />
     </>
   );
@@ -438,7 +437,7 @@ function ScryfallPreview({
         {state.status === 'loading' && 'Counting matching cards…'}
         {state.status === 'ok' && caption(state.total)}
         {state.status === 'empty' && emptyHint}
-        {state.status === 'error' && "Couldn't reach Scryfall — try again."}
+        {state.status === 'error' && "Couldn't reach Scryfall. Try again."}
       </p>
     </div>
   );

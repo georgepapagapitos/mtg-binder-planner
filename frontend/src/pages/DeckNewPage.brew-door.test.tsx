@@ -81,7 +81,7 @@ describe('DeckNewPage — brew door', () => {
       </MemoryRouter>
     );
     act(() => useDeckBuilderStore.getState().setCommander(TEYSA));
-    fireEvent.click(screen.getByRole('button', { name: 'Start brewing →' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start brewing' }));
     expect(navigateMock).toHaveBeenCalledWith('/decks/new/brew', { state: { commander: TEYSA } });
   });
 
@@ -91,7 +91,7 @@ describe('DeckNewPage — brew door', () => {
         <DeckNewPage />
       </MemoryRouter>
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Start brewing →' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start brewing' }));
     expect(navigateMock).toHaveBeenCalledWith('/decks/new/brew', undefined);
   });
 });

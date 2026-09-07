@@ -27,7 +27,7 @@ export function ReadinessChip({ score }: { score: ReadinessScore | 'loading' | u
     return (
       <span
         className="commander-search-item-readiness is-muted"
-        title="Readiness unavailable — no EDHREC staple data for this commander"
+        title="No EDHREC staple data for this commander."
       >
         —
       </span>

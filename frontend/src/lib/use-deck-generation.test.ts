@@ -80,12 +80,25 @@ describe('checkGenerationGate', () => {
   });
 
   it('rejects a near-landless deck (land floor)', () => {
+    // Compensate the mainboard count with extra creatures so this trips ONLY
+    // the land-floor check, not also a deck-size shortfall — the gate message
+    // now surfaces just the first issue (see checkGenerationGate).
+    const bad = generatedDeck({
+      lands: Array.from({ length: 5 }, (_, i) => card({ name: `Land ${i}`, type_line: 'Land' })),
+      creatures: Array.from({ length: 94 }, (_, i) => card({ name: `Spell ${i}` })),
+    });
+    const result = checkGenerationGate(bad, commander);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/land floor/);
+  });
+
+  it('surfaces the first issue plus a count when several are found at once', () => {
     const bad = generatedDeck({
       lands: Array.from({ length: 5 }, (_, i) => card({ name: `Land ${i}`, type_line: 'Land' })),
     });
     const result = checkGenerationGate(bad, commander);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/land floor/);
+    if (!result.ok) expect(result.message).toMatch(/\(\+1 more\)$/);
   });
 });
 

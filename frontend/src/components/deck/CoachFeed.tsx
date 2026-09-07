@@ -906,6 +906,7 @@ export function CoachFeed({
                       }
                     >
                       <DeckCardRow
+                        as="div"
                         change={change}
                         commanderName={commanderName}
                         peekName={change.name}

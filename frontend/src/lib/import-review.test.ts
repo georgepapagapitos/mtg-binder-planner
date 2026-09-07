@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { mergeImportResults, removeUnresolvedName, importReviewHeadline } from './import-review';
+import {
+  mergeImportResults,
+  removeUnresolvedName,
+  importReviewHeadline,
+  fetchErrorMessage,
+} from './import-review';
 import type { UploadResponse } from '../types';
 
 function response(overrides: Partial<UploadResponse> = {}): UploadResponse {
@@ -114,5 +119,20 @@ describe('importReviewHeadline', () => {
 
   it('reads as a plain summary when nothing needs action', () => {
     expect(importReviewHeadline({ fetchErrorCount: 0, unresolvedCount: 0 })).toBe('Import summary');
+  });
+});
+
+describe('fetchErrorMessage', () => {
+  it('pluralizes the count and joins the retry hint with no em-dash', () => {
+    expect(fetchErrorMessage(1, 'Retry below.')).toBe("1 card couldn't be fetched. Retry below.");
+    expect(fetchErrorMessage(3, 'Retry below.')).toBe("3 cards couldn't be fetched. Retry below.");
+  });
+
+  it('carries a longer explanatory retry hint verbatim', () => {
+    expect(
+      fetchErrorMessage(2, 'The card service was unreachable, so they weren’t imported.')
+    ).toBe(
+      "2 cards couldn't be fetched. The card service was unreachable, so they weren’t imported."
+    );
   });
 });

@@ -1,9 +1,27 @@
+import { useEffect, useState } from 'react';
 import { CircleUserRound, Home, Layers, List, Search, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { usePlayStore } from '../store/play';
 import { useAuth } from '../store/auth';
 import { useActivity } from '../lib/use-activity';
+import { getPendingCount, hasSyncError, isOnline, onSyncedChange } from '../lib/sync';
 import { UserAvatar } from './UserAvatar';
+
+/**
+ * True while sync has something a phone user should know about (offline,
+ * failing, or a change still queued) — the only place this signal reaches a
+ * signed-in phone user outside `/you?section=account`, since the full
+ * indicator lives in the header, which is hidden below 1024px. Mirrors the
+ * same non-happy precedence `HeaderSyncIndicator`/`SyncIndicator` use, just
+ * collapsed to a boolean for a plain dot rather than a labeled pill.
+ */
+function useSyncNeedsAttention(): boolean {
+  const isAuthed = useAuth((s) => s.status === 'authed');
+  const [, force] = useState(0);
+  useEffect(() => onSyncedChange(() => force((n) => n + 1)), []);
+  if (!isAuthed) return false;
+  return !isOnline() || hasSyncError() || getPendingCount() > 0;
+}
 
 const ICON_PROPS = {
   className: 'mobile-tab-bar-icon',
@@ -33,6 +51,7 @@ export function MobileTabBar() {
   // phone's social door is on Home itself (QuickActionsRow), which is where
   // this badge already sends you; desktop, which has room, gets a nav link.
   const { count } = useActivity();
+  const syncNeedsAttention = useSyncNeedsAttention();
   return (
     <nav className="mobile-tab-bar" aria-label="Primary mobile">
       <NavLink
@@ -105,7 +124,11 @@ export function MobileTabBar() {
         className={({ isActive }) =>
           isActive ? 'mobile-tab-bar-link active' : 'mobile-tab-bar-link'
         }
-        aria-label={isAuthed ? `You, signed in as @${user?.username}` : 'You'}
+        aria-label={
+          isAuthed
+            ? `You, signed in as @${user?.username}${syncNeedsAttention ? ', sync needs attention' : ''}`
+            : 'You'
+        }
       >
         <span className="mobile-tab-bar-glyph">
           {isAuthed ? (
@@ -117,6 +140,7 @@ export function MobileTabBar() {
           ) : (
             <CircleUserRound {...ICON_PROPS} />
           )}
+          {syncNeedsAttention && <span className="mobile-tab-bar-sync-dot" aria-hidden="true" />}
         </span>
         <span className="mobile-tab-bar-label">You</span>
       </NavLink>

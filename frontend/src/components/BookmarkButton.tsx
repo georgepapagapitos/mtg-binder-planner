@@ -54,7 +54,7 @@ export function BookmarkButton({ slug, initialBookmarked, size = 16, onChange }:
       onChange?.(nextBookmarked);
     } catch {
       setBookmarked(prevBookmarked);
-      toast.show({ message: "Couldn't save this deck — try again", tone: 'error' });
+      toast.show({ message: "Couldn't save this deck. Try again.", tone: 'error' });
     } finally {
       setBusy(false);
     }

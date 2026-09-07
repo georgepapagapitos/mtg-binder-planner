@@ -1612,12 +1612,19 @@
   gap: var(--space-2);
 }
 
-/* Actions cell of a table row: the per-row buttons (Clear profile, Delete)
-   sit side by side, right-aligned to match the cell's own text-align. */
-.admin-row-actions {
+/* Profile cell: the display name, plus a bio/avatar-card caption on its own
+ * line when present — visible rather than a hover-only title= (B2-15), which
+ * never fires on touch and is invisible to a screen reader either way. */
+.admin-profile-cell {
   display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+}
+
+.admin-profile-detail {
+  max-width: 22rem;
+  white-space: normal;
 }
 
 /* Reports section: loading skeleton rows shown while GET /api/admin/reports

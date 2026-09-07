@@ -67,7 +67,7 @@ export async function pickNativeFiles(options: PickOptions = {}): Promise<File[]
           lastModified: picked.modifiedAt ?? Date.now(),
         });
       }
-      throw new Error(`Picker returned no data for "${picked.name}".`);
+      throw new Error(`Couldn't read "${picked.name}". Try picking it again.`);
     })
   );
 }

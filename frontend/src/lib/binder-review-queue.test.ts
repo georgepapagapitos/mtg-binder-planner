@@ -367,7 +367,7 @@ describe('formatExcludeDestination', () => {
       filter: { rarities: { chips: [{ value: 'rare', negate: false }], joiners: [] } },
     });
     expect(formatExcludeDestination(card, 'first', [first, second])).toBe(
-      'Excluded — files to Second'
+      'Excluded: files to Second'
     );
   });
 
@@ -377,8 +377,6 @@ describe('formatExcludeDestination', () => {
       id: 'only',
       filter: { rarities: { chips: [{ value: 'rare', negate: false }], joiners: [] } },
     });
-    expect(formatExcludeDestination(card, 'only', [only])).toBe(
-      'Excluded — files to Uncategorized'
-    );
+    expect(formatExcludeDestination(card, 'only', [only])).toBe('Excluded: files to Uncategorized');
   });
 });

@@ -28,7 +28,7 @@ export function ProxyBadge({ card, className }: ProxyBadgeProps): JSX.Element | 
       className={`proxy-badge${className ? ` ${className}` : ''}`}
       role="img"
       aria-label="Proxy"
-      title="Proxy — priced at $0, not a real printing"
+      title="Proxy, priced at $0"
     />
   );
 }

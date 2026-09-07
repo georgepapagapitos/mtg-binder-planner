@@ -248,7 +248,7 @@ function PublicProfilePageInner({ username }: { username: string }) {
 
   useEffect(() => {
     if (state.status !== 'ready') return;
-    document.title = `${pageHeading(state.profile).heading} — SpellControl`;
+    document.title = `${pageHeading(state.profile).heading} · SpellControl`;
   }, [state]);
 
   if (state.status === 'loading') {

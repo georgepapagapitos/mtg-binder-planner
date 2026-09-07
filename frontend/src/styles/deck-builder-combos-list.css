@@ -511,6 +511,10 @@
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent);
   text-underline-offset: 2px;
+  /* B4-08: `.btn-link`'s 6px side padding read as a visible gap before the
+     comma joining this name to the next one in a comma-separated list. The
+     coarse-pointer floor below still grows the real box vertically. */
+  padding-inline: 0;
 }
 
 .combo-aside-host:disabled {
@@ -550,6 +554,13 @@
   flex: 0 0 auto;
   color: var(--accent);
   text-decoration: none;
+}
+
+/* B4-08: the row's flex `gap` (line 475) evenly spaces every child, which
+   also opened a gap before the trailing ", page N" — visually a space before
+   a comma. Cancel it for just that boundary; the comma should hug the link. */
+.combo-aside-line .combo-aside-binder + .combo-aside-page {
+  margin-left: -0.3rem;
 }
 
 .combo-aside-binder:focus-visible {

@@ -18,7 +18,7 @@ function verdictFor(
     return {
       label: 'Auto',
       tone: 'neutral',
-      reason: 'No target set — showing the auto-estimated power level.',
+      reason: 'No target set. Showing the auto-estimated power level.',
     };
   }
   if (detected == null) {
@@ -31,13 +31,13 @@ function verdictFor(
     return {
       label: 'Above target',
       tone: 'warn',
-      reason: 'The deck estimates hotter than your target — consider trimming high-power cards.',
+      reason: 'The deck estimates hotter than your target. Consider trimming high-power cards.',
     };
   }
   return {
     label: 'Below target',
     tone: 'info',
-    reason: 'The deck estimates softer than your target — room to add power.',
+    reason: 'The deck estimates softer than your target. Room to add power.',
   };
 }
 

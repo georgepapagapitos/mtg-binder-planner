@@ -113,7 +113,7 @@ export function PullListSheet({
     groups.length === 0
       ? 'Nothing to pull yet.'
       : totalQty === 0
-        ? 'Nothing to pull — no free copies in your binders.'
+        ? 'Nothing to pull. No free copies of these cards are sitting in your binders.'
         : pulledQty === totalQty
           ? `All ${totalQty} pulled.`
           : `${pulledQty} of ${totalQty} pulled.`;
@@ -203,7 +203,7 @@ export function PullListSheet({
                         type="button"
                         className="btn-link pull-list-group-all"
                         onClick={() => checkAll(unpulledKeys)}
-                        aria-label={`Pulled all — ${g.label}`}
+                        aria-label={`Pulled all: ${g.label}`}
                       >
                         Pulled all
                       </button>

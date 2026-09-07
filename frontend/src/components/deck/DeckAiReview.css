@@ -68,6 +68,34 @@
   color: var(--text-muted);
 }
 
+/* B6-11: below ~400px the AiMarker pill + title + teaser + chevron no longer
+   fit one line, and the title used to lose that fight and ellipsis-clip
+   ("Weigh these sugge…") while the shorter teaser stayed fully visible.
+   Wrap instead — the title stays whole on row one with the chevron, and the
+   teaser (a "N candidates" count, not the primary label) drops to its own
+   row rather than clipping the thing users actually read. */
+@media (max-width: 400px) {
+  .deck-ai-strip {
+    flex-wrap: wrap;
+  }
+
+  .deck-ai-strip-title {
+    order: 1;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .deck-ai-strip-chevron {
+    order: 2;
+  }
+
+  .deck-ai-strip-teaser {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
 /* ── Idle ── (the invitation's rules live in DeckAiConsent.css; the idle
    text/actions rows deliberately match them one for one) */
 .deck-ai-idle-text {

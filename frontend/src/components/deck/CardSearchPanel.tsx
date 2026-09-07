@@ -37,6 +37,7 @@ import { BinderBadge, type BinderInfo } from '../BinderBadge';
 import { SearchPill } from '../SearchPill';
 import { Tabs, type TabItem } from '../Tabs';
 import { WedgeHintStrip } from './WedgeHintStrip';
+import { DeckAnalysisSkeleton } from './DeckAnalysisSkeleton';
 import { dismissBinderHint, shouldShowBinderHint } from '../../lib/wedge-hints';
 import type { ChipExpression, EnrichedCard } from '../../types';
 import type { GapAnalysisCard, HiddenGemRow } from '@/deck-builder/types';
@@ -952,7 +953,7 @@ function CollectionResults({
   const addByName = async (name: string, preferPrintingId?: string) => {
     const full = await getCardByNameResilient(name);
     if (!full) {
-      pushToast({ message: `Couldn't load ${name} — try again`, tone: 'error' });
+      pushToast({ message: `Couldn't load ${name}. Try again.`, tone: 'error' });
       return;
     }
     const claim = pickCollectionCopy(name, collection, allocations, preferPrintingId ?? full.id);
@@ -1002,7 +1003,7 @@ function CollectionResults({
   if (collection.length === 0) {
     return (
       <p className="card-search-empty">
-        Your collection is empty. Import cards on the Collection page first.
+        Your collection is empty. Import cards from the Collection page.
       </p>
     );
   }
@@ -1011,7 +1012,7 @@ function CollectionResults({
   const tagNote =
     wantsTags && tagsError ? (
       <p className="card-search-tag-note" role="status">
-        Card-tag data unavailable — otag: filters are ignored.{' '}
+        Card-tag data unavailable. otag: filters are ignored.{' '}
         <button type="button" className="card-search-fit" onClick={() => void ensureCardTags()}>
           Retry
         </button>
@@ -1192,7 +1193,7 @@ function SuggestionsResults({
   const addByName = async (name: string) => {
     const full = await getCardByNameResilient(name);
     if (!full) {
-      pushToast({ message: `Couldn't load ${name} — try again`, tone: 'error' });
+      pushToast({ message: `Couldn't load ${name}. Try again.`, tone: 'error' });
       return;
     }
     const claim = pickCollectionCopy(name, collection, allocations, full.id);
@@ -1252,7 +1253,7 @@ function SuggestionsResults({
   }, [rows, pending]);
 
   if (pending) {
-    return <p className="card-search-empty">Analyzing your deck…</p>;
+    return <DeckAnalysisSkeleton status="pending" />;
   }
 
   const total = counts.owned + counts.inOtherDeck + counts.inCube + counts.unowned;
@@ -1282,7 +1283,7 @@ function SuggestionsResults({
           <p className="card-search-empty">
             {query
               ? 'No suggestions match your filter.'
-              : 'No suggestions right now — your deck already runs the staples for this commander.'}
+              : 'No suggestions right now. Your deck already runs the staples for this commander.'}
           </p>
           {query.trim().length >= 2 && (
             <div className="card-search-empty-actions">

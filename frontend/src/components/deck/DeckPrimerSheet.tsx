@@ -105,7 +105,7 @@ export function DeckPrimerSheet({ deck, onClose }: Props): JSX.Element {
             value={text}
             maxLength={PRIMER_MAX}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Add strategy notes for people viewing this deck…"
+            placeholder="Add strategy notes for people viewing this deck"
             aria-describedby={showCounter ? counterId : undefined}
           />
           <p className="deck-primer-sheet-hint">

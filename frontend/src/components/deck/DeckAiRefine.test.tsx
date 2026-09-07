@@ -154,7 +154,7 @@ describe('DeckAiRefine', () => {
     // that were never generated. Caught by driving a real hand-built deck.
     stubApi(true, []);
     renderPanel(() => {});
-    expect(await screen.findByText(/AI can read this deck/)).toBeTruthy();
+    expect(await screen.findByText(/Suggests a few changes/)).toBeTruthy();
     expect(screen.queryByText(/the generator built/)).toBeNull();
   });
 
@@ -206,7 +206,7 @@ describe('DeckAiRefine', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: /Is it an upgrade\?/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Weigh this add' }));
-    expect(await screen.findByText(/wouldn't cut a card for Karumonix/)).toBeTruthy();
+    expect(await screen.findByText(/No cut needed for Karumonix/)).toBeTruthy();
   });
 
   it('starts as a compact strip on the Suggestions tab and expands in place (E244)', async () => {
@@ -453,7 +453,7 @@ describe('DeckAiRefine', () => {
     expect(await screen.findByText('Card A2')).toBeTruthy();
     // The AI's why no longer applies to a card it never evaluated.
     expect(screen.queryByText("The AI's own reasoning about Card A.")).toBeNull();
-    expect(screen.getByText(/Engine alternative — same role as Card A\./)).toBeTruthy();
+    expect(screen.getByText(/Engine alternative, same role as Card A\./)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Try another alternative to Card A2' }));
     expect(await screen.findByText('Card A3')).toBeTruthy();

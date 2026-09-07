@@ -707,6 +707,19 @@ export async function ensureSchema(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS deck_stat_snapshots_day_idx ON deck_stat_snapshots(day);
 
+    -- First-party, cookieless usage counters (marketing top-5). One row per
+    -- (day, event, path) holding only a count: no identifiers, no IP, no UA
+    -- are ever written, so the privacy page's "no third-party trackers"
+    -- promise holds by construction. Fed by POST /api/events, read by
+    -- GET /api/admin/events.
+    CREATE TABLE IF NOT EXISTS event_counts (
+      day DATE NOT NULL,
+      name TEXT NOT NULL,
+      path TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, name, path)
+    );
+
     -- Opt-in AI features (T96 "Read the deck"). Consent lives on the user
     -- row, deliberately outside the sync layer; NULL ai_daily_limit means
     -- the app default applies (per-user override = a data change, not a

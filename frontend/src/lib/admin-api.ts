@@ -66,3 +66,18 @@ export async function resolveReport(id: string, action: 'dismiss' | 'hide'): Pro
   });
   await handleResponse<{ ok: true }>(res);
 }
+
+export interface EventCountRow {
+  /** YYYY-MM-DD */
+  day: string;
+  name: string;
+  path: string;
+  count: number;
+}
+
+/** First-party beacon counters for the last `days` days (raw daily rows). */
+export async function listEvents(days = 30): Promise<EventCountRow[]> {
+  const res = await authedFetch(`/api/admin/events?days=${days}`);
+  const data = await handleResponse<{ events: EventCountRow[] }>(res);
+  return data.events;
+}

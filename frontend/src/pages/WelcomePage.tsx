@@ -38,6 +38,7 @@ import { useCollectionStore } from '../store/collection';
 import { importText } from '../lib/api';
 import { sampleCardsAsCsv } from '../lib/samples';
 import { markEverVisited } from '../lib/first-run';
+import { track } from '../lib/analytics';
 import { WelcomeHero } from '../components/welcome/WelcomeHero';
 import { FreshDecksRail } from '../components/welcome/FreshDecksRail';
 import { TrendingRail } from '../components/aggregates/TrendingRail';
@@ -99,6 +100,7 @@ export function WelcomePage() {
       const response = await importText(sampleCardsAsCsv());
       await loadSampleBinders(response);
       markEverVisited();
+      track('sample_loaded');
       navigate('/collection');
     } catch (err) {
       const msg = userMessage(err, "Couldn't load the sample cards. Try again in a moment.");
@@ -154,7 +156,11 @@ export function WelcomePage() {
                 guest), which is the correct dismissal point. A plain <Link>
                 (not an onClick+navigate button) so cmd/ctrl/middle-click
                 still work, same reasoning as TrendingRail's own tiles. */}
-            <Link to="/auth" className="pill-btn welcome-door-secondary">
+            <Link
+              to="/auth"
+              className="pill-btn welcome-door-secondary"
+              onClick={() => track('sign_in')}
+            >
               <LogIn width={16} height={16} aria-hidden />
               Sign in
             </Link>

@@ -30,6 +30,7 @@ import { reportsRouter } from './routes/reports';
 import { discoverRouter } from './routes/discover';
 import { activityRouter } from './routes/activity';
 import { aiRouter } from './routes/ai';
+import { eventsRouter } from './routes/events';
 
 /**
  * Returns the Postgres connection string for tests. vitest.global-setup.ts
@@ -532,6 +533,13 @@ export async function createTestEnv(): Promise<TestEnv> {
       copy_count INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (deck_id, day)
     );
+    CREATE TABLE event_counts (
+      day DATE NOT NULL,
+      name TEXT NOT NULL,
+      path TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, name, path)
+    );
     CREATE INDEX deck_stat_snapshots_day_idx ON deck_stat_snapshots(day);
   `);
 
@@ -565,6 +573,7 @@ export async function createTestEnv(): Promise<TestEnv> {
   app.use('/api/discover', discoverRouter);
   app.use('/api/activity', activityRouter);
   app.use('/api/ai', aiRouter);
+  app.use('/api/events', eventsRouter);
 
   /**
    * Hand tests a **listening server**, never the bare Express app.

@@ -6,6 +6,7 @@ import { BrandMark } from '../shared/BrandMark';
 import { SearchPill } from '../SearchPill';
 import { useCardThumb } from '../../lib/card-thumbs';
 import { markEverVisited } from '../../lib/first-run';
+import { track } from '../../lib/analytics';
 import { pickWelcomeHeroCard } from '../../lib/welcome-hero';
 
 /**
@@ -27,6 +28,8 @@ export function WelcomeHero() {
   const heroCardName = pickWelcomeHeroCard();
   // art_crop, never 'normal' — same ruling as HomeHero: the frameless
   // illustration, not a card scan's border cover-cropped to a dark strip.
+  // It is also the landing's largest contentful paint, so the <img> below is
+  // eager + high fetch priority: lazy-loading it told the browser to wait.
   const art = useCardThumb(heroCardName, 'art_crop');
   const [query, setQuery] = useState('');
 
@@ -40,7 +43,15 @@ export function WelcomeHero() {
     <header className="welcome-hero">
       <div className="welcome-hero-backdrop" aria-hidden="true">
         {art ? (
-          <img className="welcome-hero-art" src={art} alt="" aria-hidden="true" loading="lazy" />
+          <img
+            className="welcome-hero-art"
+            src={art}
+            alt=""
+            aria-hidden="true"
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+          />
         ) : (
           <span className="welcome-hero-art-loading" />
         )}
@@ -77,12 +88,19 @@ export function WelcomeHero() {
           <Link
             to="/collection?add=list"
             className="pill-btn pill-btn-primary"
-            onClick={() => markEverVisited()}
+            onClick={() => {
+              markEverVisited();
+              track('import_started');
+            }}
           >
             <Import width={14} height={14} strokeWidth={1.8} aria-hidden />
             Import your collection
           </Link>
-          <Link to="/decks/discover" className="pill-btn welcome-hero-cta-secondary">
+          <Link
+            to="/decks/discover"
+            className="pill-btn welcome-hero-cta-secondary"
+            onClick={() => track('browse_decks')}
+          >
             Browse public decks
           </Link>
         </div>

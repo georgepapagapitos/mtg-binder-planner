@@ -14,8 +14,18 @@ import {
   useCollectionByCopyId,
 } from '../lib/allocations';
 import type { EnrichedCard } from '../types';
+import { listEvents, type EventCountRow } from '../lib/admin-api';
+import { userMessage } from '../lib/user-error';
 
-type Tab = 'overview' | 'decks' | 'allocations' | 'collection' | 'binders' | 'storage' | 'raw';
+type Tab =
+  | 'overview'
+  | 'decks'
+  | 'allocations'
+  | 'collection'
+  | 'binders'
+  | 'analytics'
+  | 'storage'
+  | 'raw';
 
 // Stable empty map for the brief pre-hydration window (keeps the prop a Map).
 const EMPTY_COLLECTION: Map<string, EnrichedCard> = new Map();
@@ -39,6 +49,16 @@ export function AdminPage() {
   const savedCubes = useCubeStore((s) => s.saved);
 
   const [tab, setTab] = useState<Tab>('overview');
+  // First-party beacon counters (lib/analytics + /api/admin/events), fetched
+  // once when the tab is first opened. null = not loaded yet.
+  const [events, setEvents] = useState<EventCountRow[] | null>(null);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  useEffect(() => {
+    if (tab !== 'analytics' || events !== null) return;
+    listEvents(30)
+      .then(setEvents)
+      .catch((err) => setEventsError(userMessage(err, "Couldn't load the usage counters.")));
+  }, [tab, events]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
 
   // Shared hydration-aware index (undefined while the store hydrates → empty map).
@@ -223,6 +243,7 @@ export function AdminPage() {
           { id: 'allocations', label: 'Allocations', count: allocationMap.size },
           { id: 'collection', label: 'Collection', count: cards.length },
           { id: 'binders', label: 'Binders', count: binders.length },
+          { id: 'analytics', label: 'Analytics' },
           { id: 'storage', label: 'Storage' },
           { id: 'raw', label: 'Raw JSON' },
         ]}
@@ -483,6 +504,8 @@ export function AdminPage() {
           </table>
         </section>
       )}
+
+      {tab === 'analytics' && <AnalyticsTab events={events} error={eventsError} />}
 
       {tab === 'storage' && (
         <StorageTab
@@ -1036,6 +1059,65 @@ function RawTab({
         <button onClick={() => download('decks.json', decks)}>Download decks.json</button>
         <button onClick={() => download('binders.json', binders)}>Download binders.json</button>
       </div>
+    </section>
+  );
+}
+
+/** Sum `count` over rows grouped by `key`, sorted descending. */
+function sumBy(rows: EventCountRow[], key: (r: EventCountRow) => string): [string, number][] {
+  const totals = new Map<string, number>();
+  for (const r of rows) totals.set(key(r), (totals.get(key(r)) ?? 0) + r.count);
+  return [...totals].sort((a, b) => b[1] - a[1]);
+}
+
+function CountTable({ caption, rows }: { caption: string; rows: [string, number][] }) {
+  return (
+    <table className="admin-table">
+      <caption>{caption}</caption>
+      <tbody>
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={2}>Nothing counted yet.</td>
+          </tr>
+        )}
+        {rows.map(([k, n]) => (
+          <tr key={k}>
+            <th>{k}</th>
+            <td>{n.toLocaleString()}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * Last-30-day view of the first-party beacon: totals per event, page views
+ * per (normalized) path, and page views per day. Aggregates client-side from
+ * the raw daily rows so the API stays one trivial query.
+ */
+function AnalyticsTab({ events, error }: { events: EventCountRow[] | null; error: string | null }) {
+  if (error) {
+    return (
+      <p className="admin-warn" role="alert">
+        {error}
+      </p>
+    );
+  }
+  if (events === null) return <p className="admin-sub">Loading usage counters…</p>;
+  const views = events.filter((r) => r.name === 'pageview');
+  return (
+    <section className="admin-section">
+      <h2>Analytics (last 30 days)</h2>
+      <p className="admin-sub">
+        Aggregate counters only: a day, an event name, and a path. Nothing per person is stored.
+      </p>
+      <CountTable caption="Events" rows={sumBy(events, (r) => r.name)} />
+      <CountTable caption="Page views by path" rows={sumBy(views, (r) => r.path).slice(0, 25)} />
+      <CountTable
+        caption="Page views by day"
+        rows={sumBy(views, (r) => r.day).sort((a, b) => (a[0] < b[0] ? 1 : -1))}
+      />
     </section>
   );
 }

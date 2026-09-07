@@ -757,7 +757,7 @@ function TradeSide({
     <section className="trade-side" aria-labelledby={headingId}>
       <h3 className="trade-side-title" id={headingId}>
         {title}
-        {count > 0 && <span className="game-night-count">{count}</span>}
+        {count > 0 && <span className="trade-composer-count">{count}</span>}
         {value && (
           <span className="trade-side-value" data-testid={`trade-side-value-${title}`}>
             {value}

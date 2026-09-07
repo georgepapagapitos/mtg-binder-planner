@@ -1,7 +1,8 @@
 /* Trade composer. Reuses .game-night-dialog(-title/-hint/-actions),
-   .game-night-count, .btn/.btn-primary/.btn-link, .empty-state, and
-   .friend-hub-radar-thumb from FriendHubPage.css — only what's unique to two
-   side-by-side baskets gets new rules here.
+   .btn/.btn-primary/.btn-link, .empty-state, and .friend-hub-radar-thumb from
+   FriendHubPage.css — only what's unique to two side-by-side baskets gets new
+   rules here. (.trade-composer-count is its own: the play hub's
+   .game-night-count only reached this chunk while HomePage was eager.)
 
    No sizing rule on .trade-composer itself: this <Modal> takes no className,
    so it inherits .choice-dialog's `max-height: calc(var(--vh-safe) - 6rem -
@@ -589,4 +590,10 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   text-align: right;
+}
+
+/* Basket item count next to a heading — quiet, not bold. */
+.trade-composer-count {
+  color: var(--text-secondary);
+  font-weight: 400;
 }

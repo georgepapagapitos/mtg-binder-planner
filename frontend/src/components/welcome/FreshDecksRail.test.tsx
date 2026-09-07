@@ -103,22 +103,22 @@ describe('FreshDecksRail', () => {
     mockListDiscoverDecks.mockResolvedValue({ decks: [], page: 1, hasMore: false });
 
     const { container } = renderRail();
-    await waitFor(() => expect(mockListDiscoverDecks).toHaveBeenCalled());
-    expect(container.firstChild).toBeNull();
+    await waitFor(() => expect(container.firstChild).toBeNull());
   });
 
   it('renders nothing when the fetch fails, rather than an error banner', async () => {
     mockListDiscoverDecks.mockRejectedValue(new Error('network down'));
 
     const { container } = renderRail();
-    await waitFor(() => expect(mockListDiscoverDecks).toHaveBeenCalled());
-    expect(container.firstChild).toBeNull();
+    await waitFor(() => expect(container.firstChild).toBeNull());
   });
 
-  it('renders nothing before the fetch resolves', () => {
+  it('reserves the rail height with a skeleton before the fetch resolves', () => {
     mockListDiscoverDecks.mockReturnValue(new Promise(() => {}));
 
     const { container } = renderRail();
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByRole('status').textContent).toMatch(/loading public decks/i);
+    expect(container.querySelector('section')?.getAttribute('aria-busy')).toBe('true');
+    expect(container.querySelectorAll('.discover-tile-skeleton').length).toBe(6);
   });
 });

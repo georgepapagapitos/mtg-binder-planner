@@ -268,11 +268,19 @@ export function createShareLandingHandler(
       return next();
     }
     let meta: ShareLandingMeta | null = null;
+    let lookupFailed = false;
     try {
       meta = await lookup(token);
     } catch (err) {
+      lookupFailed = true;
       logger.warn('[shares/og] lookup failed, serving bare shell with noindex:', err);
     }
+    // A definite miss (unknown/revoked token, unpublished slug, hidden or
+    // publication-less profile) is a real 404, not a soft one: crawlers drop
+    // it instead of indexing a "loading" shell. The SPA still boots from the
+    // same HTML and renders its own not-found state. A lookup *error* keeps
+    // 200 so a DB blip never tells Google a live page is gone.
+    if (!meta && !lookupFailed) res.status(404);
     const html = injectShareHead(shell, meta);
     res.setHeader('Cache-Control', 'private, max-age=60');
     res.type('html').send(html);

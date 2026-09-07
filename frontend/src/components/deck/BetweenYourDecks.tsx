@@ -201,8 +201,8 @@ function BetweenYourDecksSheet({
           <div className="between-decks-sheet-titles">
             <h2 className="between-decks-sheet-title">Between your decks</h2>
             <p className="between-decks-sheet-sub">
-              Cards sleeved into the wrong deck — moved together with an owned replacement, so
-              nothing is left worse off.
+              Cards sleeved into the wrong deck, moved together with an owned replacement. Nothing
+              is left worse off.
             </p>
           </div>
           <button
@@ -366,7 +366,7 @@ export function BetweenYourDecks(): JSX.Element | null {
       const replacementCopy = collection.find((c) => c.copyId === move.replacementCopyId);
       if (!fromDeck || !toDeck || !fromSlot || !replacementCopy) {
         toast.show({
-          message: `${move.cardName} has changed since this suggestion — refresh to see the latest`,
+          message: `${move.cardName} has changed since this suggestion. Refresh to see the latest.`,
           tone: 'error',
         });
         return;
@@ -382,7 +382,7 @@ export function BetweenYourDecks(): JSX.Element | null {
       swapCard(fromDeck.id, fromSlot.slotId, replacementCard, replacementCopy.copyId);
       haptics.tap();
       toast.show({
-        message: `Moved ${move.cardName} to ${toDeck.name} — ${replacementCopy.name} covers ${fromDeck.name}`,
+        message: `Moved ${move.cardName} to ${toDeck.name}. ${replacementCopy.name} covers ${fromDeck.name}.`,
         tone: 'success',
         actionLabel: 'Undo',
         onAction: () => {

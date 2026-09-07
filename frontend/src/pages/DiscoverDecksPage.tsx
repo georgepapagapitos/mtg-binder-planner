@@ -284,7 +284,10 @@ export function DiscoverDecksPage() {
           <p className="binder-hero-meta">Public decks from the SpellControl community.</p>
         </header>
 
-        <TrendingRail enabled={true} />
+        <TrendingRail
+          enabled={true}
+          compactWhenEmpty={!loading && !error && displayDecks.length === 0 && !hasActiveFilters}
+        />
 
         <div className="discover-toolbar">
           <CommanderTypeahead

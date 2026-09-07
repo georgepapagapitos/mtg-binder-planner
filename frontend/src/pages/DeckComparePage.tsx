@@ -1,6 +1,7 @@
 import './DeckComparePage.css';
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { BackLink } from '../components/BackLink';
 import { useDecksStore, type Deck } from '../store/decks';
 import type { ScryfallCard } from '@/deck-builder/types';
 import { SelectMenu, type SelectOption } from '../components/SelectMenu';
@@ -162,6 +163,7 @@ export function DeckComparePage() {
 
   return (
     <div className="deck-compare-page" aria-busy={!hydrated}>
+      <BackLink to="/decks" label="All decks" />
       <h1 className="deck-compare-heading">
         {deckA && deckB ? (
           <>
@@ -308,21 +310,19 @@ export function DeckComparePage() {
                             <span className="info-tip-lead">What each role means</span>
                             <ul className="info-tip-list">
                               <li>
-                                <strong>Lands</strong> — your mana base.
+                                <strong>Lands</strong>: your mana base.
                               </li>
                               <li>
-                                <strong>Ramp</strong> — cards that add extra mana to speed you up.
+                                <strong>Ramp</strong>: cards that add extra mana to speed you up.
                               </li>
                               <li>
-                                <strong>Card advantage</strong> — cards that draw or make more
-                                cards.
+                                <strong>Card advantage</strong>: cards that draw or make more cards.
                               </li>
                               <li>
-                                <strong>Spot removal</strong> — kills or neutralizes a single
-                                threat.
+                                <strong>Spot removal</strong>: kills or neutralizes a single threat.
                               </li>
                               <li>
-                                <strong>Board wipes</strong> — clear many things at once.
+                                <strong>Board wipes</strong>: clear many things at once.
                               </li>
                             </ul>
                           </>
@@ -384,11 +384,11 @@ export function DeckComparePage() {
                         <span className="info-tip-lead">Power brackets</span>
                         <ul className="info-tip-list">
                           <li>
-                            Commander decks rate <strong>1–5</strong> by power — <strong>B1</strong>{' '}
+                            Commander decks rate <strong>1–5</strong> by power. <strong>B1</strong>{' '}
                             is casual, <strong>B5</strong> is cutthroat (cEDH).
                           </li>
                           <li>
-                            <strong>Detected</strong> is our auto-estimate of the deck&apos;s level.
+                            <strong>Detected</strong> is the deck&apos;s auto-estimated level.
                           </li>
                           <li>
                             <strong>Target</strong> is the bracket you&apos;re aiming for;{' '}

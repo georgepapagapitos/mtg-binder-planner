@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Boxes, ChevronDown, LayoutGrid, LayoutList, Pencil, Share2, Trash2 } from 'lucide-react';
+import { OverflowMenu } from '../../components/OverflowMenu';
 import { ShareDialog } from '../../components/ShareDialog';
 import { ViewModeToggle } from '../../components/ViewModeToggle';
 import { useStoredView } from '../../lib/use-stored-view';
@@ -151,7 +152,7 @@ export function BuildCube({ highlightId }: { highlightId?: string }) {
     if (!cube) return;
     await navigator.clipboard.writeText(toCubeCobraList(cube.picks));
     pushToast({
-      message: `Copied ${cube.picks.length} cards — paste into CubeCobra's Add Cards`,
+      message: `Copied ${cube.picks.length} cards. Paste into CubeCobra's Add Cards.`,
       tone: 'success',
     });
   }, [cube, pushToast]);
@@ -204,7 +205,7 @@ export function BuildCube({ highlightId }: { highlightId?: string }) {
     if (sc.isPhysical) {
       cubeStore.setPhysical(sc.id, false, []);
       pushToast({
-        message: `“${sc.name}” is no longer physical — its copies are free again.`,
+        message: `“${sc.name}” is no longer physical. Its copies are free again.`,
         tone: 'success',
       });
     } else {
@@ -226,7 +227,7 @@ export function BuildCube({ highlightId }: { highlightId?: string }) {
     const reserved = picks.filter((p) => p.allocatedCopyId).length;
     cubeStore.setPhysical(physicalTarget.id, true, picks);
     pushToast({
-      message: `“${physicalTarget.name}” marked physical — reserved ${reserved} of your copies.`,
+      message: `“${physicalTarget.name}” marked physical. Reserved ${reserved} of your copies.`,
       tone: 'success',
     });
     setPhysicalTarget(null);
@@ -238,7 +239,7 @@ export function BuildCube({ highlightId }: { highlightId?: string }) {
         message="You haven't imported a collection yet."
         ctaHref="/collection"
         ctaLabel="Import your collection"
-        hint="A cube is built from the cards you own — bring them in first."
+        hint="A cube is built from the cards you own. Bring them in first."
       />
     );
   }
@@ -252,7 +253,7 @@ export function BuildCube({ highlightId }: { highlightId?: string }) {
           checked={availableOnly}
           onChange={setAvailableOnly}
           label="Available cards only"
-          title="When on, cards whose only copies are already committed to a deck or another physical cube are left out — a cube you can physically pull. Turn off to draw from everything you own."
+          infoText="Cards whose only copies are already claimed by a deck or another physical cube are left out, so what you build is what you can physically pull. Turn this off to draw from your whole collection."
         />
         <button
           type="button"
@@ -318,39 +319,27 @@ export function BuildCube({ highlightId }: { highlightId?: string }) {
                   }
                   title={
                     sc.isPhysical
-                      ? 'Physical cube — reserves your copies. Click to unmark.'
-                      : "Mark as physically built (reserves your copies so decks can't use them)"
+                      ? 'Reserves your copies. Click to unmark.'
+                      : "Reserves your copies so decks can't use them."
                   }
                 >
                   <Boxes width={15} height={15} aria-hidden />
                 </button>
-                <button
-                  type="button"
-                  className="cube-saved-action"
-                  onClick={() => setShareTarget(sc)}
-                  aria-label={`Share ${sc.name}`}
-                  title="Share"
-                >
-                  <Share2 width={15} height={15} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="cube-saved-action"
-                  onClick={() => setRenameTarget(sc)}
-                  aria-label={`Rename ${sc.name}`}
-                  title="Rename"
-                >
-                  <Pencil width={15} height={15} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="cube-saved-action cube-saved-delete"
-                  onClick={() => setDeleteTarget(sc)}
-                  aria-label={`Delete ${sc.name}`}
-                  title="Delete"
-                >
-                  <Trash2 width={15} height={15} aria-hidden />
-                </button>
+                <OverflowMenu
+                  className="cube-saved-menu"
+                  triggerClassName="cube-saved-action"
+                  ariaLabel={`Actions for ${sc.name}`}
+                  items={[
+                    { label: 'Share', icon: Share2, onClick: () => setShareTarget(sc) },
+                    { label: 'Rename', icon: Pencil, onClick: () => setRenameTarget(sc) },
+                    {
+                      label: 'Delete',
+                      icon: Trash2,
+                      danger: true,
+                      onClick: () => setDeleteTarget(sc),
+                    },
+                  ]}
+                />
               </li>
             ))}
           </ul>
@@ -421,7 +410,7 @@ export function BuildCube({ highlightId }: { highlightId?: string }) {
       {physicalTarget && (
         <ConfirmDialog
           title="Mark as a physical cube?"
-          body={`“${physicalTarget.name}” will reserve one of your copies for each card it can. Those copies stop showing as available for decks and binders — like sleeving the cards into the cube. You can unmark it any time to free them.`}
+          body={`“${physicalTarget.name}” will reserve one of your copies for each card it can. Those copies stop showing as available for decks and binders, like sleeving the cards into the cube. You can unmark it any time to free them.`}
           confirmLabel="Mark physical"
           onConfirm={confirmPhysical}
           onCancel={() => setPhysicalTarget(null)}
@@ -604,7 +593,7 @@ function CubeResult({
                           <button
                             type="button"
                             className="cube-tile-btn"
-                            aria-label={`${p.card.name} — open preview`}
+                            aria-label={`Open preview for ${p.card.name}`}
                             title={p.card.name}
                             onClick={() => setPreviewIndex(flatIndex)}
                           >
@@ -635,7 +624,7 @@ function CubeResult({
                           className="cube-row cube-row-interactive"
                           role="button"
                           tabIndex={0}
-                          aria-label={`${p.card.name} — open preview`}
+                          aria-label={`Open preview for ${p.card.name}`}
                           onClick={() => setPreviewIndex(flatIndex)}
                           onKeyDown={(e) => cubeRowKeyDown(e, flatIndex, setPreviewIndex)}
                         >

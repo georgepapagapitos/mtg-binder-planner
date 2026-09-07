@@ -1,6 +1,5 @@
 import type { EnrichedCard } from '../types';
 import { isCommanderEligible } from './commanders';
-import { frontFaceName } from './card-text';
 
 /**
  * Commander Spotlight readiness scoring — pure, network-free logic.
@@ -8,7 +7,7 @@ import { frontFaceName } from './card-text';
  * "Readiness" answers an explainable question: of a commander's most-played
  * staples (EDHREC `allNonLand`, sorted by inclusion %), how many do you already
  * own? It is deliberately deterministic and countable (no opaque score) so the
- * UI can show the *why* — "You own 47 of Atraxa's top 100 staples".
+ * UI can show the *why*: "47 of 100 staples owned".
  *
  * The EDHREC fetch + caching lives in the deck-builder service; this module only
  * consumes the resulting staple list, so it stays unit-testable with no I/O.
@@ -64,11 +63,6 @@ function recencyOf(card: EnrichedCard, recency?: ImportRecency): number {
   return recency?.get(id) ?? -Infinity;
 }
 
-/** Short display name: drop the title and any back-face. "Atraxa, Praetors' Voice" → "Atraxa". */
-function shortCommanderName(name: string): string {
-  return frontFaceName(name).split(',')[0].trim() || name;
-}
-
 /**
  * Extract the user's commander-eligible cards from their collection, one entry
  * per distinct commander name (keeping the most recently imported copy). Uses
@@ -109,12 +103,10 @@ export function isPdhCommanderCandidate(card: EnrichedCard): boolean {
  *
  * @param staples - EDHREC `allNonLand`, sorted by inclusion desc. Empty → unavailable.
  * @param ownedNames - Set of the user's owned card names, lowercased.
- * @param commanderName - Used only for the explainer line.
  */
 export function computeReadiness(
   staples: ReadinessStaple[],
-  ownedNames: Set<string>,
-  commanderName: string
+  ownedNames: Set<string>
 ): ReadinessScore {
   if (staples.length === 0) {
     return {
@@ -122,7 +114,7 @@ export function computeReadiness(
       ownedCount: 0,
       totalCount: 0,
       percent: 0,
-      explainerLine: 'Staple data unavailable — connect to rate readiness',
+      explainerLine: 'Staple data unavailable. Connect to rate readiness.',
       ownedSamples: [],
     };
   }
@@ -140,7 +132,7 @@ export function computeReadiness(
   }
 
   const percent = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
-  const explainerLine = `You own ${ownedCount} of ${shortCommanderName(commanderName)}'s top ${totalCount} staples`;
+  const explainerLine = `${ownedCount} of ${totalCount} staples owned`;
 
   return { available: true, ownedCount, totalCount, percent, explainerLine, ownedSamples };
 }

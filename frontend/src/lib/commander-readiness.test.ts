@@ -113,7 +113,7 @@ describe('computeReadiness', () => {
       ['Counterspell', 80],
       ['Cultivate', 60]
     );
-    const score = computeReadiness(pool, owned, 'Atraxa, Praetors’ Voice');
+    const score = computeReadiness(pool, owned);
     expect(score.available).toBe(true);
     expect(score.ownedCount).toBe(3);
     expect(score.totalCount).toBe(4);
@@ -121,27 +121,27 @@ describe('computeReadiness', () => {
   });
 
   it('matches names case-insensitively', () => {
-    const score = computeReadiness(staples(['SOL RING', 99]), new Set(['sol ring']), 'Test');
+    const score = computeReadiness(staples(['SOL RING', 99]), new Set(['sol ring']));
     expect(score.ownedCount).toBe(1);
   });
 
   it('caps owned samples at MAX_OWNED_SAMPLES, in inclusion (list) order', () => {
     const allOwned = new Set(['a', 'b', 'c', 'd']);
     const pool = staples(['A', 99], ['B', 98], ['C', 97], ['D', 96]);
-    const score = computeReadiness(pool, allOwned, 'Test');
+    const score = computeReadiness(pool, allOwned);
     expect(score.ownedSamples).toHaveLength(MAX_OWNED_SAMPLES);
     expect(score.ownedSamples).toEqual(['A', 'B', 'C']);
   });
 
   it('returns 0% when no staples are owned', () => {
-    const score = computeReadiness(staples(['Sol Ring', 99]), new Set(['island']), 'Test');
+    const score = computeReadiness(staples(['Sol Ring', 99]), new Set(['island']));
     expect(score.percent).toBe(0);
     expect(score.ownedCount).toBe(0);
     expect(score.ownedSamples).toEqual([]);
   });
 
   it('marks readiness unavailable when the staple list is empty (offline EDHREC)', () => {
-    const score = computeReadiness([], owned, 'Atraxa, Praetors’ Voice');
+    const score = computeReadiness([], owned);
     expect(score.available).toBe(false);
     expect(score.percent).toBe(0);
     expect(score.explainerLine).toMatch(/unavailable/i);
@@ -154,15 +154,15 @@ describe('computeReadiness', () => {
     }));
     // own every card, including ones beyond the pool
     const ownAll = new Set(big.map((s) => s.name.toLowerCase()));
-    const score = computeReadiness(big, ownAll, 'Test');
+    const score = computeReadiness(big, ownAll);
     expect(score.totalCount).toBe(READINESS_POOL_SIZE);
     expect(score.ownedCount).toBe(READINESS_POOL_SIZE);
     expect(score.percent).toBe(100);
   });
 
-  it('uses the short commander name in the explainer line', () => {
-    const score = computeReadiness(staples(['Sol Ring', 99]), owned, 'Atraxa, Praetors’ Voice');
-    expect(score.explainerLine).toBe("You own 1 of Atraxa's top 1 staples");
+  it('renders a compact N-of-M explainer line with no commander name', () => {
+    const score = computeReadiness(staples(['Sol Ring', 99]), owned);
+    expect(score.explainerLine).toBe('1 of 1 staples owned');
   });
 });
 

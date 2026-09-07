@@ -47,12 +47,12 @@ describe('DeckCurvePhases', () => {
     expect(countFor('Late')).toBe('10'); // 5 + 3 + 2
   });
 
-  it('renders a grade letter for each phase', () => {
+  it('renders a band word for each phase (no letter grades)', () => {
     const { container } = render(<DeckCurvePhases manaCurve={manaCurve} averageCmc={3.1} />);
     const grades = container.querySelectorAll('.deck-curve-phases-grade');
     expect(grades.length).toBe(3);
     for (const g of grades) {
-      expect(g.textContent).toMatch(/^[A-F]$/);
+      expect(g.textContent).toMatch(/^(on target|a little off|off target)$/);
     }
   });
 

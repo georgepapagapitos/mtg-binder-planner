@@ -301,7 +301,7 @@ export function DeckToolbar({
           <a
             href="#deck-outzone"
             className="deck-toolbar-outzone-chip"
-            aria-label={`Not in the deck — ${outzoneCount} ${outzoneCount === 1 ? 'card' : 'cards'} — jump to sideboard and considering`}
+            aria-label={`Not in the deck: ${outzoneCount} ${outzoneCount === 1 ? 'card' : 'cards'}. Jump to sideboard and considering.`}
           >
             Not in deck
             <span className="deck-toolbar-outzone-count" aria-hidden>

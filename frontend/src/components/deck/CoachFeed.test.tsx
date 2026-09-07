@@ -436,7 +436,7 @@ describe('CoachFeed', () => {
     expect(screen.getByText('Cultivate')).toBeTruthy();
     expect(screen.getByText('Squirrel Nest')).toBeTruthy();
 
-    const chip = screen.getByRole('button', { name: /Off-meta picks — 1/ });
+    const chip = screen.getByRole('button', { name: /Off-meta picks, 1/ });
     expect(chip.textContent).toContain('Off-meta');
     expect(chip.textContent).toContain('1');
 

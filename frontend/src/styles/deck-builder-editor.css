@@ -380,15 +380,12 @@
 }
 
 .deck-editor-overflow-panel {
-  /* Anchored popover: drops directly below the 3-dot button, right-
-     edge-aligned. Same shape as `.binders-index-card-menu-panel` /
-     `.decks-index-card-menu-panel` so every 3-dot in the app reads as
-     one component. */
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  /* This is a menu, so it sits on the --z-menu layer — above the sticky deck
-     view-tabs (--z-popover) it drops over, below sheets/modals. */
+  /* Portaled to <body>, position: fixed with top/bottom/left/right set inline
+     by DeckEditorOverflowMenu's useMenuKeyboard + computePopoverPlacement
+     placement math (B6-02) — the same primitives OverflowMenu/SelectMenu/
+     ToolbarPopover use, clamped into the safe viewport regardless of the
+     44px-wide trigger's own position. Do not add position/top/right here;
+     the inline style is the only source of truth for where this sits. */
   z-index: var(--z-menu);
   min-width: 12rem;
   /* Cap so a labelled "Undo remove <long card name>" row can't run off-screen;
@@ -404,8 +401,7 @@
   gap: 1px;
   /* E181: at worst-case row count (13 rows + 3 dividers) the panel runs
      ~450px tall — on a short mobile viewport that ran Delete off-screen.
-     Cap relative to the viewport and let the panel itself scroll, same
-     anchoring (it stays absolute/right-0 above). */
+     Cap relative to the viewport and let the panel itself scroll. */
   max-height: min(calc(100vh - 6rem), 26rem);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;

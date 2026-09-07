@@ -212,7 +212,7 @@ export function DeckFeedbackSheet({ deck, onClose }: Props) {
             <Link to={signInHref} onClick={onClose}>
               Sign in
             </Link>{' '}
-            to use the Feedback Tool.
+            to use the feedback tool.
           </div>
         ) : (
           <div className="deck-feedback-body">

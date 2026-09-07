@@ -33,7 +33,8 @@ export function avgCmcBandWord(pacing: Pacing): 'lean' | 'balanced' | 'top-heavy
  * category's share. A toggle flips between "by color" (stacked, default) and
  * "count" (solid accent bars, the classic histogram). Below the bars, the
  * counts roll up into three play-phases — Early (CMC 0-2), Mid (3-4), Late
- * (5+) — each with a transparent A–F grade.
+ * (5+) — each with a transparent on-target/a-little-off/off-target band (no
+ * letter grades — STYLE_GUIDE ## One scoring vocabulary).
  *
  * `manaCurve` is keyed by CMC where the key 7 is the "7+" bucket; `curveByColor`
  * mirrors it with per-color counts.
@@ -181,13 +182,13 @@ export function DeckCurvePhases({
                   </span>
                   <ul className="info-tip-list">
                     <li>
-                      <strong>lean</strong> — cheap deck (avg under 2.8); plays out early
+                      <strong>lean</strong>: cheap deck (avg under 2.8); plays out early
                     </li>
                     <li>
-                      <strong>balanced</strong> — healthy mix (avg 2.8–3.5)
+                      <strong>balanced</strong>: healthy mix (avg 2.8–3.5)
                     </li>
                     <li>
-                      <strong>top-heavy</strong> — pricey deck (avg over 3.5); leans on big spells
+                      <strong>top-heavy</strong>: pricey deck (avg over 3.5); leans on big spells
                     </li>
                   </ul>
                 </>
@@ -330,26 +331,21 @@ export function DeckCurvePhases({
       {/* ── Phase rollup with grades ── */}
       {total > 0 && (
         <div className="deck-curve-phases-grade-head">
-          <span className="deck-curve-phases-grade-head-label">Curve grade by phase</span>
+          <span className="deck-curve-phases-grade-head-label">Curve balance by phase</span>
           <InfoTip
-            label="curve grade"
+            label="curve balance"
             wide
             text={
               <>
-                <span className="info-tip-lead">What the grade means</span>
+                <span className="info-tip-lead">What the band means</span>
                 <ul className="info-tip-list">
                   <li>
-                    Cards split by mana value — <strong>Early</strong> (0–2), <strong>Mid</strong>{' '}
+                    Cards split by mana value: <strong>Early</strong> (0–2), <strong>Mid</strong>{' '}
                     (3–4), <strong>Late</strong> (5+).
                   </li>
                   <li>The number is how many cards fall in that phase.</li>
-                  <li>
-                    The letter grades how close that phase is to a healthy Commander curve —{' '}
-                    <strong>A</strong> is on target, <strong>F</strong> is far off.
-                  </li>
-                  <li>
-                    A guideline, not a verdict — an off-target grade can be just what you want.
-                  </li>
+                  <li>The band is how close that phase's share is to a healthy Commander curve.</li>
+                  <li>A guideline, not a verdict. Off target can be just what you want.</li>
                 </ul>
               </>
             }
@@ -365,8 +361,8 @@ export function DeckCurvePhases({
               <span className="deck-curve-phases-phase-label">{phase.label}</span>
               <span className="deck-curve-phases-phase-count">{phase.count}</span>
               <span
-                className={`deck-curve-phases-grade deck-curve-phases-grade-${phase.grade.toLowerCase()}`}
-                aria-label={`${phase.label} grade ${phase.grade}`}
+                className={`deck-curve-phases-grade deck-curve-phases-grade-${phase.grade.replace(/ /g, '-')}`}
+                aria-label={`${phase.label}: ${phase.grade}`}
               >
                 {phase.grade}
               </span>

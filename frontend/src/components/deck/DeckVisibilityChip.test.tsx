@@ -20,7 +20,7 @@ describe('DeckVisibilityChip', () => {
         <DeckVisibilityChip deckId="d1" deckName="Teysa aristocrats" />
       </MemoryRouter>
     );
-    const chip = screen.getByRole('button', { name: 'Sharing: Private — change visibility' });
+    const chip = screen.getByRole('button', { name: 'Sharing: Private. Change visibility' });
     expect(chip.textContent?.replace(/\s+/g, ' ').trim()).toBe('Sharing: Private');
   });
 });

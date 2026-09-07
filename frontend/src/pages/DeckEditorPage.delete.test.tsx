@@ -56,10 +56,18 @@ const mockDeck = {
   updatedAt: Date.now(),
 };
 
+// Mutable so the hydration-gate tests below can simulate a not-yet-hydrated
+// store / a missing deck without a second vi.mock factory; reset in that
+// describe block's own beforeEach/afterEach so it can't leak into the rest of
+// this file's tests, which all expect the default (hydrated, deck present).
+let mockDecks: (typeof mockDeck)[] = [mockDeck];
+let mockHydrated = true;
+
 vi.mock('../store/decks', () => ({
   useDecksStore: (
     sel: (s: {
       decks: (typeof mockDeck)[];
+      hydrated: boolean;
       deleteDeck: typeof mockDeleteDeck;
       updateDeck: () => void;
       renameDeck: () => void;
@@ -78,7 +86,8 @@ vi.mock('../store/decks', () => ({
     }) => unknown
   ) =>
     sel({
-      decks: [mockDeck],
+      decks: mockDecks,
+      hydrated: mockHydrated,
       deleteDeck: mockDeleteDeck,
       updateDeck: vi.fn(),
       renameDeck: vi.fn(),
@@ -385,6 +394,13 @@ function renderEditor({ justGenerated = false }: { justGenerated?: boolean } = {
   );
 }
 
+let mockSyncState: 'idle' | 'syncing' | 'ready' = 'idle';
+vi.mock('../lib/sync', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/sync')>()),
+  getSyncState: () => mockSyncState,
+  onSyncedChange: () => () => {},
+}));
+
 describe('DeckEditorPage — Delete in ⋮ overflow (UX-316)', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => localStorage.clear());
@@ -583,5 +599,41 @@ describe('DeckEditorPage — header action cluster on phones (≤1023px collapse
 
     expect(screen.queryByRole('menuitem', { name: /^Undo/ })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /^Redo/ })).toBeNull();
+  });
+});
+
+describe('DeckEditorPage — cold-load hydration gate (B6-01)', () => {
+  afterEach(() => {
+    mockDecks = [mockDeck];
+    mockHydrated = true;
+  });
+
+  it('shows a loading state, not "no longer exists", while the decks store has not hydrated yet', () => {
+    mockDecks = [];
+    mockHydrated = false;
+    renderEditor();
+
+    expect(screen.getByText('Loading deck…')).toBeTruthy();
+    expect(screen.queryByText('That deck no longer exists.')).toBeNull();
+  });
+
+  it('keeps the loading state while the first server pull is still in flight on a fresh device', () => {
+    mockDecks = [];
+    mockHydrated = true;
+    mockSyncState = 'syncing';
+    renderEditor();
+
+    expect(screen.getByText('Loading deck…')).toBeTruthy();
+    expect(screen.queryByText('That deck no longer exists.')).toBeNull();
+    mockSyncState = 'idle';
+  });
+
+  it('shows "no longer exists" once hydrated and the deck is genuinely absent', () => {
+    mockDecks = [];
+    mockHydrated = true;
+    renderEditor();
+
+    expect(screen.getByText('That deck no longer exists.')).toBeTruthy();
+    expect(screen.queryByText('Loading deck…')).toBeNull();
   });
 });

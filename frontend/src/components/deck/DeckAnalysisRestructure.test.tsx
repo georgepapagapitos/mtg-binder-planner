@@ -287,8 +287,8 @@ describe('UX-313 — PowerHero Target bracket control', () => {
     const trigger = targetContainer!.querySelector('button');
     expect(trigger).toBeTruthy();
     fireEvent.click(trigger!);
-    // Click the "4 — Optimized" option (appears in the portal)
-    const opt4 = screen.getByRole('option', { name: /4 — Optimized/i });
+    // Click the "4 · Optimized" option (appears in the portal)
+    const opt4 = screen.getByRole('option', { name: /4 · Optimized/i });
     fireEvent.click(opt4);
     expect(onSetBracketOverride).toHaveBeenCalledWith(4);
   });

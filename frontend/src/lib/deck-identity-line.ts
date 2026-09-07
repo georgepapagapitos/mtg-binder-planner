@@ -35,9 +35,15 @@ export function buildIdentityLine(input: IdentityLineInput): IdentitySegment[] {
   const { identity, formatLabel, bracket, validation } = input;
   const segments: IdentitySegment[] = [];
 
-  // Archetype segment — always first
+  // Archetype segment — always first. Pacing and archetype are detected
+  // independently and can both resolve to the same word (e.g. "Midrange"
+  // pacing + "Midrange" archetype) — drop the duplicate rather than read
+  // "Midrange Midrange deck" (B6-03).
   if (identity) {
-    const text = `${identity.pacingShort} ${identity.archetypeLabel} deck`;
+    const text =
+      identity.pacingShort.toLowerCase() === identity.archetypeLabel.toLowerCase()
+        ? `${identity.archetypeLabel} deck`
+        : `${identity.pacingShort} ${identity.archetypeLabel} deck`;
     segments.push({ kind: 'archetype', text });
   } else {
     segments.push({ kind: 'archetype', text: `${formatLabel} deck` });

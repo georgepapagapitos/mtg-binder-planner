@@ -205,7 +205,7 @@ export const DeckAnalysisPanel = forwardRef<DeckAnalysisPanelHandle, Props>(
 function DiagnosisSection({ analysis }: { analysis: DeckAnalysisResult }) {
   if (!analysis.taggerReady) {
     return (
-      <p className="deck-combos-empty">Loading role data — verdicts will appear in a moment.</p>
+      <p className="deck-combos-empty">Loading role data. Verdicts will appear in a moment.</p>
     );
   }
   return (
@@ -553,10 +553,7 @@ function SuggestionsSection({
   if (!hasCommander) {
     return (
       <section className="deck-analysis-suggestions">
-        <p className="deck-combos-empty">
-          Suggestions come from EDHREC's commander pages — set a commander to see picks tailored to
-          your deck.
-        </p>
+        <p className="deck-combos-empty">Set a commander to see suggestions for your deck.</p>
       </section>
     );
   }
@@ -638,8 +635,8 @@ function SuggestionsSection({
 
       <p className="deck-analysis-suggest-hint" aria-label={`Deck ${deckId.slice(0, 6)}`}>
         {themeSlug
-          ? `Picks scoped to the ${themes.find((t) => t.slug === themeSlug)?.name ?? themeSlug} archetype, filtered against your deck.`
-          : "Picks from EDHREC's top cards for this commander, filtered against your deck."}
+          ? `${themes.find((t) => t.slug === themeSlug)?.name ?? themeSlug} picks, matched to your deck.`
+          : "EDHREC's top cards for this commander, matched to your deck."}
       </p>
 
       {previewCards && previewCards.length > 0 && (

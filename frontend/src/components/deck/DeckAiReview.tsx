@@ -201,7 +201,7 @@ export function DeckAiReview({
     return (
       <DeckAiConsent
         title="Read the deck"
-        blurb={`AI can read this deck and write what it's trying to do — and the structural problems the statistics can't show. Turning this on sends this deck's card names and computed stats to Anthropic. Nothing is sent until you press an AI button, ${status.limit} readings a day. Your collection is never sent, and you can turn it back off in Settings.`}
+        blurb={`Writes what this deck is trying to do, and the structural problems the statistics can't show. Turning this on sends this deck's card names and computed stats to Anthropic. Nothing is sent until you press an AI button, ${status.limit} readings a day. Your collection is never sent, and you can turn it back off in Settings.`}
         onDismiss={() => setInviteDismissed(true)}
       />
     );
@@ -244,7 +244,7 @@ export function DeckAiReview({
               disappears would itself shift the reading. */}
           {!review && (
             <span className="sr-only" role="status">
-              Writing the reading…
+              Writing…
             </span>
           )}
           <ReviewProse
@@ -327,8 +327,8 @@ export function DeckAiReview({
       {phase === 'idle' && !review && history !== null && (
         <div className="deck-ai-idle">
           <p className="deck-ai-idle-text">
-            What is this deck actually trying to do, and where does it break? Written for this exact
-            list — nothing is sent until you ask.
+            What is this deck trying to do, and where does it break? Written for this exact list.
+            Nothing is sent until you ask.
           </p>
           <div className="deck-ai-idle-actions">
             <button
@@ -341,7 +341,7 @@ export function DeckAiReview({
             </button>
             <span className="deck-ai-remaining">
               {remaining === 0
-                ? 'Daily limit reached — resets at midnight UTC.'
+                ? 'Daily limit reached. Resets at midnight UTC.'
                 : `${remaining} of ${status.limit} left today`}
             </span>
           </div>
@@ -420,7 +420,7 @@ function ReviewProse({
     }
     return seen.map((name) => ({
       name,
-      label: chipCards.has(name) ? 'Named in the reading' : 'Suggested — not in this deck',
+      label: chipCards.has(name) ? 'Named in the reading' : 'Suggested, not in this deck',
       card: chipCards.get(name),
     }));
   }, [paragraphs, names, chipCards]);

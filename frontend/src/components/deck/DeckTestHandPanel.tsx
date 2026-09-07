@@ -437,7 +437,7 @@ export const DeckTestHandPanel = forwardRef<DeckTestHandPanelHandle, Props>(
                     <ul
                       className="deck-test-hand-fan"
                       role="list"
-                      aria-label="Opening hand — drag to reorder, click to preview"
+                      aria-label="Opening hand: drag to reorder, click to preview"
                       /* The container compensates for every card's left-pull
                        overlap so the first card lands flush with the panel.
                        Keeping the per-card margin uniform (vs. zeroing it on
@@ -483,7 +483,7 @@ export const DeckTestHandPanel = forwardRef<DeckTestHandPanelHandle, Props>(
                   type="button"
                   className="deck-test-hand-action deck-test-hand-action-bridge"
                   onClick={() => navigate(`/decks/${deckId}/playtest`)}
-                  title="Open the full playtest board — mulligan, draw turn by turn, track the game"
+                  title="Open the full playtest board"
                 >
                   <Play width={14} height={14} aria-hidden /> Play this out
                 </button>
@@ -526,7 +526,7 @@ export const DeckTestHandPanel = forwardRef<DeckTestHandPanelHandle, Props>(
                   <li
                     className={`deck-test-hand-chip is-verdict ${isKeepable ? 'is-keepable' : 'is-mulligan'}`}
                   >
-                    <strong>{isKeepable ? 'Keepable' : 'Mulligan?'}</strong>
+                    <strong>{isKeepable ? 'Keepable' : 'Mulligan'}</strong>
                   </li>
                 )}
               </ul>
@@ -546,7 +546,7 @@ export const DeckTestHandPanel = forwardRef<DeckTestHandPanelHandle, Props>(
                     className="deck-test-hand-action deck-test-hand-sim-run"
                     onClick={handleSimulate}
                     disabled={simulating}
-                    title="Re-sample — deal a fresh 1,000 hands"
+                    title="Re-sample: deal a fresh 1,000 hands"
                   >
                     <Dices width={14} height={14} aria-hidden />
                     {simulating ? 'Simulating…' : 'Re-run'}

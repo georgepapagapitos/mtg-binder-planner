@@ -195,7 +195,7 @@ export function DeckCardRow({
             <VerdictBadge
               tone="warn"
               label="Game Changer"
-              title="Game Changer — high-power, bracket-relevant"
+              title="Game Changer: high-power, bracket-relevant"
             />
           )}
           {roleLabel && <VerdictBadge tone="neutral" label={roleLabel} />}
@@ -205,14 +205,14 @@ export function DeckCardRow({
             <VerdictBadge
               tone="neutral"
               label="In other deck"
-              title="Owned, but every copy is in another deck"
+              title="Every copy committed to another deck"
             />
           )}
           {ownership === 'in-cube' && (
             <VerdictBadge
               tone="neutral"
               label="In a cube"
-              title="Owned, but every copy is committed to a physical cube"
+              title="Every copy committed to a physical cube"
             />
           )}
           {change.lane === 'budget' && change.confidence && CONFIDENCE_BADGE[change.confidence] && (
@@ -225,7 +225,7 @@ export function DeckCardRow({
             <VerdictBadge
               tone="info"
               label="Combo"
-              title="Adding this card completes a combo already in your deck"
+              title="Completes a combo already in this deck"
             />
           )}
         </span>

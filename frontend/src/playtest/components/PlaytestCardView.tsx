@@ -15,6 +15,8 @@ interface Props {
   onClick?: (cardId: string, e: React.MouseEvent | React.KeyboardEvent) => void;
   onContextMenu?: (cardId: string, e: React.MouseEvent) => void;
   onLongPress?: (cardId: string, clientX: number, clientY: number) => void;
+  /** Native tooltip — the hand uses it to name its two gestures. */
+  title?: string;
   /** When true, positions the card absolutely using bf.x/bf.y. */
   positioned?: boolean;
   /** Part of the current battlefield selection (E226 group copy). A plain
@@ -31,6 +33,7 @@ export const PlaytestCardView = memo(function PlaytestCardView({
   onClick,
   onContextMenu,
   onLongPress,
+  title,
   positioned = false,
   selected = false,
   size = 'md',
@@ -111,6 +114,7 @@ export const PlaytestCardView = memo(function PlaytestCardView({
         activate(e);
       }}
       onContextMenu={onContextMenu ? (e) => onContextMenu(card.id, e) : undefined}
+      title={title}
       onTouchStart={onLongPress ? longPress.onTouchStart : undefined}
       onTouchMove={onLongPress ? longPress.onTouchMove : undefined}
       onTouchEnd={onLongPress ? longPress.onTouchEnd : undefined}

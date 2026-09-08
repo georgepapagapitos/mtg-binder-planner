@@ -589,7 +589,18 @@ body:has(.playtest-page) {
   padding: var(--space-3);
   border-left: 0.5px solid var(--border);
   background: var(--surface);
-  min-width: 110px;
+  /* Explicit: size containment (below) zeroes the column's intrinsic width,
+     and the row-mode tiles need the room for label + art + count. */
+  width: 10rem;
+  /* Four fixed-height piles overflowed a short board and the last one
+     (Command) slid under the hand row. The column is a size container so
+     each card stack can take its height from the column's (see
+     .playtest-pile__stack); past the stacks' floor it scrolls rather than
+     hiding a pile. */
+  min-height: 0;
+  container-type: size;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Multiplayer table seam (use-online-table.ts): a slot for <OpponentRail>
@@ -625,6 +636,7 @@ body:has(.playtest-page) {
   color: var(--text-primary);
   cursor: pointer;
   font-size: var(--text-xs);
+  flex: none;
 }
 
 .playtest-pile.is-over {
@@ -645,14 +657,53 @@ body:has(.playtest-page) {
 
 .playtest-pile__stack {
   position: relative;
-  width: 70px;
-  height: 96px;
+  /* 96px when the column has room, otherwise an even share of what's left
+     after the column's fixed chrome (padding 24 + gaps 24 + four piles'
+     label/count/padding/gaps at 65 each = 308px), floored where the art
+     stops reading as a card. Width follows via aspect-ratio. Flexbox can't
+     express this: a pile's automatic minimum counts the stack's basis, so
+     the piles never shrank; the container query makes the share explicit. */
+  width: auto;
+  height: clamp(32px, calc((100cqh - 308px) / 4), 96px);
+  aspect-ratio: 70 / 96;
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--surface-raised);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Short column (a laptop at 1440×800 gives it ~460px): four stacked tiles
+   would leave each a 30px stamp of art under a label, so the tile turns
+   into a row — label over count on the left, art on the right — and the
+   art takes an even share of the column height minus the rows' padding
+   (24 + 24 + 4 × 12 = 96px). */
+@container (max-height: 540px) {
+  .playtest-pile {
+    display: grid;
+    grid-template:
+      'label art' auto
+      'count art' auto / minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+    row-gap: 0;
+    align-items: center;
+    padding: 6px var(--space-2);
+    text-align: left;
+  }
+
+  .playtest-pile__label {
+    grid-area: label;
+  }
+
+  .playtest-pile__stack {
+    grid-area: art;
+    height: clamp(32px, calc((100cqh - 96px) / 4), 56px);
+  }
+
+  .playtest-pile__count {
+    grid-area: count;
+  }
 }
 
 .playtest-pile__stack img {

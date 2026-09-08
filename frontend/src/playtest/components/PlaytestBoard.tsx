@@ -798,9 +798,15 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
             onOpen={() => setHandOpen(true)}
             onClose={() => setHandOpen(false)}
             onCardClick={handleHandCardClick}
+            onCardPreview={setPreviewCardId}
           />
         ) : (
-          <Hand cards={state.zones.hand} onCardClick={handleHandCardClick} />
+          <Hand
+            cards={state.zones.hand}
+            onCardClick={handleHandCardClick}
+            onCardPreview={setPreviewCardId}
+            longPress={isNarrow}
+          />
         )}
         {/* Above `--z-overlay` so a card dragged out of the hand sheet renders
             over the sheet, not behind it. */}
@@ -926,13 +932,16 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
         cardLookup?.has(previewCardId) &&
         (() => {
           const enriched = scryfallToEnrichedCard(cardLookup.get(previewCardId)!);
+          const zoneLabel = state.zones.hand.some((c) => c.id === previewCardId)
+            ? 'Hand'
+            : 'Battlefield';
           return (
             <CardPreview
               source="playtest"
               cards={[enriched]}
               index={0}
-              binderName="Battlefield"
-              sectionLabels={['Battlefield']}
+              binderName="Playtest"
+              sectionLabels={[zoneLabel]}
               pageNumbers={[1]}
               totalPages={1}
               onIndexChange={() => {}}

@@ -2,15 +2,20 @@
 #
 # The grouping below exists to stop dependency traffic starving human PRs.
 #
-# Ungrouped, every bump opened its own PR. Each one runs five CI jobs and, once
-# green, auto-merges (see workflows/dependabot-auto-merge.yml) — which moves
-# `main`. Because `main` requires branches to be up to date before merging, a
-# feature PR must re-run its ~6-minute CI against each new `main`. A weekly
-# batch of ~20 individual bumps therefore moves `main` every few minutes for
-# an hour or more, and any human PR in that window can lose the race
-# indefinitely: it goes green, `main` moves, it goes stale, repeat. That is not
-# hypothetical — it happened to #1711, which needed five full CI cycles to land
-# a diff that never once failed on its own merits.
+# Ungrouped, every bump opened its own PR. Each one runs the full CI matrix and,
+# once green, auto-merges (see workflows/dependabot-auto-merge.yml) — which
+# moves `main`. Until 2026-09-08 `main` also required branches to be up to date
+# before merging, so a feature PR had to re-run its ~6-minute CI against each
+# new `main`. A weekly batch of ~20 individual bumps therefore moved `main`
+# every few minutes for an hour or more, and any human PR in that window could
+# lose the race indefinitely: it went green, `main` moved, it went stale,
+# repeat. That is not hypothetical — it happened to #1711, which needed five
+# full CI cycles to land a diff that never once failed on its own merits.
+#
+# The up-to-date requirement is gone (the `protect main` ruleset replaced the
+# classic branch protection with strict OFF), so a green PR now merges without
+# the re-run dance. Grouping still earns its keep: every merge to `main` is a
+# full CI run plus a Fly deploy, and one grouped PR is one of each.
 #
 # THE GROUP BOUNDARY IS DELIBERATELY THE SAME AS THE AUTO-MERGE BOUNDARY.
 # `dependabot-auto-merge.yml` auto-merges patch and minor only; a major always

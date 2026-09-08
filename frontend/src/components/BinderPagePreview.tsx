@@ -9,9 +9,6 @@ import { useSwipeDownDismiss } from '../lib/use-swipe-down-dismiss';
 import { useSheetExit } from '../lib/use-sheet-exit';
 import { useAllocations, type AllocationInfo } from '../lib/allocations';
 import { classifyFoil } from '../lib/foil-style';
-import { buildSpreads, spreadIndexForPage, layoutSectionTabs } from '../lib/binder-spreads';
-import type { SectionTabInput, TabPlacement } from '../lib/binder-spreads';
-import { ColorPip } from './shared/ManaSymbol';
 
 export interface InnerCardScope {
   cards: EnrichedCard[];
@@ -29,11 +26,6 @@ interface Props {
   pocketSize: PocketSize;
   binderName: string;
   /**
-   * Whether the physical binder is double-sided (sheet backs are discrete
-   * pages). Controls verso/recto pairing in spread mode.
-   */
-  doubleSided?: boolean;
-  /**
    * Resolve a tapped card to the scope used by the inner CardPreview
    * (which list to walk for prev/next, where to start, etc). Return null
    * to no-op the tap.
@@ -46,12 +38,6 @@ interface Props {
   getCardActions?: (card: EnrichedCard | undefined) => CardPreviewAction[];
   /** Group-printings qty by copyId — forwarded to inner CardPreview's ×N tag. */
   qtyByCopyId?: Map<string, number>;
-  /**
-   * Section index tabs for spread mode (≥1024px). When provided and the
-   * binder has more than 1 section, physical index-tab dividers appear in the
-   * left/right gutters outside the spread slide. No-op in single-page mode.
-   */
-  sectionTabs?: SectionTabInput[];
 }
 
 // Pages within this many slides of the focus mount their full pocket grid;
@@ -60,63 +46,21 @@ interface Props {
 // without disturbing native scroll-snap (every page keeps a sized slide div).
 const PAGE_WINDOW_RADIUS = 5;
 
-// In spread mode each slide mounts two grids, so tighten the window to keep
-// the DOM light for large binders.
-const SPREAD_WINDOW_RADIUS = 3;
-
-// Breakpoint at which the spread layout activates (≥1024px).
-const SPREAD_BREAKPOINT = '(min-width: 1024px)';
-
-/** Returns true when the viewport is at or above the spread breakpoint. */
-function querySpreadMode(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia(SPREAD_BREAKPOINT).matches;
-}
-
-/**
- * Subscribes to the spread breakpoint and returns the current match state.
- * Safe in node/test environments (matchMedia absent → always false).
- */
-function useSpreadMode(): boolean {
-  const [active, setActive] = useState<boolean>(() => querySpreadMode());
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mql = window.matchMedia(SPREAD_BREAKPOINT);
-    const handler = (e: MediaQueryListEvent) => setActive(e.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
-
-  return active;
-}
-
 export function BinderPagePreview({
   pages,
   pageLabels,
   startPageIndex,
   pocketSize,
   binderName,
-  doubleSided = false,
   resolveCard,
   onClose,
   onEditCard,
   getCardActions,
   qtyByCopyId,
-  sectionTabs,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const carousel = useRef<SnapCarouselHandle>(null);
-
-  // The available height for gutter tab columns equals the track's clientHeight
-  // minus its vertical padding (1.25rem top + 1.25rem bottom ≈ 40px at 16px
-  // base). We measure the track element via ResizeObserver and subtract the
-  // padding so tabs never overflow the visible slide height.
-  // Guard: ResizeObserver is absent in test environments (happy-dom) → we
-  // start at 0 so no tabs render until the observer fires (or never in tests
-  // unless mocked).
-  const [gutterHeight, setGutterHeight] = useState(0);
 
   // Each page is one carousel slide. (Double-sided binders are modelled as
   // pocketSize-per-side already; the back of a sheet is its own page in the
@@ -132,18 +76,7 @@ export function BinderPagePreview({
   // grow more on short viewports than tall 9-pocket pages.
   const pageAspectRatio = (cols * 5) / (rows * 7);
 
-  const isSpread = useSpreadMode();
-  const spreads = useMemo(
-    () => (isSpread ? buildSpreads(pages.length, doubleSided) : []),
-    [isSpread, pages.length, doubleSided]
-  );
-
-  // `selected` is a page index in single mode, a spread index in spread mode.
-  const [selected, setSelected] = useState(() =>
-    isSpread
-      ? Math.max(0, spreadIndexForPage(buildSpreads(pages.length, doubleSided), startPageIndex))
-      : startPageIndex
-  );
+  const [selected, setSelected] = useState(startPageIndex);
 
   const [innerCard, setInnerCard] = useState<InnerCardScope | null>(null);
 
@@ -168,44 +101,9 @@ export function BinderPagePreview({
     const card = innerCard.cards[innerCard.index];
     if (!card) return;
     const targetPage = cardToPageIndex.get(card);
-    if (targetPage === undefined) return;
-
-    const target = isSpread ? spreadIndexForPage(spreads, targetPage) : targetPage;
-    if (target === -1 || target === selected) return;
-    carousel.current?.scrollTo(target, 'instant' as ScrollBehavior);
-  }, [innerCard, cardToPageIndex, selected, isSpread, spreads]);
-
-  // Re-center when crossing the spread/single breakpoint. Track the current
-  // representative page (right side of spread if available, else left), then
-  // remap it when the mode changes.
-  const selectedPageRef = useRef(startPageIndex);
-  const mountedRef = useRef(false);
-  useLayoutEffect(() => {
-    // The carousel positions itself on mount; this only handles later flips.
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    const target = isSpread
-      ? Math.max(0, spreadIndexForPage(spreads, selectedPageRef.current))
-      : selectedPageRef.current;
-    setSelected(target);
-    carousel.current?.scrollTo(target, 'instant' as ScrollBehavior);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSpread]);
-
-  // Keep selectedPageRef in sync with `selected` so breakpoint re-entry uses
-  // the most recent page.
-  useEffect(() => {
-    if (isSpread) {
-      const s = spreads[selected];
-      if (s) selectedPageRef.current = s.right ?? s.left ?? 0;
-    } else {
-      selectedPageRef.current = selected;
-    }
-  }, [selected, isSpread, spreads]);
-
-  const slideCount = isSpread ? spreads.length : pages.length;
+    if (targetPage === undefined || targetPage === selected) return;
+    carousel.current?.scrollTo(targetPage, 'instant' as ScrollBehavior);
+  }, [innerCard, cardToPageIndex, selected]);
 
   useLockBodyScroll();
 
@@ -241,31 +139,6 @@ export function BinderPagePreview({
 
   const allocations = useAllocations();
 
-  // Measure the track's clientHeight (minus its own vertical padding) so the
-  // tab layout lib knows how much vertical space the gutter columns have.
-  // Padding constants mirror the CSS values set on .binder-pages-track:
-  //   ≥601px → paddingTop:1.25rem, paddingBottom:1.25rem   (≈ 40px each)
-  //   ≤600px → paddingTop:0.75rem, paddingBottom:1.25rem   (≈ 12 + 20 = 32px)
-  // We compute from `getComputedStyle` so the actual rendered padding drives
-  // the number regardless of viewport size.
-  useEffect(() => {
-    if (typeof ResizeObserver === 'undefined') return;
-    const track = trackRef.current;
-    if (!track) return;
-
-    const update = () => {
-      const style = getComputedStyle(track);
-      const pt = parseFloat(style.paddingTop) || 0;
-      const pb = parseFloat(style.paddingBottom) || 0;
-      setGutterHeight(Math.max(0, track.clientHeight - pt - pb));
-    };
-
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(track);
-    return () => ro.disconnect();
-  }, []);
-
   const handleCardTap = (card: EnrichedCard) => {
     const scope = resolveCard(card);
     if (scope) setInnerCard(scope);
@@ -277,88 +150,16 @@ export function BinderPagePreview({
   // (only the opaque binder page + info panel rise); the dim sits on the
   // backdrop, which stays put, fades in/out (.is-closing), and carries the
   // sizing var (--page-w-ratio drives --slide-size).
-  //
-  // In spread mode the slide contains [left-page | spine | right-page].
-  // We reserve exactly 1 ratio-unit for the spine in --page-w-ratio so
-  // min() still clamps the slide to the track. --spread-page-frac and
-  // --spread-spine-frac let the CSS assign exact fractional widths to each
-  // child so that pages + spine sum to exactly --slide-size — eliminating
-  // the few-px height-overflow that occurred when the CSS clamp-based spine
-  // width didn't match the JS-reserved unit.
-  const spreadAspectRatio = (2 * cols * 5 + 1) / (rows * 7);
-  const spreadPageFrac = (cols * 5) / (2 * cols * 5 + 1);
-  const spreadSpineFrac = 1 / (2 * cols * 5 + 1);
-  const backdropStyle = {
-    ['--page-w-ratio' as string]: isSpread ? spreadAspectRatio : pageAspectRatio,
-    ...(isSpread && {
-      ['--spread-page-frac' as string]: spreadPageFrac,
-      ['--spread-spine-frac' as string]: spreadSpineFrac,
-    }),
-  } as React.CSSProperties;
+  const backdropStyle = { ['--page-w-ratio' as string]: pageAspectRatio } as React.CSSProperties;
 
-  // Panel display helpers for spread mode.
-  const panelInfo = (): { contextLine: string; counterLine: string } => {
-    if (!isSpread) {
-      const currentPage = pages[selected];
-      const currentLabel = pageLabels[selected] ?? '';
-      return {
-        contextLine: `${currentLabel ? `${currentLabel} · ` : ''}page ${currentPage?.pageNum}`,
-        counterLine: `Page ${selected + 1} of ${pages.length}`,
-      };
-    }
-    const spread = spreads[selected];
-    if (!spread) {
-      return { contextLine: '', counterLine: '' };
-    }
-    const leftPage = spread.left !== null ? pages[spread.left] : null;
-    const rightPage = spread.right !== null ? pages[spread.right] : null;
-    const leftNum = leftPage?.pageNum;
-    const rightNum = rightPage?.pageNum;
-    const leftLabel = spread.left !== null ? (pageLabels[spread.left] ?? '') : '';
-    const rightLabel = spread.right !== null ? (pageLabels[spread.right] ?? '') : '';
-
-    // Section / label context line.
-    let contextLine: string;
-    if (leftLabel && rightLabel && leftLabel !== rightLabel) {
-      if (leftNum !== undefined && rightNum !== undefined) {
-        contextLine = `${leftLabel} → ${rightLabel} · pages ${leftNum}–${rightNum}`;
-      } else if (leftNum !== undefined) {
-        contextLine = `${leftLabel} → ${rightLabel} · page ${leftNum}`;
-      } else if (rightNum !== undefined) {
-        contextLine = `${leftLabel} → ${rightLabel} · page ${rightNum}`;
-      } else {
-        contextLine = `${leftLabel} → ${rightLabel}`;
-      }
-    } else {
-      const label = leftLabel || rightLabel;
-      if (leftNum !== undefined && rightNum !== undefined) {
-        contextLine = `${label ? `${label} · ` : ''}pages ${leftNum}–${rightNum}`;
-      } else if (leftNum !== undefined) {
-        contextLine = `${label ? `${label} · ` : ''}page ${leftNum}`;
-      } else if (rightNum !== undefined) {
-        contextLine = `${label ? `${label} · ` : ''}page ${rightNum}`;
-      } else {
-        contextLine = label;
-      }
-    }
-    return {
-      contextLine,
-      counterLine: `Spread ${selected + 1} of ${spreads.length}`,
-    };
-  };
-
-  const { contextLine, counterLine } = panelInfo();
-
-  const windowRadius = isSpread ? SPREAD_WINDOW_RADIUS : PAGE_WINDOW_RADIUS;
-  // True when gutter columns are rendered — used to apply is-tabbed to the
-  // backdrop so CSS can scope the gutter-reserving --slide-size override and
-  // centering spacers only when tabs are actually present (Fix 3).
-  const hasTabs = isSpread && (sectionTabs?.length ?? 0) > 1;
+  const currentLabel = pageLabels[selected] ?? '';
+  const contextLine = `${currentLabel ? `${currentLabel} · ` : ''}page ${pages[selected]?.pageNum}`;
+  const counterLine = `Page ${selected + 1} of ${pages.length}`;
 
   return (
     <>
       <div
-        className={`binder-pages-backdrop${isSpread ? ' is-spread' : ''}${hasTabs ? ' is-tabbed' : ''}${isClosing ? ' is-closing' : ''}`}
+        className={`binder-pages-backdrop${isClosing ? ' is-closing' : ''}`}
         onClick={() => beginClose()}
         role="dialog"
         aria-modal="true"
@@ -388,89 +189,25 @@ export function BinderPagePreview({
           <SnapCarousel
             ref={carousel}
             trackRef={trackRef}
-            count={slideCount}
+            count={pages.length}
             index={selected}
             onIndexChange={setSelected}
-            windowRadius={windowRadius}
+            windowRadius={PAGE_WINDOW_RADIUS}
             keysEnabled={!innerCard}
             className="binder-pages-track"
-            prevLabel={isSpread ? 'Previous spread' : 'Previous page'}
-            nextLabel={isSpread ? 'Next spread' : 'Next page'}
-            slideClassName={(i) => {
-              if (!isSpread) return 'binder-pages-slide';
-              // A spread with only one real page (first/last of a double-sided
-              // binder, odd tail of a single-sided one) renders just that page,
-              // centered — no blank silhouette, no spine — in a page-wide slide.
-              // Placeholders carry the same classes so slide widths never change
-              // as the window moves.
-              const spread = spreads[i];
-              const singlePage = !spread || spread.left === null || spread.right === null;
-              return `binder-pages-slide binder-pages-slide--spread${singlePage ? ' binder-pages-slide--single' : ''}${hasTabs ? ' binder-pages-slide--tabbed' : ''}`;
-            }}
-            renderSlide={(i) => {
-              if (!isSpread) {
-                return (
-                  <SlideGrid
-                    slots={pages[i].slots}
-                    cols={cols}
-                    rows={rows}
-                    aspect={slideAspect}
-                    allocations={allocations}
-                    onTapCard={handleCardTap}
-                  />
-                );
-              }
-              const spread = spreads[i];
-              const singlePage = spread.left === null || spread.right === null;
-              const tabPlacements = hasTabs
-                ? layoutSectionTabs(sectionTabs!, i, spreads, gutterHeight)
-                : [];
-              const jump = (page: number) => {
-                const target = spreadIndexForPage(spreads, page);
-                if (target >= 0) carousel.current?.scrollTo(target);
-              };
-              return (
-                <>
-                  {hasTabs && (
-                    <SpreadTabGutter
-                      placements={tabPlacements.filter((p) => p.side === 'left')}
-                      side="left"
-                      pages={pages}
-                      onJump={jump}
-                    />
-                  )}
-                  {spread.left !== null && (
-                    <SlideGrid
-                      slots={pages[spread.left].slots}
-                      cols={cols}
-                      rows={rows}
-                      aspect={slideAspect}
-                      allocations={allocations}
-                      onTapCard={handleCardTap}
-                    />
-                  )}
-                  {!singlePage && <div className="binder-spread-spine" aria-hidden="true" />}
-                  {spread.right !== null && (
-                    <SlideGrid
-                      slots={pages[spread.right].slots}
-                      cols={cols}
-                      rows={rows}
-                      aspect={slideAspect}
-                      allocations={allocations}
-                      onTapCard={handleCardTap}
-                    />
-                  )}
-                  {hasTabs && (
-                    <SpreadTabGutter
-                      placements={tabPlacements.filter((p) => p.side === 'right')}
-                      side="right"
-                      pages={pages}
-                      onJump={jump}
-                    />
-                  )}
-                </>
-              );
-            }}
+            prevLabel="Previous page"
+            nextLabel="Next page"
+            slideClassName="binder-pages-slide"
+            renderSlide={(i) => (
+              <SlideGrid
+                slots={pages[i].slots}
+                cols={cols}
+                rows={rows}
+                aspect={slideAspect}
+                allocations={allocations}
+                onTapCard={handleCardTap}
+              />
+            )}
           />
 
           <div className="binder-pages-panel" onClick={(e) => e.stopPropagation()}>
@@ -615,58 +352,6 @@ function Cell({
         </Link>
       )}
     </button>
-  );
-}
-
-/**
- * Renders one gutter column of index tabs (left or right) for a spread slide.
- * aria-label uses the physical pageNum from pages[] rather than the flat index.
- */
-function SpreadTabGutter({
-  placements,
-  side,
-  pages,
-  onJump,
-}: {
-  placements: TabPlacement[];
-  side: 'left' | 'right';
-  pages: BinderPage[];
-  onJump: (firstPageIndex: number) => void;
-}) {
-  return (
-    <div className={`binder-spread-tab-gutter binder-spread-tab-gutter--${side}`}>
-      {placements.map((placement) => {
-        const physicalPageNum =
-          pages[placement.firstPageIndex]?.pageNum ?? placement.firstPageIndex + 1;
-        return (
-          <button
-            key={placement.key}
-            type="button"
-            className={`binder-spread-tab binder-spread-tab--${side} binder-spread-tab--${placement.variant}${placement.isCurrent ? ' is-current' : ''}`}
-            style={{ top: placement.top, height: placement.height }}
-            title={placement.label}
-            aria-label={`Jump to ${placement.label}, page ${physicalPageNum}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onJump(placement.firstPageIndex);
-            }}
-          >
-            {placement.variant === 'full' ? (
-              <>
-                {placement.pip && <ColorPip color={placement.key} pip={true} aria-hidden />}
-                <span className="binder-spread-tab-label">{placement.label}</span>
-              </>
-            ) : placement.pip ? (
-              <ColorPip color={placement.key} pip={true} aria-hidden />
-            ) : (
-              <span className="binder-spread-tab-char" aria-hidden="true">
-                {placement.label.charAt(0)}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

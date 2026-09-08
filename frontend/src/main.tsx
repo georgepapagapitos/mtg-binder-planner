@@ -25,7 +25,6 @@ import './styles/binder-nav.css';
 import './styles/modals-dialogs.css';
 import './styles/binder-rules-editor.css';
 import './styles/footer-card-preview.css';
-import './styles/binder-spread.css';
 import './styles/responsive-nav.css';
 import './styles/collection.css';
 import './styles/auth.css';

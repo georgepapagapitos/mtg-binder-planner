@@ -1,5 +1,5 @@
 import { CircleAlert, Layers, Pencil, Search, Tag as TagIcon, Trash2, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useCurrency } from '@/lib/currency';
 import { createPortal } from 'react-dom';
 import type {
@@ -79,6 +79,7 @@ import { ROLE_TITLES, type RoleKey } from '../../lib/role-badges';
 import { Tabs } from '../Tabs';
 import { clampZoom, readStoredZoom } from '@/lib/grid-zoom';
 import { useElementWidth } from '@/lib/use-element-width';
+import { useMediaQuery } from '@/lib/use-media-query';
 
 import { type BinderInfo } from '../BinderBadge';
 import { scryfallToEnrichedCard } from '../../lib/scryfall-to-enriched';
@@ -112,6 +113,8 @@ import {
   type DeckGroupBy,
   type Row,
   type CrossDeckCtx,
+  type TypedGroup,
+  packSections,
 } from './deck-display-rows';
 import { PartnerHeaderButton } from './deck-display-icons';
 import { DeckToolbar } from './DeckToolbar';
@@ -125,6 +128,10 @@ import { DeckAnalysisView } from './DeckAnalysisView';
 const celebratedDeckComplete = new Set<string>();
 
 const GRID_SIZE_STORAGE_KEY = 'mtg-decks-grid-size';
+// List-view column sizing — mirrors the retired `column-width: 280px` /
+// `column-gap: var(--space-4)` (1rem) so the column count is unchanged.
+const LIST_COL_MIN_PX = 280;
+const LIST_COL_GAP_PX = 16;
 
 // ── Props ─────────────────────────────────────────────────────────────────
 export interface DeckDisplayCard {
@@ -1280,6 +1287,72 @@ export function DeckDisplay({
     [previewIndex]
   );
 
+  // List view columns. Width-derived like the old CSS multi-column (280px min),
+  // but sections are PLACED by size (packSections) rather than flowed in
+  // document order, and the ≤1100px flat single panel stays one column.
+  const [listRef, listWidth] = useElementWidth<HTMLDivElement>();
+  const narrowList = useMediaQuery('(max-width: 1100px)');
+  const listCols =
+    narrowList || listWidth === 0
+      ? 1
+      : Math.max(
+          1,
+          Math.floor((listWidth + LIST_COL_GAP_PX) / (LIST_COL_MIN_PX + LIST_COL_GAP_PX))
+        );
+  const commandGroups = useMemo(
+    () => visibleGroups.filter((g) => g.icon === 'commander'),
+    [visibleGroups]
+  );
+  const listColumns = useMemo(
+    () =>
+      packSections(
+        visibleGroups.filter((g) => g.icon !== 'commander'),
+        listCols
+      ),
+    [visibleGroups, listCols]
+  );
+  const renderListSection = (g: TypedGroup) => (
+    <CategorySection
+      key={g.title}
+      title={g.title}
+      icon={g.icon}
+      rows={g.rows}
+      target={g.target}
+      currency={currency}
+      showPrefs={showPrefs}
+      onRowClick={openPreview}
+      onRemoveCard={onRemoveCard}
+      onSetQty={onSetQtyForZone('cards')}
+      selectMode={selectMode}
+      isRowSelected={(row) => isRowSelected('cards', row)}
+      onToggleRowSelected={(row) => toggleRowSelected('cards', row)}
+      dragEnabled={sort === 'custom'}
+      onReorder={onReorderForZone('cards')}
+      isSingleton={formatConfig.isSingleton}
+      onEditCard={onEditCard}
+      roleFilter={activeRoleFilter}
+      legalityBySlot={legalityBySlot}
+      onMoveToSideboard={showSideboardTab ? onMoveToSideboard : undefined}
+      onMoveToConsidering={onMoveToConsidering}
+      onMakeCommander={onMakeCommander}
+      canMakeCommander={canMakeCommander}
+      onMakePartner={onMakePartner}
+      canMakePartner={canMakePartner}
+      onMoveToAnotherDeck={onMoveToAnotherDeck}
+      onReleaseCopy={onReleaseCopy}
+      onUseOwnCopy={onUseOwnCopy}
+      headerAction={
+        g.icon === 'commander' && onEditPartner ? (
+          <PartnerHeaderButton hasPartner={!!partnerCommander} onClick={onEditPartner} />
+        ) : undefined
+      }
+      synergyByName={synergyByName}
+      cardInclusionMap={cardInclusionMap}
+      combosByOracle={combosByOracle}
+      cardProvenance={cardProvenance}
+    />
+  );
+
   return (
     <CardPreviewContext.Provider value={ctxValue}>
       <div
@@ -1625,53 +1698,29 @@ export function DeckDisplay({
                 {viewMode === 'list' && visibleGroups.length > 0 && (
                   <div
                     className="deck-card-list"
+                    ref={listRef}
+                    style={{ '--deck-cols': listCols } as CSSProperties}
                     {...hoverPeek.listHandlers}
                     {...touchPeek.listHandlers}
                   >
-                    {visibleGroups.map((g) => (
-                      <CategorySection
-                        key={g.title}
-                        title={g.title}
-                        icon={g.icon}
-                        rows={g.rows}
-                        target={g.target}
-                        currency={currency}
-                        showPrefs={showPrefs}
-                        onRowClick={openPreview}
-                        onRemoveCard={onRemoveCard}
-                        onSetQty={onSetQtyForZone('cards')}
-                        selectMode={selectMode}
-                        isRowSelected={(row) => isRowSelected('cards', row)}
-                        onToggleRowSelected={(row) => toggleRowSelected('cards', row)}
-                        dragEnabled={sort === 'custom'}
-                        onReorder={onReorderForZone('cards')}
-                        isSingleton={formatConfig.isSingleton}
-                        onEditCard={onEditCard}
-                        roleFilter={activeRoleFilter}
-                        legalityBySlot={legalityBySlot}
-                        onMoveToSideboard={showSideboardTab ? onMoveToSideboard : undefined}
-                        onMoveToConsidering={onMoveToConsidering}
-                        onMakeCommander={onMakeCommander}
-                        canMakeCommander={canMakeCommander}
-                        onMakePartner={onMakePartner}
-                        canMakePartner={canMakePartner}
-                        onMoveToAnotherDeck={onMoveToAnotherDeck}
-                        onReleaseCopy={onReleaseCopy}
-                        onUseOwnCopy={onUseOwnCopy}
-                        headerAction={
-                          g.icon === 'commander' && onEditPartner ? (
-                            <PartnerHeaderButton
-                              hasPartner={!!partnerCommander}
-                              onClick={onEditPartner}
-                            />
-                          ) : undefined
-                        }
-                        synergyByName={synergyByName}
-                        cardInclusionMap={cardInclusionMap}
-                        combosByOracle={combosByOracle}
-                        cardProvenance={cardProvenance}
-                      />
-                    ))}
+                    {/* Command zone — the commander (and partner) as a full-width
+                        strip ABOVE the type columns, rendered with the same
+                        CategorySection/DeckMainboardRow as every other card so the
+                        interactions are identical. It never occupies a column: a
+                        1-row section at the top of a column stranded a 30-row hole
+                        under it. Its rows align to the column grid below. */}
+                    {commandGroups.length > 0 && (
+                      <div className="deck-command-zone">
+                        {commandGroups.map(renderListSection)}
+                      </div>
+                    )}
+                    <div className="deck-card-columns">
+                      {listColumns.map((column, i) => (
+                        <div key={i} className="deck-card-column">
+                          {column.map(renderListSection)}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {viewMode === 'grid' && visibleGroups.length > 0 && (

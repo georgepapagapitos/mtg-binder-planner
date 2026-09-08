@@ -2246,6 +2246,23 @@ three times on one screen, so these rulings now hold:
   the half the user is looking for.
 - **Empty states sit last.** `Table record` on Stats renders its empty state
   below Build report, never between the composition panels.
+- **The list view is a command zone plus packed columns, not CSS multi-column
+  flow.** The Commander section (one or two rows — a partner is just a second
+  row with its existing "Partner" tag) is a full-width strip ABOVE the type
+  columns, rendered by the same `CategorySection`/`DeckMainboardRow` as every
+  other card so its kebab, hover-peek, tags and allocation colour are identical;
+  its rows sit on the same column grid as the sections below (`--deck-cols`),
+  so one commander row is exactly a column wide and a partner pair reads as two
+  aligned cells. The remaining sections are placed by `packSections`
+  (`deck-display-rows.ts`): largest-first into the shortest column, then back
+  into type order within each column, columns ordered by their first type.
+  Unbreakable section cards in `column-width` flow could only follow document
+  order, which left a 30-row hole under a 1-row Commander card and a
+  Sorcery-above-a-gap when Land could not fit. Under 1100px the flat single
+  panel stays one column (DeckDisplay reads that breakpoint via
+  `useMediaQuery`). Never give the commander a bespoke card widget; never
+  re-introduce `break-inside: avoid` masonry for sections of wildly unequal
+  height.
 
 ## Deck diff rows (T22/E173)
 

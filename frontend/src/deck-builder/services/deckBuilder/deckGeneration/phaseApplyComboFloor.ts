@@ -14,6 +14,8 @@ import {
   exceedsMaxPrice,
   isOwnedBudgetExempt,
   fitsColorIdentity,
+  violatesUserCaps,
+  userCapsForComboCompletion,
 } from '../deckFilters';
 import { stampRoleSubtypes, routeCardByType } from '../categorize';
 import type { BudgetTracker } from '../budgetTracker';
@@ -162,6 +164,24 @@ export function applyComboFloor(state: GenerationState, ctx: ComboFloorContext):
     // all-combos batch fetch the audit uses — never trust that without
     // checking (see the Combo Integrity Audit's identical gate).
     if (!fitsColorIdentity(missingCard, state.context.colorIdentity)) continue;
+
+    // Combo pieces are sourced from state.combos (EDHREC per-commander combo
+    // data), not the pre-filtered cardPicking.ts pool — so the same user hard
+    // caps (rarity/Arena/format legality) need an explicit gate here or a
+    // Bracket-1/arenaOnly build can seed an over-cap combo piece
+    // (E-arena-leak). CMC and price are excluded: combo completion is
+    // deliberately CMC-unconstrained even under Tiny Leaders (see
+    // userCapsForComboCompletion), and price is checked below against the
+    // live budget-tracker effective cap.
+    if (
+      violatesUserCaps(
+        missingCard,
+        userCapsForComboCompletion(state.cfg),
+        state.context.collectionNames
+      )
+    ) {
+      continue;
+    }
 
     // Same budget gate cardPicking/scryfallFill/coherenceRepair enforce —
     // owned copies are exempt, everything else checks the live effective cap.

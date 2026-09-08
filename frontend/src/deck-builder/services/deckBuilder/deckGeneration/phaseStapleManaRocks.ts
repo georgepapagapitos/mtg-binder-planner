@@ -9,7 +9,8 @@ import {
   isOwnedRarityExempt,
   exceedsMaxRarity,
   notOnArena,
-  notPauperCommanderLegal,
+  exceedsCmcCap,
+  notLegalForFormat,
 } from '../deckFilters';
 import { categorizeCards, stampRoleSubtypes } from '../categorize';
 import { type GenerationState, markUsed } from './state';
@@ -62,9 +63,10 @@ export async function stapleManaRocksPhase(
         // staple (observed live: Sol Ring absent from one panel deck), and
         // nothing downstream re-adds it.
         const card = await getCardByName(staple.name).catch(() => getCardByName(staple.name));
-        // PDH: Sol Ring has no common printing (not_legal); Arcane Signet's
-        // CLB common downshift keeps it legal — the gate decides, not a list.
-        if (state.cfg.mtgFormat === 'paupercommander' && notPauperCommanderLegal(card)) continue;
+        // Format-keyed legality (PDH: Sol Ring has no common printing
+        // (not_legal); Arcane Signet's CLB common downshift keeps it legal —
+        // the gate decides, not a list. Also covers brawl/other formats.).
+        if (notLegalForFormat(card, state.cfg.mtgFormat)) continue;
         const ownedExempt = isOwnedBudgetExempt(
           staple.name,
           state.context.collectionNames,
@@ -86,6 +88,7 @@ export async function stapleManaRocksPhase(
         )
           continue;
         if (notOnArena(card, state.cfg.arenaOnly)) continue;
+        if (exceedsCmcCap(card, state.cfg.maxCmc)) continue;
         // Force-included AFTER scored categorization, so it lands at the TAIL
         // of categories.ramp — Smart Trim's position-based resistance treats
         // tail = first cut. Flag it so trim can protect it without conflating

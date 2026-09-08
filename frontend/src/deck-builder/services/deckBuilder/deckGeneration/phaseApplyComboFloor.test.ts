@@ -369,6 +369,64 @@ describe('applyComboFloor', () => {
     expect(state.usedNames.has('Off-Color Bomb')).toBe(false);
   });
 
+  // E-arena-leak: combo pieces come from state.combos (EDHREC data), not
+  // cardPicking.ts's pre-filtered pool — the user's rarity/Arena/legality
+  // caps need an explicit gate here or a capped build can seed an over-cap
+  // combo piece. CMC is deliberately NOT gated here — combo completion is
+  // CMC-unconstrained even under Tiny Leaders (mirrors the Combo Integrity
+  // Audit's golden-test-proven exemption).
+  it('skips a combo piece that exceeds the user rarity/Arena caps', () => {
+    const rarityCase = makeState({
+      combos: [edhrec2CardCombo('c1', ['Gravecrawler', 'Phyrexian Altar'], 900)],
+    });
+    rarityCase.cfg.maxRarity = 'common';
+    rarityCase.usedNames.add('Phyrexian Altar');
+    rarityCase.categories.creatures.push(scryfallCard('Phyrexian Altar'));
+    const rareMissing = scryfallCard('Gravecrawler', { rarity: 'rare' });
+    expect(
+      applyComboFloor(rarityCase, {
+        detectedCombos: undefined,
+        scryfallCardMap: new Map([['Gravecrawler', rareMissing]]),
+        mustIncludeNames: new Set(),
+        targetBracket: undefined,
+      }).seeded
+    ).toBe(false);
+
+    const arenaCase = makeState({
+      combos: [edhrec2CardCombo('c2', ['Gravecrawler', 'Phyrexian Altar'], 900)],
+    });
+    arenaCase.cfg.arenaOnly = true;
+    arenaCase.usedNames.add('Phyrexian Altar');
+    arenaCase.categories.creatures.push(scryfallCard('Phyrexian Altar'));
+    const offArenaMissing = scryfallCard('Gravecrawler', { games: ['paper'] });
+    expect(
+      applyComboFloor(arenaCase, {
+        detectedCombos: undefined,
+        scryfallCardMap: new Map([['Gravecrawler', offArenaMissing]]),
+        mustIncludeNames: new Set(),
+        targetBracket: undefined,
+      }).seeded
+    ).toBe(false);
+  });
+
+  it('does not gate combo completion on CMC (Tiny Leaders exemption)', () => {
+    const state = makeState({
+      combos: [edhrec2CardCombo('c1', ['Gravecrawler', 'Phyrexian Altar'], 900)],
+    });
+    state.cfg.maxCmc = 1;
+    state.usedNames.add('Phyrexian Altar');
+    state.categories.creatures.push(scryfallCard('Phyrexian Altar'));
+    const highCmcMissing = scryfallCard('Gravecrawler', { cmc: 4 });
+    expect(
+      applyComboFloor(state, {
+        detectedCombos: undefined,
+        scryfallCardMap: new Map([['Gravecrawler', highCmcMissing]]),
+        mustIncludeNames: new Set(),
+        targetBracket: undefined,
+      }).seeded
+    ).toBe(true);
+  });
+
   it('does nothing when there are no evictable cards', () => {
     const missingCard = scryfallCard('Gravecrawler');
     const state = makeState({

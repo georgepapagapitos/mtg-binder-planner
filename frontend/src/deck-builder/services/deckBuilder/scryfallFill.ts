@@ -13,6 +13,7 @@ import {
   isOwnedRarityExempt,
   notOnArena,
   exceedsCmcCap,
+  notLegalForFormat,
 } from './deckFilters';
 import { frontFaceName } from '@/lib/card-text';
 import { buildSynergyFingerprint, synergyScore } from './synergyFingerprint';
@@ -91,7 +92,15 @@ export async function fillWithScryfall(
   // no lift data every score is 0, so the sort falls through to today's
   // fingerprint order unchanged.
   liftScoreOf?: (name: string) => number,
-  gates?: FillHardGates
+  gates?: FillHardGates,
+  // Format-keyed legality (commander/PDH/brawl). A raw Scryfall search isn't
+  // pre-scoped to the format the way the EDHREC pool nominally is, so once
+  // the primary pick loop correctly rejects a banned/not-legal card, this
+  // fallback must not silently re-add it from its own independent search
+  // (E-arena-leak follow-up). Optional/undefined falls back to commander
+  // legality (notLegalForFormat's own default) — safe for every existing
+  // caller that doesn't thread it.
+  mtgFormat?: string
 ): Promise<ScryfallCard[]> {
   if (count <= 0) return [];
 
@@ -132,6 +141,7 @@ export async function fillWithScryfall(
       }
       if (exceedsCmcCap(card, maxCmc)) continue;
       if (notOnArena(card, arenaOnly)) continue;
+      if (notLegalForFormat(card, mtgFormat)) continue;
       if (gates?.isSaltBlocked?.(card.name)) continue;
       passing.push(card);
     }

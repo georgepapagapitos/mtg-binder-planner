@@ -637,6 +637,17 @@ describe.skipIf(!process.env.LIVE_GEN)('deckGenerator LIVE eval', () => {
           }
         }
 
+        // Every string field on the deck whose key ends in "Note" — dynamic
+        // so a newly added disclosure automatically shows up in future scans
+        // instead of this dump silently missing it (it used to hardcode just
+        // liftPicksNote/generationRelaxedNote below).
+        const allNotes: Record<string, string> = {};
+        for (const [key, value] of Object.entries(deck)) {
+          if (key.endsWith('Note') && typeof value === 'string') {
+            allNotes[key] = value;
+          }
+        }
+
         const output = {
           commander: spec.commanderName,
           variant: spec.variant,
@@ -670,6 +681,7 @@ describe.skipIf(!process.env.LIVE_GEN)('deckGenerator LIVE eval', () => {
           packagePicks: deck.packagePicks ?? null,
           liftPicksNote: deck.liftPicksNote ?? null,
           generationRelaxedNote: deck.generationRelaxedNote ?? null,
+          allNotes,
           buildReport,
           cardRelevancy: buildCardRelevancy(deck),
         };

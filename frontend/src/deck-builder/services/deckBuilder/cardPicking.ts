@@ -18,6 +18,7 @@ import {
   isOwnedRarityExempt,
   notOnArena,
   exceedsCmcCap,
+  notLegalForFormat,
 } from './deckFilters';
 
 /**
@@ -96,7 +97,12 @@ export function pickFromPrefetched(
   cardAllowed?: (card: ScryfallCard) => boolean,
   liftTieBreak?: Map<string, number>,
   /** Staples <-> Brew dial (see calculateCardPriority); 0.5 = today's formula. */
-  brewLevel: number = 0.5
+  brewLevel: number = 0.5,
+  /** Format legality gate (notLegalForFormat) — undefined defaults to the
+   *  base Commander legality check. Fixes a real leak: this picker never
+   *  checked commander legality at all, so a banned card in the EDHREC/lift
+   *  pool could ship. */
+  mtgFormat?: string
 ): ScryfallCard[] {
   const result: ScryfallCard[] = [];
   const preferOwned = collectionStrategy === 'prefer';
@@ -119,6 +125,7 @@ export function pickFromPrefetched(
     const scryfallCard = cardMap.get(edhrecCard.name);
     if (!scryfallCard) return false;
     if (cardAllowed && !cardAllowed(scryfallCard)) return false;
+    if (notLegalForFormat(scryfallCard, mtgFormat)) return false;
     if (!fitsColorIdentity(scryfallCard, colorIdentity)) return false;
 
     const ownedExempt = isOwnedBudgetExempt(edhrecCard.name, collectionNames, ignoreOwnedBudget);
@@ -568,7 +575,13 @@ export function pickFromPrefetchedWithCurve(
    *  never double-count it. */
   priceSanityDecided?: Set<string>,
   /** Staples <-> Brew dial (see calculateCardPriority); 0.5 = today's formula. */
-  brewLevel: number = 0.5
+  brewLevel: number = 0.5,
+  /** Format legality gate (notLegalForFormat) — undefined defaults to the
+   *  base Commander legality check. Fixes a real leak: this picker never
+   *  checked commander legality at all (notCommanderLegal was only wired
+   *  into the lift-picks/PDH paths), so a banned card in the EDHREC pool
+   *  could ship. */
+  mtgFormat?: string
 ): ScryfallCard[] {
   const result: ScryfallCard[] = [];
   const preferOwned = collectionStrategy === 'prefer';
@@ -708,6 +721,7 @@ export function pickFromPrefetchedWithCurve(
       const scryfallCard = cardMap.get(edhrecCard.name);
       if (!scryfallCard) continue;
       if (cardAllowed && !cardAllowed(scryfallCard)) continue;
+      if (notLegalForFormat(scryfallCard, mtgFormat)) continue;
 
       // Type check for Unknown cards (need to verify they match expected type via Scryfall)
       // Cards already categorized by EDHREC (primary_type !== 'Unknown') skip this check
@@ -757,7 +771,23 @@ export function pickFromPrefetchedWithCurve(
         }
         // High synergy, high inclusion (> 40%), or high combo boost can break curve
         const comboBoost = comboPriorityBoost?.get(edhrecCard.name) ?? 0;
-        if (!isHighSynergyCard(edhrecCard) && edhrecCard.inclusion < 40 && comboBoost < 100) {
+        // Partial-mode owned quota still short: an owned candidate needs the
+        // SAME curve-break allowance a staple gets, or it never gets one —
+        // unowned staples (usually >40% inclusion) sort first and fill every
+        // curve slot before an owned niche pick (usually <40% inclusion) gets
+        // a turn, so the requested owned% silently under-delivers even when
+        // plenty of owned cards exist (E128 audit finding).
+        const ownedQuotaShort =
+          isPartialMode &&
+          enforceQuotas &&
+          collectionNames!.has(edhrecCard.name) &&
+          ownedPicked < ownedTarget;
+        if (
+          !isHighSynergyCard(edhrecCard) &&
+          edhrecCard.inclusion < 40 &&
+          comboBoost < 100 &&
+          !ownedQuotaShort
+        ) {
           continue;
         }
       }

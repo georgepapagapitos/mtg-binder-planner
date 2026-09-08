@@ -218,6 +218,19 @@ describe('pickFromPrefetched', () => {
     expect(used.has('Unowned Bomb')).toBe(false);
   });
 
+  it('rejects a card that is not Commander-legal (the main filter never checked this)', () => {
+    const cards = [
+      ec({ name: 'Banned Staple', inclusion: 99 }),
+      ec({ name: 'Legal Pick', inclusion: 10 }),
+    ];
+    const map = new Map<string, ScryfallCard>([
+      ['Banned Staple', sc({ name: 'Banned Staple', legalities: { commander: 'banned' } })],
+      ['Legal Pick', sc({ name: 'Legal Pick' })],
+    ]);
+    const picked = pickFromPrefetched(cards, map, 2, new Set(), []);
+    expect(picked.map((c) => c.name)).toEqual(['Legal Pick']);
+  });
+
   it('respects the optional card dependency guard', () => {
     const cards = [
       ec({ name: 'Orphan Payoff', inclusion: 99 }),
@@ -330,6 +343,32 @@ describe('pickFromPrefetched', () => {
     );
 
     expect(picked.map((c) => c.name)).toEqual(['Plain Creature']);
+  });
+
+  it('rejects a card that is not Commander-legal (the main filter never checked this)', () => {
+    const cards = [
+      ec({ name: 'Banned Staple', inclusion: 99, primary_type: 'Creature' }),
+      ec({ name: 'Legal Pick', inclusion: 10, primary_type: 'Creature' }),
+    ];
+    const map = new Map<string, ScryfallCard>([
+      [
+        'Banned Staple',
+        sc({ name: 'Banned Staple', type_line: 'Creature', legalities: { commander: 'banned' } }),
+      ],
+      ['Legal Pick', sc({ name: 'Legal Pick', type_line: 'Creature' })],
+    ]);
+    const picked = pickFromPrefetchedWithCurve(
+      cards,
+      map,
+      2,
+      new Set(),
+      [],
+      { 3: 2 },
+      {},
+      new Set(),
+      'Creature'
+    );
+    expect(picked.map((c) => c.name)).toEqual(['Legal Pick']);
   });
 });
 
@@ -742,6 +781,87 @@ describe("pickFromPrefetched 'partial' owned-percentage quota (E71 controls audi
     const oneOwned = cards.filter((c) => c.name !== 'Owned Lo');
     const picked = pickPartial(3, 100, oneOwned);
     expect(picked.map((c) => c.name)).toEqual(['Owned Hi', 'Un Hi', 'Un Lo']);
+  });
+});
+
+describe("pickFromPrefetchedWithCurve 'partial' owned quota vs curve gate (E128 audit)", () => {
+  // Root cause traced from the live audit: an owned candidate's raw priority
+  // is usually LOWER than an unowned staple's (no owned-priority boost exists
+  // for 'partial' — only 'prefer' gets one), so unowned cards sort first and
+  // claim the shared curve slots before the owned quota ever gets a turn. The
+  // owned candidate then hits the curve gate with its typically-sub-40%
+  // inclusion and gets skipped outright, silently under-delivering the
+  // requested owned% even when a matching owned card exists.
+  //
+  // hasCurveRoom's own tolerance (Math.max(1, ceil(target*0.1))) means a
+  // target of 1 actually allows 2 cards through — so this needs TWO unowned
+  // cards ahead of the owned one to genuinely exhaust room (target 1 +
+  // tolerance 1 = 2 slots), not one.
+  const cards = [
+    ec({ name: 'Un Hi 1', inclusion: 95, primary_type: 'Creature' }),
+    ec({ name: 'Un Hi 2', inclusion: 90, primary_type: 'Creature' }),
+    ec({ name: 'Owned Lo', inclusion: 20, primary_type: 'Creature' }), // <40% incl, would be curve-gated
+  ];
+  const map = new Map(
+    cards.map((c) => [c.name, sc({ name: c.name, type_line: 'Creature', cmc: 3 })])
+  );
+
+  it('lets an owned candidate the quota still needs break curve, same as a staple would', () => {
+    const picked = pickFromPrefetchedWithCurve(
+      cards,
+      map,
+      3, // count
+      new Set(),
+      [],
+      { 3: 1 }, // target 1 + tolerance 1 = room for exactly 2 cmc-3 cards
+      {},
+      new Set(),
+      'Creature',
+      null,
+      Infinity,
+      { value: 0 },
+      null,
+      null,
+      null,
+      new Set(['Owned Lo']), // collectionNames
+      undefined,
+      'USD',
+      new Set(),
+      false,
+      false, // strictCurve
+      'partial',
+      33 // collectionOwnedPercent -> ownedTarget=round(3*.33)=1, unownedTarget=2
+    );
+    expect(picked.map((c) => c.name)).toEqual(['Un Hi 1', 'Un Hi 2', 'Owned Lo']);
+  });
+
+  it('still respects strictCurve — the owned quota never overrides an explicit curve ask', () => {
+    const picked = pickFromPrefetchedWithCurve(
+      cards,
+      map,
+      3,
+      new Set(),
+      [],
+      { 3: 1 },
+      {},
+      new Set(),
+      'Creature',
+      null,
+      Infinity,
+      { value: 0 },
+      null,
+      null,
+      null,
+      new Set(['Owned Lo']),
+      undefined,
+      'USD',
+      new Set(),
+      false,
+      true, // strictCurve
+      'partial',
+      33
+    );
+    expect(picked.map((c) => c.name)).toEqual(['Un Hi 1', 'Un Hi 2']);
   });
 });
 

@@ -1,7 +1,33 @@
 import { logger } from '@/lib/logger';
 import type { ScryfallCard, DeckCategory } from '@/deck-builder/types';
-import { getCardByName, getCachedCard } from '@/deck-builder/services/scryfall/client';
+import {
+  getCardByName,
+  getCachedCard,
+  getFrontFaceTypeLine,
+} from '@/deck-builder/services/scryfall/client';
 import { countColorPips } from '../landGenerator';
+
+// Basics (and Wastes, which this generator treats as a duplicable basic
+// stand-in for colorless identities — see the colorless branch below) are
+// the one card type Commander's singleton rule doesn't apply to; every other
+// land is still one-of. The padding passes below are the last code to touch
+// `categories.lands` before the deck ships, so they're the right choke point
+// to collapse an exact-name nonbasic duplicate that slipped in upstream
+// (observed: Sokenzan, Crucible of Defiance 2x on a land-heavy deck) rather
+// than trusting every upstream land-generation path to have deduped already.
+function isDuplicableLand(card: ScryfallCard): boolean {
+  return card.name === 'Wastes' || getFrontFaceTypeLine(card).toLowerCase().includes('basic');
+}
+
+function dedupeNonbasicLands(categories: Record<DeckCategory, ScryfallCard[]>): void {
+  const seen = new Set<string>();
+  categories.lands = categories.lands.filter((card) => {
+    if (isDuplicableLand(card)) return true;
+    if (seen.has(card.name)) return false;
+    seen.add(card.name);
+    return true;
+  });
+}
 
 // E68 phase 4 (mechanical split, final seam): the land top-up/backfill block
 // from generateDeckInner. Extracted verbatim — see deckGenerator.ts's two
@@ -118,6 +144,7 @@ export async function runLandDeficitTopUp(
   ctx: LandTopUpContext,
   targetLands: number
 ): Promise<void> {
+  dedupeNonbasicLands(ctx.categories);
   const landDeficit = targetLands - ctx.categories.lands.length;
   if (landDeficit > 0) {
     logger.debug(`[DeckGen] Land top-up: ${landDeficit} land(s) short of target, adding basics`);
@@ -137,6 +164,12 @@ export async function runLastResortLandFill(
   targetDeckSize: number,
   currentCount: number
 ): Promise<number> {
+  const beforeDedupe = ctx.categories.lands.length;
+  dedupeNonbasicLands(ctx.categories);
+  // currentCount was counted by the caller before this dedupe — correct it
+  // by however many duplicate nonbasics this pass just collapsed, or the
+  // shortage math below under-pads by that same amount.
+  currentCount -= beforeDedupe - ctx.categories.lands.length;
   if (currentCount >= targetDeckSize) return 0;
   const remainingShortage = targetDeckSize - currentCount;
   logger.debug(`[DeckGen] Still need ${remainingShortage} more cards, adding basic lands`);

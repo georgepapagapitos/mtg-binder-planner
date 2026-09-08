@@ -98,3 +98,79 @@ export function notCommanderLegal(card: ScryfallCard): boolean {
 export function notPauperCommanderLegal(card: ScryfallCard): boolean {
   return card.legalities.paupercommander !== 'legal';
 }
+
+// Format-keyed legality gate, generalized from notCommanderLegal /
+// notPauperCommanderLegal so a phase doesn't need to special-case PDH: pass
+// the generation's mtgFormat and get the right Scryfall legalities key.
+// Anything other than paupercommander/brawl falls back to commander (the
+// engine's base format, and the correct check for standard commander runs).
+const FORMAT_LEGALITY_KEY: Record<string, string> = {
+  paupercommander: 'paupercommander',
+  brawl: 'brawl',
+};
+
+export function notLegalForFormat(card: ScryfallCard, mtgFormat: string | undefined): boolean {
+  const key = (mtgFormat && FORMAT_LEGALITY_KEY[mtgFormat]) || 'commander';
+  return card.legalities[key] !== 'legal';
+}
+
+// Config shape every user hard-cap check needs. Structurally matches
+// GenerationConfig (deckGeneration/state.ts) — kept as a local narrow type so
+// this module doesn't depend on state.ts.
+export interface UserCapsConfig {
+  maxRarity: MaxRarity;
+  maxCmc: number | null;
+  arenaOnly: boolean;
+  maxCardPrice: number | null;
+  currency: 'USD' | 'EUR';
+  mtgFormat?: string;
+  ignoreOwnedRarity?: boolean;
+  ignoreOwnedBudget?: boolean;
+}
+
+// Root-cause guard (E-arena-leak): every phase that introduces a card OUTSIDE
+// the pre-filtered candidate pool cardPicking.ts already vets must run it
+// through this same set of user hard caps, or the cap is decorative. Inert
+// (always false) when every cap is off, so default-settings generation is
+// byte-for-byte unaffected — verify against deckGenerator.golden.test.ts
+// before relying on that.
+export function violatesUserCaps(
+  card: ScryfallCard,
+  caps: UserCapsConfig,
+  collectionNames?: Set<string>
+): boolean {
+  if (notLegalForFormat(card, caps.mtgFormat)) return true;
+  if (exceedsCmcCap(card, caps.maxCmc)) return true;
+  if (notOnArena(card, caps.arenaOnly)) return true;
+  if (
+    !isOwnedRarityExempt(card.name, collectionNames, !!caps.ignoreOwnedRarity) &&
+    exceedsMaxRarity(card, caps.maxRarity)
+  ) {
+    return true;
+  }
+  if (
+    !isOwnedBudgetExempt(card.name, collectionNames, !!caps.ignoreOwnedBudget) &&
+    exceedsMaxPrice(card, caps.maxCardPrice, caps.currency)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+// For a call site that already runs its own budget-tracker-aware price check
+// (the dynamic effective cap, not the static maxCardPrice) — reuse the rest
+// of violatesUserCaps without it re-litigating price against the static cap.
+export function userCapsWithoutPrice(caps: UserCapsConfig): UserCapsConfig {
+  return { ...caps, maxCardPrice: null };
+}
+
+// Combo completion (floor + integrity audit) is deliberately CMC-unconstrained
+// even under Tiny Leaders — a combo piece can complete/preserve a combo above
+// the CMC cap (see deckGenerator.golden.test.ts's "Combo Integrity Audit"
+// cases: the whole point of those tests is that a cmc:5 enabler enters ONLY
+// through the audit, which normal picking's unconditional exceedsCmcCap would
+// have rejected). Price stays excluded too — checked separately against the
+// live budget-tracker effective cap.
+export function userCapsForComboCompletion(caps: UserCapsConfig): UserCapsConfig {
+  return { ...caps, maxCardPrice: null, maxCmc: null };
+}

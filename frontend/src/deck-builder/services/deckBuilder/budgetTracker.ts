@@ -35,8 +35,15 @@ export class BudgetTracker {
       this.remainingBudget * 0.15, // max 15% of remaining budget
       avg * 8 // max 8x average per card
     );
-    if (staticMax === null) return Math.max(0, dynamicCap);
-    return Math.max(0, Math.min(staticMax, dynamicCap));
+    // Budget already exhausted (deductMustIncludes can drive remainingBudget
+    // negative) — a Math.max(0, ...) floor here would clamp every remaining
+    // pick to exactly $0, i.e. ban every priced card for the rest of
+    // generation instead of just pacing spend. Fall back to the static cap
+    // (or uncapped) so picking can continue; phaseBudgetConverge reconciles
+    // the total afterward.
+    if (dynamicCap <= 0) return staticMax;
+    if (staticMax === null) return dynamicCap;
+    return Math.min(staticMax, dynamicCap);
   }
 
   /** Deduct card price after adding it to the deck */

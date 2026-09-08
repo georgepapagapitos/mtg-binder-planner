@@ -128,4 +128,76 @@ describe('resolveMultiCopyCards', () => {
     expect(result[0].copies).toHaveLength(12);
     vi.mocked(getCardPrice).mockReturnValue(null);
   });
+
+  // E-arena-leak: multi-copy cards are resolved by name straight off Scryfall,
+  // outside cardPicking.ts's pre-filtered pool, so they need their own
+  // CMC/Arena/format-legality gate — same as every other pick path.
+  it('skips a multi-copy card that exceeds the CMC cap', async () => {
+    const result = await resolveMultiCopyCards(
+      ['Persistent Petitioners'],
+      'Bruvac the Grandiloquent',
+      undefined,
+      new Set(),
+      100,
+      new Set(),
+      null,
+      null,
+      'USD',
+      undefined,
+      undefined,
+      'full',
+      false,
+      null,
+      false,
+      1 // maxCmc — the fixture is cmc 2
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('skips a multi-copy card not on Arena when arenaOnly is set', async () => {
+    const result = await resolveMultiCopyCards(
+      ['Persistent Petitioners'],
+      'Bruvac the Grandiloquent',
+      undefined,
+      new Set(),
+      100,
+      new Set(),
+      null,
+      null,
+      'USD',
+      undefined,
+      undefined,
+      'full',
+      false,
+      null,
+      false,
+      null,
+      true // arenaOnly — the fixture has no `games` list
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('skips a multi-copy card not legal in the active format', async () => {
+    const result = await resolveMultiCopyCards(
+      ['Persistent Petitioners'],
+      'Bruvac the Grandiloquent',
+      undefined,
+      new Set(),
+      100,
+      new Set(),
+      null,
+      null,
+      'USD',
+      undefined,
+      undefined,
+      'full',
+      false,
+      null,
+      false,
+      null,
+      false,
+      'brawl' // fixture's legalities has no `brawl` key → not_legal
+    );
+    expect(result).toEqual([]);
+  });
 });

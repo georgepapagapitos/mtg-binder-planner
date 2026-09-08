@@ -11,7 +11,7 @@ import { offlineGetCardByName, offlineGetCardsByNames, offlineSearchCards } from
 import { offlineDataAvailable, useOfflineStore } from '@/store/offline';
 import { frontFaceName } from '@/lib/card-text';
 import { normalizeScryfallQuery } from '@/lib/normalize-search';
-import { scryfallFetch, scryfallRequest } from '@/lib/scryfall-fetch';
+import { scryfallFetch, scryfallRequest, scryfallErrorMessage } from '@/lib/scryfall-fetch';
 import { apiUrl } from '@/lib/api-base';
 import { persistCard, readCachedCards } from './cache';
 import { HARDCODED_GAME_CHANGERS as SHARED_GAME_CHANGERS } from '@spellcontrol/deck-metrics';
@@ -836,11 +836,36 @@ async function liveUpgradeCardPrintings(
     const fullQuery = `(${nameQuery}) ${filters}`;
     const encodedQuery = encodeURIComponent(fullQuery);
 
+    let response: Response;
     try {
-      const response = await scryfallRequest(
+      response = await scryfallRequest(
         `/cards/search?q=${encodedQuery}&unique=prints&order=released&dir=desc`
       );
+    } catch {
+      // Network/opaque failure — skip this batch, cards keep their default printings.
+      continue;
+    }
 
+    // A malformed scryfallQuery (invalid search syntax) must fail the whole
+    // generation loudly. Treating a 400/422 the same as a 404 "no matching
+    // printings" used to skip it silently, and strict mode (both call sites in
+    // deckGenerator.ts pass strict=true) then removed every single card from
+    // the map — shipping a 98%-basic-lands deck with no explanation
+    // (LIVE-CONFIRMED). 404 stays the legitimate "no matches" case below.
+    if (response.status === 400 || response.status === 422) {
+      let details = '';
+      try {
+        const body = (await response.json()) as { details?: string };
+        details = body.details ?? '';
+      } catch {
+        // Body wasn't JSON — fall back to the generic status message below.
+      }
+      throw new Error(
+        `Your Scryfall filter isn't valid: ${details || scryfallErrorMessage(response.status, response.statusText)}`
+      );
+    }
+
+    try {
       if (response.ok) {
         const data = (await response.json()) as ScryfallSearchResponse;
         // Build a name -> first matching card map (most recent printing first due to order=released desc).

@@ -11,6 +11,10 @@ import {
   exceedsCmcCap,
   notCommanderLegal,
   notPauperCommanderLegal,
+  notLegalForFormat,
+  violatesUserCaps,
+  userCapsWithoutPrice,
+  type UserCapsConfig,
 } from './deckFilters';
 import type { ScryfallCard } from '@/deck-builder/types';
 
@@ -153,6 +157,99 @@ describe('notPauperCommanderLegal', () => {
 
   it('rejects cards with no paupercommander key at all', () => {
     expect(notPauperCommanderLegal(makeCard({ legalities: { commander: 'legal' } }))).toBe(true);
+  });
+});
+
+describe('notLegalForFormat', () => {
+  it('falls back to commander legality for undefined/commander/anything else', () => {
+    const card = makeCard({ legalities: { commander: 'legal' } });
+    expect(notLegalForFormat(card, undefined)).toBe(false);
+    expect(notLegalForFormat(card, 'commander')).toBe(false);
+    expect(notLegalForFormat(card, 'standard')).toBe(false);
+    expect(notLegalForFormat(makeCard({ legalities: { commander: 'banned' } }), undefined)).toBe(
+      true
+    );
+  });
+
+  it('checks the paupercommander key for paupercommander', () => {
+    const card = makeCard({ legalities: { commander: 'legal', paupercommander: 'legal' } });
+    expect(notLegalForFormat(card, 'paupercommander')).toBe(false);
+    expect(
+      notLegalForFormat(makeCard({ legalities: { commander: 'legal' } }), 'paupercommander')
+    ).toBe(true);
+  });
+
+  it('checks the brawl key for brawl', () => {
+    const card = makeCard({ legalities: { commander: 'legal', brawl: 'legal' } });
+    expect(notLegalForFormat(card, 'brawl')).toBe(false);
+    expect(notLegalForFormat(makeCard({ legalities: { commander: 'legal' } }), 'brawl')).toBe(true);
+  });
+});
+
+describe('violatesUserCaps', () => {
+  const noCaps: UserCapsConfig = {
+    maxRarity: null,
+    maxCmc: null,
+    arenaOnly: false,
+    maxCardPrice: null,
+    currency: 'USD',
+  };
+
+  it('is inert (false) when every cap is off — default-settings generation must be unaffected', () => {
+    const card = makeCard({ rarity: 'mythic', cmc: 12, games: [], prices: {} });
+    expect(violatesUserCaps(card, noCaps)).toBe(false);
+  });
+
+  it('flags a card over the rarity cap, honoring the owned exemption', () => {
+    const card = makeCard({ rarity: 'mythic' });
+    const caps: UserCapsConfig = { ...noCaps, maxRarity: 'rare' };
+    expect(violatesUserCaps(card, caps)).toBe(true);
+    const owned = new Set([card.name]);
+    expect(violatesUserCaps(card, { ...caps, ignoreOwnedRarity: true }, owned)).toBe(false);
+  });
+
+  it('flags a card over the CMC cap', () => {
+    const card = makeCard({ cmc: 4 });
+    expect(violatesUserCaps(card, { ...noCaps, maxCmc: 3 })).toBe(true);
+  });
+
+  it('flags a card not on Arena', () => {
+    const card = makeCard({ games: ['paper'] });
+    expect(violatesUserCaps(card, { ...noCaps, arenaOnly: true })).toBe(true);
+  });
+
+  it('flags a card over the max price, honoring the owned exemption', () => {
+    const card = makeCard({ prices: { usd: '10.00' } });
+    const caps: UserCapsConfig = { ...noCaps, maxCardPrice: 1 };
+    expect(violatesUserCaps(card, caps)).toBe(true);
+    const owned = new Set([card.name]);
+    expect(violatesUserCaps(card, { ...caps, ignoreOwnedBudget: true }, owned)).toBe(false);
+  });
+
+  it('flags a card not legal in the active format', () => {
+    const card = makeCard({ legalities: { commander: 'legal' } });
+    expect(violatesUserCaps(card, { ...noCaps, mtgFormat: 'brawl' })).toBe(true);
+    expect(violatesUserCaps(card, noCaps)).toBe(false);
+  });
+});
+
+describe('userCapsWithoutPrice', () => {
+  it('disables only the price check, leaving every other cap untouched', () => {
+    const caps: UserCapsConfig = {
+      maxRarity: 'rare',
+      maxCmc: 3,
+      arenaOnly: true,
+      maxCardPrice: 1,
+      currency: 'USD',
+    };
+    const stripped = userCapsWithoutPrice(caps);
+    expect(stripped.maxCardPrice).toBeNull();
+    expect(stripped.maxRarity).toBe('rare');
+    expect(stripped.maxCmc).toBe(3);
+    expect(stripped.arenaOnly).toBe(true);
+    // An expensive card no longer trips the (now-disabled) price check.
+    const card = makeCard({ prices: { usd: '99.00' }, rarity: 'common', cmc: 1, games: ['arena'] });
+    expect(violatesUserCaps(card, stripped)).toBe(false);
   });
 });
 

@@ -70,6 +70,74 @@ describe('fillWithScryfall', () => {
     expect(used.has('B')).toBe(true);
   });
 
+  // E-arena-leak follow-up: a raw Scryfall search isn't pre-scoped to the
+  // active format the way the EDHREC pool nominally is — once the primary
+  // pick loop correctly rejects a banned/not-legal card, this fallback must
+  // not silently re-add it from its own independent search.
+  it('filters out a card not legal in the active format', async () => {
+    searchCards.mockResolvedValue({
+      data: [
+        sc({ name: 'Legal Card', legalities: { commander: 'legal' } }),
+        sc({ name: 'Banned Card', legalities: { commander: 'banned' } }),
+      ],
+    });
+    const out = await fillWithScryfall(
+      't:creature',
+      [],
+      2,
+      new Set(),
+      new Set(),
+      null,
+      null,
+      null,
+      null,
+      undefined,
+      'USD',
+      false,
+      '',
+      'full',
+      false,
+      false,
+      undefined,
+      undefined,
+      undefined,
+      undefined // mtgFormat — undefined falls back to commander legality
+    );
+    expect(out.map((c) => c.name)).toEqual(['Legal Card']);
+  });
+
+  it('checks the format-keyed legality when mtgFormat is threaded (brawl)', async () => {
+    searchCards.mockResolvedValue({
+      data: [
+        sc({ name: 'Brawl Legal', legalities: { commander: 'legal', brawl: 'legal' } }),
+        sc({ name: 'Brawl Illegal', legalities: { commander: 'legal', brawl: 'not_legal' } }),
+      ],
+    });
+    const out = await fillWithScryfall(
+      't:creature',
+      [],
+      2,
+      new Set(),
+      new Set(),
+      null,
+      null,
+      null,
+      null,
+      undefined,
+      'USD',
+      false,
+      '',
+      'full',
+      false,
+      false,
+      undefined,
+      undefined,
+      undefined,
+      'brawl'
+    );
+    expect(out.map((c) => c.name)).toEqual(['Brawl Legal']);
+  });
+
   it('appends rarity / cmc / arena / user filters onto the query', async () => {
     searchCards.mockResolvedValue({ data: [] });
     await fillWithScryfall(

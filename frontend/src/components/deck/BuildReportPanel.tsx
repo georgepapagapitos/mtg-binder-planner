@@ -199,7 +199,9 @@ export function BuildReportPanel({
     generationNote,
     archetypeNote,
     landCountNote,
+    poolExhaustionNote,
     mustIncludeSkippedNote,
+    mustIncludeOverrideNote,
     brewDialNote,
     landSqueezeTrimNote,
     bracketPoolFallbackNote,
@@ -210,6 +212,7 @@ export function BuildReportPanel({
     roleDeficitNotes,
     priceSanityNote,
     bracketPriceDisclosureNote,
+    gameChangerBracketConflictNote,
     wipeAsymmetryNote,
     qualifiedPayoffGateNote,
     comboAuditBracketBlockNote,
@@ -330,11 +333,15 @@ export function BuildReportPanel({
 
       {landCountNote && <p className="build-report-line build-report-source">{landCountNote}</p>}
 
+      {poolExhaustionNote && <p className="build-report-flag">{poolExhaustionNote}</p>}
+
       {/* Combo builds already surface this note in the confirmation banner
           above — don't say it twice. */}
       {mustIncludeSkippedNote && !comboSeedContext && (
         <p className="build-report-flag">{mustIncludeSkippedNote}</p>
       )}
+
+      {mustIncludeOverrideNote && <p className="build-report-flag">{mustIncludeOverrideNote}</p>}
 
       {brewDialNote && <p className="build-report-line build-report-source">{brewDialNote}</p>}
 
@@ -414,6 +421,10 @@ export function BuildReportPanel({
 
       {bracketPriceDisclosureNote && (
         <p className="build-report-line build-report-source">{bracketPriceDisclosureNote}</p>
+      )}
+
+      {gameChangerBracketConflictNote && (
+        <p className="build-report-line build-report-source">{gameChangerBracketConflictNote}</p>
       )}
 
       {wipeAsymmetryNote && (

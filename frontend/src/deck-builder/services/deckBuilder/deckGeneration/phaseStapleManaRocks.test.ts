@@ -177,4 +177,21 @@ describe('stapleManaRocksPhase', () => {
     await stapleManaRocksPhase(state, null);
     expect(allCards(state).map((c) => c.name)).toEqual(['Arcane Signet']);
   });
+
+  // E-arena-leak: tinyLeaders (maxCmc) had no gate on the staple path.
+  it('tinyLeaders: skips a staple that exceeds the CMC cap', async () => {
+    const state = makeState();
+    state.cfg.maxCmc = 0; // both fixtures resolve at cmc 1
+    await stapleManaRocksPhase(state, null);
+    expect(allCards(state)).toEqual([]);
+  });
+
+  // E-arena-leak: format legality was PDH-only — a brawl build (not_legal in
+  // brawl for either staple's mocked legalities) must skip both too.
+  it('brawl: skips a staple not legal in the active format', async () => {
+    const state = makeState();
+    state.cfg.mtgFormat = 'brawl';
+    await stapleManaRocksPhase(state, null);
+    expect(allCards(state)).toEqual([]);
+  });
 });

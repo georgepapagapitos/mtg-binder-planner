@@ -15,7 +15,8 @@ import {
   constrainsToCollection,
   notInCollection,
   isOwnedBudgetExempt,
-  notPauperCommanderLegal,
+  violatesUserCaps,
+  userCapsForComboCompletion,
 } from '../deckFilters';
 import { stampRoleSubtypes, routeCardByType } from '../categorize';
 import type { BudgetTracker } from '../budgetTracker';
@@ -68,8 +69,7 @@ export function comboIntegrityAuditPhase(
   const { categories, usedNames, bannedCards } = state;
   const { commander, partnerCommander, colorIdentity, customization, collectionNames } =
     state.context;
-  const { ignoreOwnedBudget, maxCardPrice, currency, collectionStrategy, mtgFormat } = state.cfg;
-  const isPdhBuild = mtgFormat === 'paupercommander';
+  const { ignoreOwnedBudget, maxCardPrice, currency, collectionStrategy } = state.cfg;
 
   const ORPHAN_INCLUSION_THRESHOLD = 25; // below this %, the card is considered combo-dependent
   const MAX_AUDIT_SWAPS = 4;
@@ -146,9 +146,16 @@ export function comboIntegrityAuditPhase(
   function auditAdd(card: ScryfallCard): boolean {
     if (usedNames.has(card.name)) return false; // guard against duplicates
     if (bannedCards.has(card.name)) return false; // respect banlist
-    // PDH 99s gate — combo candidates come from the (Commander-scoped)
-    // EDHREC combo dataset, not the PDH-legal pool.
-    if (isPdhBuild && notPauperCommanderLegal(card)) return false;
+    // Combo candidates come from the (Commander-scoped) EDHREC combo dataset,
+    // not the pre-filtered cardPicking.ts pool — so every user hard cap
+    // (rarity/Arena/format legality, incl. the PDH 99s gate) needs an
+    // explicit check here or a capped build can seat an over-cap combo piece
+    // (E-arena-leak). CMC and price are excluded: combo completion is
+    // deliberately CMC-unconstrained even under Tiny Leaders (see
+    // userCapsForComboCompletion — proven by this file's golden coverage),
+    // and price is checked via auditPassesBudget's live effective cap.
+    if (violatesUserCaps(card, userCapsForComboCompletion(state.cfg), collectionNames))
+      return false;
     // E101: every other add path (cardPicking, scryfallFill) checks the
     // target-bracket ceiling before accepting a card — the combo audit
     // never did, so it could push a bracket<=2 ask's Game Changer/mass
@@ -205,11 +212,18 @@ export function comboIntegrityAuditPhase(
       // color identity (needed to detect near-misses at all) — this is
       // the only gate keeping an off-identity combo card out of the deck.
       if (!fitsColorIdentity(scryfallCardMap.get(name)!, colorIdentity)) continue;
-      // Pre-filter mirrors auditAdd's PDH gate so an eviction is never
+      // Pre-filter mirrors auditAdd's user-caps gate so an eviction is never
       // stranded by a rejected add.
-      if (isPdhBuild && notPauperCommanderLegal(scryfallCardMap.get(name)!)) continue;
+      if (
+        violatesUserCaps(
+          scryfallCardMap.get(name)!,
+          userCapsForComboCompletion(state.cfg),
+          collectionNames
+        )
+      )
+        continue;
       // E101: pre-filter mirrors auditAdd's bracket-ceiling gate — same
-      // stranding concern as the PDH gate above.
+      // stranding concern as the caps gate above.
       if (bracketGuard?.exceedsCeiling(name)) continue;
       enablerScore.set(name, (enablerScore.get(name) ?? 0) + 1);
       const ids = enablerCombos.get(name) ?? [];
@@ -288,11 +302,11 @@ export function comboIntegrityAuditPhase(
       // color identity (needed to detect near-misses at all) — this is
       // the only gate keeping an off-identity combo card out of the deck.
       .filter((c) => fitsColorIdentity(c, colorIdentity))
-      // Pre-filter mirrors auditAdd's PDH gate so an eviction is never
+      // Pre-filter mirrors auditAdd's user-caps gate so an eviction is never
       // stranded by a rejected add.
-      .filter((c) => !isPdhBuild || !notPauperCommanderLegal(c))
+      .filter((c) => !violatesUserCaps(c, userCapsForComboCompletion(state.cfg), collectionNames))
       // E101: pre-filter mirrors auditAdd's bracket-ceiling gate — same
-      // stranding concern as the PDH gate above.
+      // stranding concern as the caps gate above.
       .filter((c) => !bracketGuard?.exceedsCeiling(c.name))
       .filter((c) => {
         if (auditPassesBudget(c)) return true;

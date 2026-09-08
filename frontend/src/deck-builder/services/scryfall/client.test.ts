@@ -28,6 +28,7 @@ import {
   searchCards,
   searchTokenArt,
   commanderSearchIdentity,
+  upgradeCardPrintings,
 } from './client';
 import { resetScryfallRateLimit } from '@/lib/scryfall-fetch';
 
@@ -813,5 +814,50 @@ describe('429 storm amplification', () => {
     // Each caller still gets its own copy — deck-generation flags must not leak
     // between two callers that happened to share the request.
     expect(a).not.toBe(b);
+  });
+});
+
+// An invalid scryfallQuery (bad search syntax) must fail generation loudly,
+// not get silently treated like "no matching printings" — that used to strip
+// every card from the map in strict mode and ship a nearly-all-basic-lands
+// deck with no explanation (LIVE-CONFIRMED).
+describe('upgradeCardPrintings', () => {
+  beforeEach(() => {
+    gate.offline = false;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws with Scryfall's own message on a 400 (invalid search syntax)", async () => {
+    const cards = new Map([['Sol Ring', makeCard({ name: 'Sol Ring' })]]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({
+          object: 'error',
+          status: 400,
+          details: "Invalid syntax near 'garbage(('.",
+        }),
+      })
+    );
+
+    await expect(upgradeCardPrintings(cards, 'garbage((', true)).rejects.toThrow(
+      /Your Scryfall filter isn't valid: Invalid syntax near/
+    );
+  });
+
+  it('still treats a 404 as "no matching printings" (strict mode drops the card, no throw)', async () => {
+    const cards = new Map([['Sol Ring', makeCard({ name: 'Sol Ring' })]]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
+    );
+
+    await expect(upgradeCardPrintings(cards, 'is:full-art', true)).resolves.toBeUndefined();
+    expect(cards.has('Sol Ring')).toBe(false);
   });
 });

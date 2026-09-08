@@ -30,14 +30,25 @@ export interface TargetCountsResult {
 // deckGenerator.ts's landCountNote copy).
 export const DEFAULT_LAND_COUNT = 37;
 
-// E128: floor for the land count this engine will actually generate.
-// DeckCustomizer's "Total lands" slider already enforces min={32} for every
-// interactive build, so this only guards auto/programmatic callers that
-// bypass the slider (a clamp regression here is exactly what produced the
-// "5-land Commander deck" hazard the validator gate now also catches
-// end-to-end). Matches the slider's own floor — not a second, different
-// number to keep in sync.
+// E128: floor for the land count this engine will actually generate, sized
+// for a 99-card Commander deck. DeckCustomizer's "Total lands" slider already
+// enforces min={32} for every interactive build, so this only guards
+// auto/programmatic callers that bypass the slider (a clamp regression here
+// is exactly what produced the "5-land Commander deck" hazard the validator
+// gate now also catches end-to-end). Matches the slider's own floor for the
+// 99 format — not a second, different number to keep in sync.
 const MIN_LAND_COUNT = 32;
+
+// LIVE-CONFIRMED: the flat MIN_LAND_COUNT floor above ignores deck size — a
+// 60-card Brawl build asking for 24 lands got clamped up to 32 (54% of a
+// 59-card deck), and a 40-card build asking for 16 got clamped to 32 of 39.
+// The floor scales with deck size instead, proportional to Commander's own
+// 32-of-99 ratio; the 99 format keeps the exact literal 32 (not a rounded
+// 99*32/99) so every existing pinned test stays byte-identical.
+function landCountFloor(format: number, deckCards: number): number {
+  if (format === 99) return MIN_LAND_COUNT;
+  return Math.round((deckCards * MIN_LAND_COUNT) / 99);
+}
 
 /** True when landCount/nonBasicLandCount are both still at the store defaults
  *  — the only signal available that the user hasn't customized lands (no
@@ -221,7 +232,7 @@ export function calculateTargetCounts(
 
   // Respect the user's land count — clamp only to sane absolute bounds
   const landCount = Math.min(
-    Math.max(MIN_LAND_COUNT, landCountOverride ?? customization.landCount),
+    Math.max(landCountFloor(format, deckCards), landCountOverride ?? customization.landCount),
     deckCards - 1
   );
   const nonLandBudgetLandCount = Math.min(

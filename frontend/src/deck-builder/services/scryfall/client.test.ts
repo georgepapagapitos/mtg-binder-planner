@@ -707,6 +707,39 @@ describe('scryfallFetch 429 handling (F26)', () => {
     expect(searchCalls).toBe(100);
   });
 
+  // Deck analysis resolves ~100 EDHREC recommendations for prices it can live
+  // without sharpening; the tail alone (100 searches at 10/s) earned the 429
+  // that stalled the whole analysis. Opting out must fire ZERO searches.
+  it('skips the price-sharpening tail when priceTail is false', async () => {
+    vi.useFakeTimers();
+    const names = Array.from({ length: 120 }, (_, i) => `No Tail Card ${i}`);
+    let searchCalls = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/cards/collection')) {
+          const body = JSON.parse(String(init?.body)) as { identifiers: Array<{ name: string }> };
+          return new Response(
+            JSON.stringify({
+              data: body.identifiers.map(({ name }) =>
+                makeCard({ id: name, name, layout: 'normal' })
+              ),
+              not_found: [],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (url.includes('/cards/search')) searchCalls += 1;
+        return new Response('not found', { status: 404 });
+      }
+    );
+
+    const pending = getCardsByNames(names, undefined, undefined, { priceTail: false });
+    await vi.runAllTimersAsync();
+    expect((await pending).size).toBe(120);
+    expect(searchCalls).toBe(0);
+  });
+
   it('retries a transient 429 and succeeds', async () => {
     vi.useFakeTimers();
     let calls = 0;

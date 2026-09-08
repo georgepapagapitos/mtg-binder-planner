@@ -133,9 +133,14 @@ export function useSimilarCards({
       // ── Pass 1: owned ──
       let owned: SimilarCandidate[] = [];
       if (ownedPrefilter.length > 0) {
-        const resolved = await getCardsByNames(ownedPrefilter.map((c) => c.name)).catch(
-          () => new Map<string, ScryfallCard>()
-        );
+        // Pool-sized resolve (every owned candidate): skip the per-card price
+        // tail — see GetCardsByNamesOptions.priceTail.
+        const resolved = await getCardsByNames(
+          ownedPrefilter.map((c) => c.name),
+          undefined,
+          undefined,
+          { priceTail: false }
+        ).catch(() => new Map<string, ScryfallCard>());
         if (cancelled) return;
         const pool: SimilarInput[] = [];
         for (const c of ownedPrefilter) {

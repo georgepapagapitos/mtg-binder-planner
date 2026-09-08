@@ -1,4 +1,6 @@
 import { logger } from '@/lib/logger';
+import { bestEffortBudget } from '@/lib/best-effort';
+import { HARDCODED_GAME_CHANGERS } from '@spellcontrol/deck-metrics';
 import type {
   ScryfallCard,
   EDHRECCommanderData,
@@ -501,7 +503,12 @@ export async function enrichRecommendationPrices(recs: RecommendedCard[]): Promi
   );
   if (need.length === 0) return;
   try {
-    const cardMap = await getCardsByNames(need.map((r) => r.name));
+    const cardMap = await getCardsByNames(
+      need.map((r) => r.name),
+      undefined,
+      undefined,
+      { priceTail: false }
+    );
     const byName = new Map<string, ScryfallCard>();
     for (const c of cardMap.values()) {
       byName.set(c.name.toLowerCase(), c);
@@ -532,6 +539,17 @@ export async function enrichRecommendationPrices(recs: RecommendedCard[]): Promi
 
 /** Cap on how many Scryfall hits per need feed the off-meta selector. */
 const ORACLE_HITS_PER_NEED = 40;
+
+/**
+ * Shared budget for the Scryfall-bound best-effort steps inside one analysis
+ * (recommendation prices, synergy candidate cards, off-meta oracle searches).
+ * The caller's stall timer is 20s (use-commander-bracket-analysis.ts); under a
+ * Scryfall 429 the shared limiter parks every request for the Retry-After
+ * window, so without this one optional step could hold the whole analysis
+ * past the stall and the bracket/roles/gaps already computed were discarded.
+ * 12s leaves the essentials (tagger, EDHREC) their headroom.
+ */
+const SCRYFALL_BEST_EFFORT_BUDGET_MS = 12_000;
 
 /**
  * Genuinely-off-meta candidates for the synergy suggester: for each engine
@@ -574,6 +592,7 @@ export async function analyzeCommanderDeck(
   params: AnalyzeCommanderDeckParams
 ): Promise<CommanderDeckAnalysisResult | null> {
   try {
+    const scryfallBudget = bestEffortBudget(SCRYFALL_BEST_EFFORT_BUDGET_MS);
     // Ensure tagger data is loaded before any tagger-backed signal (roles, mass
     // land denial, extra turns, stax, tutors) is read. Without this await, a first
     // analysis racing the boot fetch computes every tagger signal as false and the
@@ -629,7 +648,13 @@ export async function analyzeCommanderDeck(
     const averageCmc =
       nonLand.length > 0 ? nonLand.reduce((s, c) => s + (c.cmc ?? 0), 0) / nonLand.length : 0;
 
-    const gameChangerNames = await getGameChangerNames();
+    // Game changers are a Scryfall search on a cold cache; under a cooldown
+    // the shared limiter would park it past the stall. The shared hardcoded
+    // list is the same floor the live path itself falls back to.
+    const gameChangerNames = await scryfallBudget(
+      getGameChangerNames(),
+      new Set<string>(HARDCODED_GAME_CHANGERS)
+    );
     const cardInclusionMap = buildCardInclusionMap(
       edhrecData,
       params.cards.map((c) => c.name)
@@ -701,26 +726,30 @@ export async function analyzeCommanderDeck(
     let hiddenGems: HiddenGemRow[] = [];
     try {
       await loadCardSimilar(); // soft-fails → getSimilarRank returns null
-      hiddenGems = await computeHiddenGems({
-        deckCards: params.cards,
-        commanders: [
-          params.commander,
-          ...(params.partnerCommander ? [params.partnerCommander] : []),
-        ],
-        // Same fallback the editor uses: commander identities when the caller
-        // didn't pass an explicit identity.
-        colorIdentity: params.colorIdentity ?? [
-          ...new Set([
-            ...(params.commander.color_identity ?? []),
-            ...(params.partnerCommander?.color_identity ?? []),
-          ]),
-        ],
-        edhrecData,
-        gapNames: gapAnalysis.map((g) => g.name),
-        liftIndex,
-        similarRankFor: getSimilarRank,
-        resolveCards: (names) => getCardsByNames(names),
-      });
+      hiddenGems = await scryfallBudget(
+        computeHiddenGems({
+          deckCards: params.cards,
+          commanders: [
+            params.commander,
+            ...(params.partnerCommander ? [params.partnerCommander] : []),
+          ],
+          // Same fallback the editor uses: commander identities when the caller
+          // didn't pass an explicit identity.
+          colorIdentity: params.colorIdentity ?? [
+            ...new Set([
+              ...(params.commander.color_identity ?? []),
+              ...(params.partnerCommander?.color_identity ?? []),
+            ]),
+          ],
+          edhrecData,
+          gapNames: gapAnalysis.map((g) => g.name),
+          liftIndex,
+          similarRankFor: getSimilarRank,
+          resolveCards: (names) =>
+            getCardsByNames(names, undefined, undefined, { priceTail: false }),
+        }),
+        []
+      );
     } catch (err) {
       logger.warn('[CommanderDeckAnalysis] Hidden gems skipped:', err);
     }
@@ -786,7 +815,10 @@ export async function analyzeCommanderDeck(
       // Backfill price/cmc/type onto the EDHREC recommendation pool so the Cost
       // optimizer has priced alternatives and Optimize's curve-fill/confidence
       // bands work (the manual path doesn't get the generator's enrichment).
-      await enrichRecommendationPrices(gradeBracket.analysis.recommendations);
+      await scryfallBudget(
+        enrichRecommendationPrices(gradeBracket.analysis.recommendations),
+        undefined
+      );
       // Protect cards load-bearing for an invested axis (a token producer in a
       // token deck, etc.) from the EDHREC-inclusion cutter. Reuses the synergy
       // analysis computed above.
@@ -854,7 +886,15 @@ export async function analyzeCommanderDeck(
         .slice(0, 80);
       const candidates: SynergyCandidate[] = [];
       if (candidateMeta.length > 0) {
-        const cardMap = await getCardsByNames(candidateMeta.map((c) => c.name));
+        const cardMap = await scryfallBudget(
+          getCardsByNames(
+            candidateMeta.map((c) => c.name),
+            undefined,
+            undefined,
+            { priceTail: false }
+          ),
+          new Map<string, ScryfallCard>()
+        );
         const byName = new Map<string, ScryfallCard>();
         for (const sc of cardMap.values()) byName.set(sc.name.toLowerCase(), sc);
         for (const meta of candidateMeta) {
@@ -863,11 +903,9 @@ export async function analyzeCommanderDeck(
         }
       }
       const colorIdentity = params.colorIdentity ?? params.commander.color_identity ?? [];
-      const oracleCandidates = await sourceOracleCandidates(
-        deckSynergy,
-        colorIdentity,
-        edhrecInclusion,
-        inDeck
+      const oracleCandidates = await scryfallBudget(
+        sourceOracleCandidates(deckSynergy, colorIdentity, edhrecInclusion, inDeck),
+        []
       );
       synergyAnalysis = buildSynergyAnalysis(deckSynergy, [...candidates, ...oracleCandidates]);
     } catch (err) {

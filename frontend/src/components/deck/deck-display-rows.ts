@@ -609,6 +609,46 @@ export function sortRows(rows: Row[], mode: SortMode, dir: 'asc' | 'desc'): Row[
 
 export type TypedGroup = { title: string; icon: string; rows: Row[]; target?: number };
 
+/** A section header + its card padding is worth about this many rows of height. */
+const SECTION_HEADER_ROWS = 2;
+
+/**
+ * Lay type sections into `cols` columns for the list view.
+ *
+ * Sections are unbreakable cards, and a Commander deck has one or two giants
+ * (Creature, Land) next to several 3–10 row groups. CSS multi-column flow
+ * placed them in document order and could not split them, so a 1-row section
+ * stranded alone at the top of a column left a 30-row hole under it.
+ *
+ * Assignment is largest-first into the currently shortest column (LPT), which
+ * balances heights; then each column's sections are put back in type order and
+ * the columns themselves are ordered by the first type they contain, so the
+ * page still reads Creature → Artifact → … left to right. Heights are row
+ * counts (+ a header allowance), so this needs no DOM measurement.
+ */
+export function packSections<T extends { rows: unknown[] }>(sections: T[], cols: number): T[][] {
+  const n = Math.max(1, Math.floor(cols));
+  if (sections.length === 0) return [];
+  if (n === 1) return [sections.slice()];
+  const indexed = sections.map((section, index) => ({ section, index }));
+  const bySize = indexed
+    .slice()
+    .sort((a, b) => b.section.rows.length - a.section.rows.length || a.index - b.index);
+  const heights = new Array<number>(n).fill(0);
+  const buckets: Array<typeof indexed> = Array.from({ length: n }, () => []);
+  for (const item of bySize) {
+    let shortest = 0;
+    for (let c = 1; c < n; c++) if (heights[c] < heights[shortest]) shortest = c;
+    buckets[shortest].push(item);
+    heights[shortest] += item.section.rows.length + SECTION_HEADER_ROWS;
+  }
+  return buckets
+    .filter((b) => b.length > 0)
+    .map((b) => b.slice().sort((a, z) => a.index - z.index))
+    .sort((a, b) => a[0].index - b[0].index)
+    .map((b) => b.map((item) => item.section));
+}
+
 // Buckets that never render a header gauge in category view — 'synergy' and
 // 'utility' are the generator's fill/catch-all buckets, not planned slot
 // counts, so a target there would be a made-up number, not a real gauge.

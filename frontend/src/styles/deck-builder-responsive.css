@@ -20,12 +20,22 @@
      20q2 deck-generator's layout). Multi-column is also dropped — rows
      stay full-width for legibility once the stats sidebar drops below. */
   .deck-card-list {
-    column-count: 1;
-    column-width: auto;
+    gap: 0;
     background: var(--surface);
     border: 0.5px solid var(--border);
     border-radius: var(--radius-lg);
     padding: var(--space-1) 0.85rem;
+  }
+
+  /* One column: DeckDisplay reads this same breakpoint and packs into a single
+     column, so these are plain stacked sections inside the flat panel. */
+  .deck-card-columns,
+  .deck-command-zone .deck-section-rows {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-card-column {
+    gap: 0;
   }
 
   .deck-card-list .deck-section {
@@ -40,7 +50,8 @@
   /* Thin divider between sections — replaces the inter-card whitespace
      that the bordered cards used to create. The first section skips
      the line so the panel doesn't open with a rule. */
-  .deck-card-list .deck-section + .deck-section {
+  .deck-card-list .deck-section + .deck-section,
+  .deck-card-list .deck-command-zone + .deck-card-columns .deck-section:first-child {
     border-top: 0.5px solid var(--border);
     margin-top: var(--space-2);
     padding-top: var(--space-2);
@@ -105,11 +116,8 @@
      image at the 488/680 portrait aspect, so we just let the parent
      breakpoint at 600px handle the stack. */
 
-  /* Single-column card list, stats, decks index on mobile. */
-  .deck-card-list {
-    column-count: 1;
-    column-width: auto;
-  }
+  /* Single-column stats, decks index on mobile (the card list is already one
+     column from the 1100px block above). */
   .decks-index-list {
     grid-template-columns: 1fr;
   }

@@ -331,11 +331,39 @@
   display: block;
 }
 
-/* Card list — sections flow as CSS multi-column items so a small section
-   (e.g. Commander) lets the next section start in the same column. The
-   prior auto-fill grid left huge blank gaps under short sections. */
+/* Card list — a command zone strip, then N real columns. The section→column
+   assignment is done in JS (packSections: largest-first, then back into type
+   order) because sections are unbreakable cards and CSS multi-column flow
+   could only place them in document order — a 1-row Commander section at the
+   top of a column stranded a 30-row hole under it. `--deck-cols` is set inline
+   by DeckDisplay from the measured list width (280px min per column, matching
+   the retired `column-width`). */
 .deck-card-list {
-  column-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.deck-card-columns {
+  display: grid;
+  grid-template-columns: repeat(var(--deck-cols, 1), minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.deck-card-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Command zone: the commander/partner rows sit on the same column grid as
+   the sections below, so one row is exactly a column wide and a partner pair
+   reads as two aligned cells — the row itself is the ordinary deck row. */
+.deck-command-zone .deck-section-rows {
+  display: grid;
+  grid-template-columns: repeat(var(--deck-cols, 1), minmax(0, 1fr));
   column-gap: var(--space-4);
 }
 
@@ -344,10 +372,8 @@
   border: 0.5px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 0.55rem 0.85rem var(--space-3);
-  break-inside: avoid;
-  display: inline-block;
-  width: 100%;
-  margin-bottom: var(--space-3);
+  display: block;
+  min-width: 0;
 }
 
 .deck-section-header {

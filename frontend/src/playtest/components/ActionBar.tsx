@@ -70,7 +70,7 @@ interface Props {
   /** B6-04: folds `.playtest-page__header`'s back-navigation into this row,
    *  shown only in the short-landscape tier (CSS-gated) — see PlaytestBoard
    *  Props doc. Both optional so every other tier's markup is unaffected. */
-  deckName?: string;
+  backLabel?: string;
   onBack?(): void;
 }
 
@@ -100,7 +100,7 @@ export function ActionBar({
   initiative,
   citysBlessing,
   hasUnreadLog,
-  deckName,
+  backLabel,
   onBack,
 }: Props) {
   // Designations held right now, short-labeled, for the button/menu badge —
@@ -163,7 +163,7 @@ export function ActionBar({
     <div className="playtest-actionbar" role="toolbar" aria-label="Playtest actions">
       {onBack && (
         <button type="button" className="playtest-actionbar__back" onClick={onBack}>
-          ← {deckName}
+          ← {backLabel}
         </button>
       )}
       <span className="playtest-actionbar__turn">Turn {turn}</span>

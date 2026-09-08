@@ -49,6 +49,8 @@ interface Props {
   onOnDrawChange(on: boolean): void;
   /** Leave playtest and return to the deck. The sheet is otherwise
    *  non-dismissable (Keep / Mulligan), so this is the only way out. */
+  /** Where `onExit` goes (deck name, or the online table). */
+  exitLabel?: string;
   onExit?(): void;
   onKeep(): void;
   onMulligan(): void;
@@ -67,6 +69,7 @@ export function OpeningHandSheet({
   onFreeMulliganChange,
   onDraw,
   onOnDrawChange,
+  exitLabel,
   onExit,
   onKeep,
   onMulligan,
@@ -349,7 +352,7 @@ export function OpeningHandSheet({
         <div className="card-picker-footer playtest-opening-footer">
           {onExit && (
             <button type="button" className="playtest-opening-back" onClick={onExit}>
-              ← Back to deck
+              ← {exitLabel ?? 'Back to deck'}
             </button>
           )}
           {isMulliganBottom ? (

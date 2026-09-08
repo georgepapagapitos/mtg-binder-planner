@@ -67,7 +67,7 @@ interface Props {
    *  to keep the battlefield at a usable height without shrinking any
    *  control below its 44px floor. Optional so PlaytestBoard's existing
    *  tests (no header context) don't need to supply it. */
-  deckName?: string;
+  backLabel?: string;
   onBack?(): void;
 }
 
@@ -106,7 +106,7 @@ function parseDraggable(id: string): { source: 'bf' | 'hand' | 'zone'; cardId: s
   return { source: m[1] as 'bf' | 'hand' | 'zone', cardId: m[2] };
 }
 
-export function PlaytestBoard({ state, deckName, onBack }: Props) {
+export function PlaytestBoard({ state, backLabel, onBack }: Props) {
   const dispatch = usePlaytestStore((s) => s.dispatch);
   const phase = usePlaytestStore((s) => s.phase);
   const mulliganCount = usePlaytestStore((s) => s.mulliganCount);
@@ -576,7 +576,7 @@ export function PlaytestBoard({ state, deckName, onBack }: Props) {
         turn={state.turn}
         libraryCount={state.zones.library.length}
         isNarrow={isNarrow}
-        deckName={deckName}
+        backLabel={backLabel}
         onBack={onBack}
         onDraw={() => {
           haptics.tap();
@@ -1011,7 +1011,10 @@ export function PlaytestBoard({ state, deckName, onBack }: Props) {
           onFreeMulliganChange={setFreeMulligan}
           onDraw={onDraw}
           onOnDrawChange={setOnDraw}
-          onExit={() => navigate(playtestDeckId ? `/decks/${playtestDeckId}` : '/decks')}
+          exitLabel={backLabel}
+          onExit={
+            onBack ?? (() => navigate(playtestDeckId ? `/decks/${playtestDeckId}` : '/decks'))
+          }
           onKeep={keepOpeningHand}
           onMulligan={mulliganOpeningHand}
           onConfirmBottom={finalizeBottom}

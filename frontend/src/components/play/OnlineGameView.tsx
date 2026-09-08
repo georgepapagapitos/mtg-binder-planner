@@ -801,6 +801,9 @@ function YourPanel({
             </button>
             {cmdOpen && (
               <div className="ogv-cmd-list" role="group" aria-label="Commander damage received">
+                {opponents.length === 0 && (
+                  <p className="ogv-cmd-empty">No opponents seated yet.</p>
+                )}
                 {opponents.map((opp) => (
                   <CmdDmgRow
                     key={opp.seat}

@@ -55,7 +55,7 @@ describe('ActionBar — back button (B6-04)', () => {
 
   it('renders and wires the back button when supplied', () => {
     const onBack = vi.fn();
-    render(<ActionBar {...baseProps()} deckName="Abigale" onBack={onBack} />);
+    render(<ActionBar {...baseProps()} backLabel="Abigale" onBack={onBack} />);
     const btn = screen.getByRole('button', { name: '← Abigale' });
     fireEvent.click(btn);
     expect(onBack).toHaveBeenCalledOnce();

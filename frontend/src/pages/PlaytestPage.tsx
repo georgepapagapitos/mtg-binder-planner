@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDecksStore } from '@/store/decks';
+import { usePlayStore } from '@/store/play';
+import { useAuth } from '@/store/auth';
 import { useConfirm } from '@/lib/use-confirm';
 import {
   clearPlaytestSnapshot,
@@ -26,6 +28,12 @@ export function PlaytestPage() {
   const teardown = usePlaytestStore((s) => s.teardown);
   const storeDeckId = usePlaytestStore((s) => s.deckId);
   const { confirm, dialog: confirmDialog } = useConfirm();
+  // Same seat test as use-online-table: when this device holds a seat in a
+  // live online game, this playtest IS that seat's board, so "back" returns
+  // to the table — not to the deck, which then needed a second hop to Play.
+  const online = usePlayStore((s) => s.online);
+  const userId = useAuth((s) => s.user?.id);
+  const tableCode = online && online.players.some((p) => p.userId === userId) ? online.code : null;
 
   const deck = id ? decks.find((d) => d.id === id) : undefined;
 
@@ -192,19 +200,18 @@ export function PlaytestPage() {
     );
   }
 
+  const back = tableCode
+    ? { label: `Game ${tableCode}`, to: '/play?tab=online' }
+    : { label: deck.name, to: `/decks/${deck.id}` };
   return (
     <div className="playtest-page">
       <header className="playtest-page__header">
-        <button type="button" onClick={() => navigate(`/decks/${deck.id}`)}>
-          ← {deck.name}
+        <button type="button" onClick={() => navigate(back.to)}>
+          ← {back.label}
         </button>
         <h1>Playtest</h1>
       </header>
-      <PlaytestBoard
-        state={state}
-        deckName={deck.name}
-        onBack={() => navigate(`/decks/${deck.id}`)}
-      />
+      <PlaytestBoard state={state} backLabel={back.label} onBack={() => navigate(back.to)} />
       {confirmDialog}
     </div>
   );

@@ -1,6 +1,17 @@
 import { Lock, Settings } from 'lucide-react';
 import type { Designation } from '@/lib/playtest';
 import { OverflowMenu, type OverflowMenuItem } from '@/components/OverflowMenu';
+import { useNarrowViewport } from '../hooks/use-narrow-viewport';
+
+/**
+ * Below this viewport width the full bar no longer fits on one row and Reset
+ * (margin-left: auto) wrapped alone onto a second line. Measured 2026-09-08:
+ * 1321px natural, ~1750px worst case with every badge lit (designations,
+ * resistance, select count, takeback) plus the online Hold button. So the
+ * secondary actions fold into the overflow menu here exactly as they do in
+ * the ≤1024 narrow tier — one bar shape per width, never a ragged wrap.
+ */
+const FULL_BAR_MIN_WIDTH = 1800;
 import { RESISTANCE_LEVEL_LABEL, type ResistanceLevel } from '../lib/resistance';
 import { TAKEBACK_MODE_LABEL, type TakebackMode } from '../lib/takeback';
 import type { RewindVerdict } from '@/lib/playtest/rewind';
@@ -141,6 +152,7 @@ export function ActionBar({
   // Select is deliberately absent here (B6-14) — its own standing button
   // (below) is never hidden by `isNarrow`, so listing it here too would
   // duplicate the identical toggle in both places.
+  const foldSecondary = useNarrowViewport(FULL_BAR_MIN_WIDTH - 1) || isNarrow;
   const overflowItems: OverflowMenuItem[] = [
     { label: 'Shuffle', onClick: onShuffle },
     { label: 'Mulligan', onClick: onMulligan },
@@ -225,7 +237,7 @@ export function ActionBar({
       <ReactionPicker />
       <HoldButton />
       <HoldBanner />
-      {isNarrow ? (
+      {foldSecondary ? (
         <OverflowMenu
           items={overflowItems}
           ariaLabel="More playtest actions"

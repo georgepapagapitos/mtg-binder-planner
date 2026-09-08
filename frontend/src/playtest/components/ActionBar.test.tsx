@@ -5,7 +5,7 @@
  * back-navigation in here (CSS-gated); every other tier omits it entirely,
  * since `.playtest-page__header` already covers it there.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ActionBar } from './ActionBar';
 
@@ -59,5 +59,39 @@ describe('ActionBar — back button (B6-04)', () => {
     const btn = screen.getByRole('button', { name: '← Abigale' });
     fireEvent.click(btn);
     expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  describe('secondary actions fold by viewport width', () => {
+    // happy-dom's matchMedia never matches; emulate a viewport by answering
+    // only `(max-width: Npx)` queries whose N is at least the given width.
+    function viewport(width: number) {
+      vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+        const max = Number(/max-width:\s*(\d+)px/.exec(query)?.[1] ?? NaN);
+        return {
+          matches: Number.isFinite(max) && width <= max,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        } as unknown as MediaQueryList;
+      });
+    }
+    afterEach(() => vi.restoreAllMocks());
+
+    it('shows every action inline when the full bar fits', () => {
+      viewport(1900);
+      render(<ActionBar {...baseProps()} />);
+      expect(screen.getByRole('button', { name: 'Shuffle' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'More playtest actions' })).toBeNull();
+    });
+
+    it('folds the secondary actions into the overflow menu on a laptop-width viewport', () => {
+      viewport(1440);
+      render(<ActionBar {...baseProps()} />);
+      expect(screen.queryByRole('button', { name: 'Shuffle' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'More playtest actions' })).toBeTruthy();
+      // The everyday actions stay inline.
+      expect(screen.getByRole('button', { name: 'Draw' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Next turn' })).toBeTruthy();
+    });
   });
 });

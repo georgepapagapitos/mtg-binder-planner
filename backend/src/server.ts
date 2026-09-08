@@ -18,6 +18,7 @@ import { authRouter } from './routes/auth';
 import { adminRouter } from './routes/admin';
 import { syncRouter } from './routes/sync';
 import { gamesRouter } from './routes/games';
+import { warnIfMultiMachine } from './fly-topology';
 import { gameResultsRouter } from './routes/game-results';
 import { combosRouter } from './routes/combos';
 import { aggregatesRouter } from './routes/aggregates';
@@ -1389,6 +1390,7 @@ function afterBoot(label: string, offsetMs: number, fn: () => void): void {
 async function start() {
   await ensureSchema();
   await promoteAdminsAtBoot();
+  warnIfMultiMachine();
   const server = app.listen(PORT, () => {
     logger.info(`[server] listening on http://localhost:${PORT}`);
     logger.info(`[server] cache db: ${DB_PATH}`);

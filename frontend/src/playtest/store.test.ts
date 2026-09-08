@@ -107,6 +107,22 @@ describe('playtest store — free mulligan variant (E226)', () => {
     expect(store().state!.zones.hand).toHaveLength(7);
   });
 
+  it('journals each card put on the bottom by the London step', () => {
+    mulliganOnce();
+    store().keepOpeningHand();
+    expect(store().phase).toBe('mulligan-bottom');
+    const [first] = store().state!.zones.hand;
+    store().finalizeBottom([first.id]);
+    expect(store().phase).toBe('playing');
+    expect(store().state!.zones.library.at(-1)!.id).toBe(first.id);
+    const last = store().gameLog.at(-1)!;
+    expect(last.kind).toBe('zone-move');
+    expect(last.text).toBe(`${first.name}: hand → bottom of library`);
+    expect(last.cardName).toBe(first.name);
+    // The rewind trail names the step the same way.
+    expect(store().rewindTrail[0]?.summary).toBe(`${first.name}: hand → bottom of library`);
+  });
+
   it('releases a hand already stranded on the bottom-N step', () => {
     mulliganOnce();
     store().keepOpeningHand();

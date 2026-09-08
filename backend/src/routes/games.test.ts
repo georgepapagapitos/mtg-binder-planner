@@ -160,6 +160,7 @@ function openGameEventsAnyFrame(
 }
 
 /** A minimally-valid `PublicBoard` body — enough to pass `isPlausibleBoard`. */
+// (battlefield entries must carry x/y in 0..1 — see the range test under /board)
 const validBoard = {
   turn: 1,
   life: 40,
@@ -174,6 +175,41 @@ const validBoard = {
   handCount: 7,
   libraryCount: 92,
 };
+
+/**
+ * Opens `/events` and HOLDS it open (unlike `openGameEvents`, which destroys
+ * the socket once it has what it wants). Resolves with the status once
+ * headers land; the caller destroys `req` when done.
+ */
+function holdGameEvents(
+  cookie: string,
+  code: string
+): Promise<{ status: number; req: http.ClientRequest }> {
+  return new Promise((resolve, reject) => {
+    const addr = app.address();
+    if (!addr || typeof addr === 'string') {
+      reject(new Error('test server has no address'));
+      return;
+    }
+    const req = http.request(
+      {
+        host: '127.0.0.1',
+        port: addr.port,
+        path: `/api/games/${code}/events`,
+        method: 'GET',
+        headers: { Cookie: cookie },
+      },
+      (res) => {
+        res.on('data', () => {});
+        resolve({ status: res.statusCode!, req });
+      }
+    );
+    req.on('error', () => {
+      /* expected on destroy */
+    });
+    req.end();
+  });
+}
 
 describe('POST /api/games', () => {
   it('rejects unauthenticated requests', async () => {
@@ -292,6 +328,32 @@ describe('GET /api/games/:code', () => {
 });
 
 describe('GET /api/games/:code/events (SSE)', () => {
+  it('caps concurrently-open streams per account with a 429, not by evicting an older one', async () => {
+    const cookie = await registerAndGetCookie('games_streamcap');
+    const created = await request(app).post('/api/games').set('Cookie', cookie).send({});
+    const code = created.body.game.code as string;
+    const held: http.ClientRequest[] = [];
+    try {
+      for (let i = 0; i < 8; i++) {
+        const { status, req } = await holdGameEvents(cookie, code);
+        expect(status).toBe(200);
+        held.push(req);
+      }
+      const over = await request(app).get(`/api/games/${code}/events`).set('Cookie', cookie);
+      expect(over.status).toBe(429);
+      expect(over.body.error).toMatch(/too many open streams/i);
+      // The eight already-open streams are untouched.
+      expect(held.every((r) => !r.destroyed)).toBe(true);
+    } finally {
+      for (const r of held) r.destroy();
+    }
+    // Once they close, the account can stream again.
+    await new Promise((r) => setTimeout(r, 50));
+    const again = await holdGameEvents(cookie, code);
+    expect(again.status).toBe(200);
+    again.req.destroy();
+  });
+
   it('streams the current state to a participant on connect', async () => {
     const hostCookie = await registerAndGetCookie('games_sse_host');
     const created = await request(app).post('/api/games').set('Cookie', hostCookie).send({});
@@ -601,6 +663,38 @@ describe('GET /api/games/:code/poll (long-poll)', () => {
 });
 
 describe('POST /api/games/:code/board (board relay)', () => {
+  it('rejects a battlefield position outside 0..1 (tampered client), accepts the edges', async () => {
+    const cookie = await registerAndGetCookie('games_board_range');
+    const created = await request(app).post('/api/games').set('Cookie', cookie).send({});
+    const code = created.body.game.code as string;
+    const card = (x: number, y: number) => ({
+      card: { id: 'c1' },
+      tapped: false,
+      counters: {},
+      stickers: [],
+      x,
+      y,
+      faceDown: true,
+    });
+    for (const [x, y] of [
+      [1.5, 0.2],
+      [0.2, -0.1],
+      [Number.NaN, 0.5],
+    ]) {
+      const bad = await request(app)
+        .post(`/api/games/${code}/board`)
+        .set('Cookie', cookie)
+        .send({ ...validBoard, battlefield: [card(x, y)] });
+      expect(bad.status).toBe(400);
+      expect(bad.body.error).toBe('Invalid board payload.');
+    }
+    const edges = await request(app)
+      .post(`/api/games/${code}/board`)
+      .set('Cookie', cookie)
+      .send({ ...validBoard, battlefield: [card(0, 0), card(1, 1)] });
+    expect(edges.status).toBe(200);
+  });
+
   it('rejects unauthenticated requests', async () => {
     const created = await request(app)
       .post('/api/games')

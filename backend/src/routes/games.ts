@@ -43,18 +43,24 @@ const createLimiter = testAwareLimiter({ windowMs: 60_000, max: 20 });
  * to its still-open stream; a long-poll subscriber resolves its held request
  * once and is removed — see GET /:code/poll.
  *
- * ponytail: this only reaches subscribers on the SAME machine. Fine today —
- * fly.toml pins `min_machines_running = 1`, so there's exactly one process —
- * but `auto_start_machines = true` means Fly can spin up a second machine
- * under load, and that instance's subscribers would silently stop getting
- * pushes (they still fall back to the client's poll loop, just laggy).
- * Upgrade path if that ever matters: Postgres LISTEN/NOTIFY on
- * game_sessions, or Redis pub/sub, so every instance rebroadcasts to its own
- * local subscribers on notify instead of assuming they're all local.
+ * Single-machine by construction — and so is the rest of the backend: the
+ * Scryfall cache is SQLite on the Fly volume (`fly.toml [mounts]`), which is
+ * pinned to one machine, so a second machine is not a scaling option anyone
+ * can take casually. This registry, `boards`, `requests` and `lastSeen` are
+ * all in-process for that reason. The one way it goes wrong silently is
+ * `fly scale count 2`: that instance's subscribers would keep falling back to
+ * the poll loop (laggy, not broken) while consent requests and presence would
+ * split-brain. `warnIfMultiMachine` (../fly-topology.ts) makes that loud at
+ * boot and every few minutes. Upgrade path, if multi-machine ever matters:
+ * Postgres LISTEN/NOTIFY fan-out plus tables for boards/requests/presence.
  */
 interface Subscriber {
   /** Authenticated caller this subscriber was opened by — see `broadcastGameState`'s eviction check and `isSeatPresent` below. */
   userId: string;
+  /** True for an SSE stream (held open indefinitely), absent for a long-poll
+   *  subscriber (resolves once). Only streams count against
+   *  `MAX_STREAMS_PER_USER`. */
+  stream?: boolean;
   onState: (state: GameState) => void;
   onDeleted: () => void;
   onBoard?: (seat: number, board: unknown) => void;
@@ -62,6 +68,28 @@ interface Subscriber {
   onSignal?: (signal: GameSignal) => void;
 }
 const subscribers = new Map<string, Set<Subscriber>>();
+
+/**
+ * Cap on concurrently-open SSE streams per user, across every code. Each
+ * stream holds a socket, a 25s heartbeat timer and a subscriber entry for as
+ * long as the client keeps it open, so an unbounded count is a cheap way to
+ * exhaust a 2GB machine from one account. Eight is generous for real use
+ * (a few tabs across a couple of devices), and leaves room for the zombies a
+ * network blip leaves behind until their heartbeat write fails — those close
+ * within one heartbeat interval. Over the cap the client gets a 429 rather
+ * than evicting an older stream: `EventSource` reconnects on a server-side
+ * end, so eviction would ping-pong between tabs, whereas a non-200 fails the
+ * connection and the client drops to its poll loop.
+ */
+const MAX_STREAMS_PER_USER = 8;
+
+function openStreamCount(userId: string): number {
+  let n = 0;
+  for (const subs of subscribers.values()) {
+    for (const sub of subs) if (sub.stream && sub.userId === userId) n++;
+  }
+  return n;
+}
 
 /**
  * Latest published `PublicBoard` per seat, per game code — see POST
@@ -782,6 +810,9 @@ gamesRouter.get('/:code/events', readLimiter, requireAuth, async (req: Request, 
   if (!isParticipant(state, req.user!.id)) {
     return res.status(404).json({ error: 'Game not found.' });
   }
+  if (openStreamCount(req.user!.id) >= MAX_STREAMS_PER_USER) {
+    return res.status(429).json({ error: 'Too many open streams for this account.' });
+  }
 
   res.set({
     'Content-Type': 'text/event-stream',
@@ -824,6 +855,7 @@ gamesRouter.get('/:code/events', readLimiter, requireAuth, async (req: Request, 
 
   const sub: Subscriber = {
     userId: req.user!.id,
+    stream: true,
     onState: (fresh) => res.write(`event: state\ndata: ${JSON.stringify(fresh)}\n\n`),
     onDeleted: () => res.end(),
     // New write path into this subscriber — guarded the same way the
@@ -1035,8 +1067,24 @@ function isPlausibleBoard(body: unknown): body is Record<string, unknown> {
   const b = body as Record<string, unknown>;
   if (!Number.isFinite(b.turn) || !Number.isFinite(b.life)) return false;
   if (!Number.isFinite(b.handCount) || !Number.isFinite(b.libraryCount)) return false;
-  return (['battlefield', 'graveyard', 'exile', 'command'] as const).every((zone) =>
-    Array.isArray(b[zone])
+  if (
+    !(['battlefield', 'graveyard', 'exile', 'command'] as const).every((zone) =>
+      Array.isArray(b[zone])
+    )
+  ) {
+    return false;
+  }
+  // Battlefield positions are fractions of the board (`--pt-x`/`--pt-y` in
+  // 0..1, see PlaytestCardView). Anything else is a tampered client, and an
+  // out-of-range value would render an opponent's card off their board or
+  // stretch the modal's scroll container to reach it.
+  const inRange = (v: unknown) => typeof v === 'number' && v >= 0 && v <= 1;
+  return (b.battlefield as unknown[]).every(
+    (bf) =>
+      typeof bf === 'object' &&
+      bf !== null &&
+      inRange((bf as { x?: unknown }).x) &&
+      inRange((bf as { y?: unknown }).y)
   );
 }
 

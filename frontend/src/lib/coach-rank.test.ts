@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { rankCoachMoves, type CoachContext } from './coach-rank';
+import {
+  rankCoachMoves,
+  diversifyRankedMoves,
+  type CoachContext,
+  type RankedMove,
+} from './coach-rank';
 import type { Change } from './deck-change';
 import type { PlanScore } from '@/deck-builder/services/deckBuilder/planScore';
 
@@ -290,5 +295,53 @@ describe('swap convention lock: name=incoming, inName=outgoing', () => {
     const ranked = rankCoachMoves([swapChange], { ...BASE_CTX });
     expect(ranked[0].change.name).toBe('Evacuation');
     expect(ranked[0].change.inName).toBe('Cyclonic Rift');
+  });
+});
+
+// ── Diversity: one idea should not fill the first fold ────────────────────────
+
+describe('diversifyRankedMoves', () => {
+  const combo = (name: string, partners: string, tier: 1 | 2 | 3 = 2): RankedMove => ({
+    tier,
+    change: makeChange({ name, lane: 'combos', reason: `Completes ${partners} → Infinite tokens` }),
+  });
+  const gap = (name: string, tier: 1 | 2 | 3 = 2): RankedMove => ({
+    tier,
+    change: makeChange({ name, lane: 'fill-gaps', reason: 'Ramp is thin' }),
+  });
+
+  it('caps a repeated combo partner set at two and defers the rest to the end', () => {
+    const moves = [
+      combo('Anger', 'Krenko + Skirk Prospector'),
+      combo('Barbarian Class', 'Krenko + Skirk Prospector'),
+      combo('Hammer of Purphoros', 'Krenko + Skirk Prospector'),
+      combo('Lavaleaper', 'Krenko + Skirk Prospector'),
+      combo('Repercussion', 'Blasphemous Act'),
+      gap('Sol Ring'),
+    ];
+    expect(diversifyRankedMoves(moves).map((m) => m.change.name)).toEqual([
+      'Anger',
+      'Barbarian Class',
+      'Repercussion',
+      'Sol Ring',
+      'Hammer of Purphoros',
+      'Lavaleaper',
+    ]);
+  });
+
+  it('defers a repeat past lower-tier rows so a different idea reaches the fold first', () => {
+    const moves = [
+      combo('A', 'X + Y', 2),
+      combo('B', 'X + Y', 2),
+      combo('C', 'X + Y', 2),
+      gap('Late', 3),
+    ];
+    const out = diversifyRankedMoves(moves).map((m) => `${m.tier}:${m.change.name}`);
+    expect(out).toEqual(['2:A', '2:B', '3:Late', '2:C']);
+  });
+
+  it('leaves non-combo lanes untouched', () => {
+    const moves = [gap('A'), gap('B'), gap('C'), gap('D')];
+    expect(diversifyRankedMoves(moves).map((m) => m.change.name)).toEqual(['A', 'B', 'C', 'D']);
   });
 });

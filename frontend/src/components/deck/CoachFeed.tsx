@@ -28,7 +28,7 @@ import {
   type Change,
   type ChangeOwnership,
 } from '@/lib/deck-change';
-import { rankCoachMoves, type CoachContext } from '@/lib/coach-rank';
+import { rankCoachMoves, type CoachContext, diversifyRankedMoves } from '@/lib/coach-rank';
 import { useRegisterShortcuts, isTypingTarget } from '@/lib/shortcut-registry';
 import type { GapAnalysisCard } from '@/deck-builder/types';
 import type { OptimizeSwaps } from '@/deck-builder/services/deckBuilder/deckAnalyzer';
@@ -491,16 +491,21 @@ export function CoachFeed({
   // occurrence — mergeImprove only dedupes the three improve sources, so a card
   // suggested by both (say) the gap engine and a combo completion would
   // otherwise render twice in one feed.
+  // Then diversify: a combo whose partner set is already shown twice defers
+  // its remaining completions to the end of the list (behind "Show all"), so
+  // the first fold is different ideas rather than eight "Krenko + Skirk
+  // Prospector" rows.
   const ranked = useMemo(() => {
     const all = rankCoachMoves(allChanges, ctx);
     const seenAdds = new Set<string>();
-    return all.filter((m) => {
+    const deduped = all.filter((m) => {
       if (m.change.type !== 'add') return true;
       const key = m.change.name.toLowerCase();
       if (seenAdds.has(key)) return false;
       seenAdds.add(key);
       return true;
     });
+    return diversifyRankedMoves(deduped);
   }, [allChanges, ctx]);
 
   // ── Separate adds/swaps from cuts ────────────────────────────────────────

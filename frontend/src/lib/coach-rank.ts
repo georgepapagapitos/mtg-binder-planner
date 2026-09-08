@@ -152,3 +152,40 @@ export function rankCoachMoves(changes: Change[], ctx: CoachContext): RankedMove
 
   return ranked;
 }
+
+/**
+ * What makes two rows read as "the same suggestion again". Combo completions
+ * share their partner set: eight owned cards that each complete
+ * "Krenko + Skirk Prospector → …" are eight rows with one idea. Every other
+ * lane is never deferred.
+ */
+export function diversityKey(c: Change): string | null {
+  if (c.lane !== 'combos' || !c.reason) return null;
+  return c.reason.split(' → ')[0];
+}
+
+/**
+ * Let a diversity key appear at most `cap` times in ranked order; every later
+ * row with that key is deferred to the END of the list, in its original order.
+ * Deliberately not per-tier: a deck with four owned combo lines and thirty
+ * unowned gap fills has a tier 2 made entirely of combos, so deferring within
+ * the tier brought the repeats straight back into the first fold. "Another
+ * card that completes the combo you already saw twice" is worth less than a
+ * different idea from a lower tier, so the repeats go behind "Show all".
+ */
+export function diversifyRankedMoves(moves: RankedMove[], cap = 2): RankedMove[] {
+  const seen = new Map<string, number>();
+  const kept: RankedMove[] = [];
+  const deferred: RankedMove[] = [];
+  for (const m of moves) {
+    const key = diversityKey(m.change);
+    if (key === null) {
+      kept.push(m);
+      continue;
+    }
+    const n = seen.get(key) ?? 0;
+    seen.set(key, n + 1);
+    (n < cap ? kept : deferred).push(m);
+  }
+  return [...kept, ...deferred];
+}

@@ -576,6 +576,7 @@ export function DeckIdentityCard({
                 className="deck-analysis-skeleton-bar deck-identity-card-skeleton-pillar"
                 aria-label="Build health loading…"
               />
+              <p className="deck-identity-card-headline">Analyzing this deck…</p>
             </div>
           ) : analysisState === 'error' ? (
             <div className="deck-identity-card-pillar">

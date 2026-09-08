@@ -33,7 +33,8 @@ export interface CardRepository {
   getCardsByNames(
     names: string[],
     onProgress?: CardFetchProgress,
-    preferredSet?: string
+    preferredSet?: string,
+    opts?: GetCardsByNamesOptions
   ): Promise<Map<string, ScryfallCard>>;
 
   /**
@@ -76,3 +77,15 @@ export interface CardSearchOptions {
 
 /** Progress callback for batch fetches: `(fetched, total)`. */
 export type CardFetchProgress = (fetched: number, total: number) => void;
+
+export interface GetCardsByNamesOptions {
+  /**
+   * Live path only. After the batched `/cards/collection` pass, cards whose
+   * default printing carries no nonfoil USD price are re-fetched ONE request
+   * each (`unique=prints`, cheapest first) to sharpen the price. Analysis
+   * callers that resolve ~100 EDHREC recommendations pass `false`: that tail
+   * is what earns a 429 (100 requests at Scryfall's 10/s ceiling) and it only
+   * refines prices the cost plan can also live without. Default `true`.
+   */
+  priceTail?: boolean;
+}

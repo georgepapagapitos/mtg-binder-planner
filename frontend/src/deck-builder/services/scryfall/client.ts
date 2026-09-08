@@ -1,6 +1,11 @@
 import { logger } from '@/lib/logger';
 import type { ScryfallCard, ScryfallSearchResponse } from '@/deck-builder/types';
-import type { CardRepository, CardSearchOptions, CardFetchProgress } from './card-repository';
+import type {
+  CardRepository,
+  CardSearchOptions,
+  CardFetchProgress,
+  GetCardsByNamesOptions,
+} from './card-repository';
 import { getPartnerType, getPartnerWithName } from '@/deck-builder/lib/partnerUtils';
 import { offlineGetCardByName, offlineGetCardsByNames, offlineSearchCards } from '@/lib/offline';
 import { offlineDataAvailable, useOfflineStore } from '@/store/offline';
@@ -601,7 +606,8 @@ async function offlineGetCardsByNamesImpl(
 async function liveGetCardsByNames(
   names: string[],
   onProgress?: CardFetchProgress,
-  preferredSet?: string
+  preferredSet?: string,
+  opts?: GetCardsByNamesOptions
 ): Promise<Map<string, ScryfallCard>> {
   if (names.length === 0) return new Map();
 
@@ -708,7 +714,9 @@ async function liveGetCardsByNames(
   // this path entirely).
   let followupBudget = FOLLOWUP_REQUEST_BUDGET;
 
-  if (!preferredSet) {
+  // Callers resolving a recommendation pool (deck analysis) opt out of the
+  // price tail: see GetCardsByNamesOptions.priceTail.
+  if (!preferredSet && opts?.priceTail !== false) {
     const noPriceNames = uncachedNames.filter((name) => {
       const card = result.get(name);
       return card && !card.prices?.usd;
@@ -751,9 +759,10 @@ async function liveGetCardsByNames(
 export async function getCardsByNames(
   names: string[],
   onProgress?: CardFetchProgress,
-  preferredSet?: string
+  preferredSet?: string,
+  opts?: GetCardsByNamesOptions
 ): Promise<Map<string, ScryfallCard>> {
-  return getCardRepository().getCardsByNames(names, onProgress, preferredSet);
+  return getCardRepository().getCardsByNames(names, onProgress, preferredSet, opts);
 }
 
 const UPGRADE_BATCH_SIZE = 15; // Card names per search query for printing upgrades
@@ -1432,8 +1441,8 @@ export function withPlayableFilter(repo: CardRepository): CardRepository {
       }
       return card;
     },
-    async getCardsByNames(names, onProgress, preferredSet) {
-      const map = await repo.getCardsByNames(names, onProgress, preferredSet);
+    async getCardsByNames(names, onProgress, preferredSet, opts) {
+      const map = await repo.getCardsByNames(names, onProgress, preferredSet, opts);
       for (const [key, card] of map) {
         if (!isPlayableCard(card)) map.delete(key);
       }

@@ -513,13 +513,6 @@ button.ogv-phase-chip--tappable:disabled {
   .ogv-life--primary .ogv-life-num {
     font-size: clamp(3rem, 5vw, 4.25rem);
   }
-
-  .ogv-you-tools {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-  }
 }
 
 .ogv-you.is-eliminated {
@@ -580,6 +573,31 @@ button.ogv-phase-chip--tappable:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* Desktop: the tool cluster is ONE row beside the life numeral. Must sit
+   AFTER the base rule above — an earlier copy lived inside the 1024 block
+   near `.ogv-you` and lost to this rule's later `flex-direction: column` at
+   equal specificity, so the chips stacked into a ragged right-aligned pile.
+   `nowrap` because a wrapping flex container's max-content is its WIDEST
+   item (Chrome), which collapses the grid's `auto` track to the designation
+   pair; top-aligned so an opened commander-damage list drops below its chip
+   instead of re-centring its siblings. */
+@media (min-width: 1024px) {
+  .ogv-you-tools {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+  }
+
+  /* Poison's label + stepper is shorter than the chips beside it; match the
+     chip height so the row reads as one baseline, and pad the borderless
+     label off the chip to its left. */
+  .ogv-poison-row {
+    min-height: 2.75rem;
+    padding-inline-start: var(--space-2);
+  }
 }
 
 .ogv-tool {
@@ -646,6 +664,14 @@ button.ogv-phase-chip--tappable:disabled {
   padding: var(--space-2);
   background: var(--surface);
   border-radius: var(--radius-lg);
+}
+
+.ogv-cmd-empty {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .ogv-cmd-row-group {

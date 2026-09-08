@@ -24,7 +24,6 @@ import { useToastsStore } from '../store/toasts';
 import { SortPopover } from './SortPopover';
 import { Legend } from './Legend';
 import { BinderPagePreview } from './BinderPagePreview';
-import type { SectionTabInput } from '../lib/binder-spreads';
 import { useAllocations, type AllocationInfo } from '../lib/allocations';
 import { sectionHeading } from '../lib/section-heading';
 
@@ -142,26 +141,6 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
   // labels; prefer those over the section-wide join, matching BinderView.
   const flatPageLabels = useMemo(
     () => binder.sections.flatMap((s) => s.pages.map((p) => p.labels?.join(' · ') ?? s.label)),
-    [binder.sections]
-  );
-
-  // Section index tabs for spread mode — matches the BinderView computation.
-  // Uses reduce to accumulate the running page-offset without mutating a
-  // variable (required by the react-hooks/immutability lint rule).
-  const sectionTabs = useMemo<SectionTabInput[]>(
-    () =>
-      binder.sections.reduce<{ tabs: SectionTabInput[]; offset: number }>(
-        (acc, s) => ({
-          tabs: [
-            ...acc.tabs,
-            // A merged section's `label` joins every group it swallowed — too
-            // long for an edge tab, so name it the first (matches BinderView).
-            { key: s.key, label: s.labels?.[0] ?? s.label, pip: s.pip, firstPageIndex: acc.offset },
-          ],
-          offset: acc.offset + s.pages.length,
-        }),
-        { tabs: [], offset: 0 }
-      ).tabs,
     [binder.sections]
   );
 
@@ -452,11 +431,9 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
           pageLabels={flatPageLabels}
           startPageIndex={pagesStartIndex}
           pocketSize={binder.effectivePocketSize}
-          doubleSided={binder.def.doubleSided}
           binderName={binder.def.name}
           resolveCard={resolveCard}
           qtyByCopyId={qtyByCopyId}
-          sectionTabs={sectionTabs}
           getCardActions={coverActions}
           onClose={() => setPagesStartIndex(null)}
           onEditCard={(c) => {

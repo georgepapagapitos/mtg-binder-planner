@@ -31,7 +31,6 @@ import {
   printingStubFromEnriched,
 } from '../lib/edit-card';
 import { BinderPagePreview } from './BinderPagePreview';
-import type { SectionTabInput } from '../lib/binder-spreads';
 import { BinderDriftBanner } from './BinderDriftBanner';
 import { Legend } from './Legend';
 import { useAllocations } from '../lib/allocations';
@@ -152,7 +151,6 @@ export function BinderView({ binders, driftBinders, viewToggle, qtyByCopyId, sho
         totalPages={active.totalPages}
         sections={active.sections}
         pocketSize={active.effectivePocketSize}
-        doubleSided={active.def.doubleSided}
         editSorts={active.def.sorts}
         valueOrders={active.def.sortValueOrders ?? {}}
         sortEditable={active.def.mode !== 'manual' && !active.def.manualOrder?.length}
@@ -173,7 +171,6 @@ function SectionList({
   totalPages,
   sections,
   pocketSize,
-  doubleSided,
   editSorts,
   valueOrders,
   sortEditable,
@@ -189,7 +186,6 @@ function SectionList({
   totalPages: number;
   sections: BinderSection[];
   pocketSize: PocketSize;
-  doubleSided: boolean;
   editSorts: SortEntry[];
   valueOrders: Partial<Record<SortField, string[]>>;
   sortEditable: boolean;
@@ -299,7 +295,6 @@ function SectionList({
 
   // Cumulative page-offset per section, for translating section-local page
   // indices (from p{N} clicks) into the global flat-pages index.
-  // Also used to derive `sectionTabs` below — reuse the same running sum.
   const sectionPageOffsets = useMemo(() => {
     return sections.reduce<{ offsets: number[]; total: number }>(
       (acc, s) => {
@@ -309,22 +304,6 @@ function SectionList({
       { offsets: [], total: 0 }
     ).offsets;
   }, [sections]);
-
-  // Build SectionTabInput[] for the spread-mode index tabs.
-  // firstPageIndex = global flat-page offset for the section's first page.
-  const sectionTabs = useMemo<SectionTabInput[]>(
-    () =>
-      sections.map((s, i) => ({
-        key: s.key,
-        // A merged section's `label` is every group it swallowed, joined — far
-        // too long for a binder edge tab. The first group is the one the tab
-        // actually points at, so name it that.
-        label: s.labels?.[0] ?? s.label,
-        pip: s.pip,
-        firstPageIndex: sectionPageOffsets[i] ?? 0,
-      })),
-    [sections, sectionPageOffsets]
-  );
 
   // Flat binder-wide arrays so CardPreview can navigate past section boundaries.
   // Each parallel array is keyed by the global card index.
@@ -506,11 +485,9 @@ function SectionList({
           pageLabels={flatPageLabels}
           startPageIndex={pagesStartIndex}
           pocketSize={pocketSize}
-          doubleSided={doubleSided}
           binderName={binderName}
           resolveCard={resolveCard}
           qtyByCopyId={qtyByCopyId}
-          sectionTabs={sectionTabs}
           getCardActions={getCardActions}
           onClose={() => setPagesStartIndex(null)}
           onEditCard={(c) => {

@@ -16,7 +16,7 @@ import { useFocusTrap } from './use-focus-trap';
  * (CardPreview, BinderPagePreview). The open is a `sheet-rise` keyframe;
  * without this the close just unmounts and the sheet vanishes — visibly
  * asymmetric. Shared so both carousels stay in lockstep, mirroring the
- * use-swipe-down-dismiss / use-centered-slide convention.
+ * use-swipe-down-dismiss convention.
  *
  * Usage: route every dismiss path (close button, Escape, backdrop tap,
  * tap-to-close, the swipe `onDismiss`) through `beginClose` instead of

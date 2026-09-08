@@ -288,8 +288,8 @@ export function CardPreview({
     }
     const t = window.setTimeout(expand, 0);
     return () => window.clearTimeout(t);
-    // Only on initial mount — once neighbors are added, useCenteredSlide
-    // takes over for subsequent index changes.
+    // Only on initial mount — once neighbors are added, the carousel's
+    // scroll-derived index takes over for subsequent index changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

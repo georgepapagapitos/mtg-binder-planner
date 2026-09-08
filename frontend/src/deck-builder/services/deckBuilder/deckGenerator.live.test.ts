@@ -65,6 +65,18 @@ const COLLECTION_STRATEGY: CollectionStrategy | undefined =
   (process.env.LIVE_GEN_COLLECTION_STRATEGY as CollectionStrategy | undefined) ??
   (COLLECTION_NAMES ? 'prefer' : undefined);
 
+let fixtureNamesCache: Set<string> | undefined;
+function fixtureCollectionNames(): Set<string> {
+  fixtureNamesCache ??= new Set<string>(
+    (
+      JSON.parse(
+        readFileSync(resolve(here, '__fixtures__', 'owned-collection.fixture.json'), 'utf8')
+      ) as { names: string[] }
+    ).names
+  );
+  return fixtureNamesCache;
+}
+
 // E231 A/B knob: LIVE_GEN_MANA_PHILOSOPHY="reliable,greedy,spelllands,budget"
 // (four raw numbers — the engine normalizes them) forces the mana-philosophy
 // wheel on; unset leaves the product default, which is OFF (no wheel pass at
@@ -184,6 +196,12 @@ interface RunSpec {
   commanderName: string;
   variant: string;
   overrides?: Partial<Customization>;
+  /** Partner / Background / companion resolved by exact name (stress panel). */
+  partnerName?: string;
+  /** Per-row owned-collection toggle: uses __fixtures__/owned-collection.fixture.json
+   *  when LIVE_GEN_COLLECTION is unset, so one spec file can mix collection and
+   *  no-collection rows. */
+  collection?: boolean;
 }
 
 const BASE_COMMANDERS = [
@@ -245,6 +263,7 @@ const RUNS: RunSpec[] = [
 interface NicheSpec extends RunSpec {
   themeName: string;
   themeSlug: string;
+  /** Stress-panel rows may carry a theme without a measured count. */
   /** EDHREC decks on this commander-theme page when the panel was fixed. */
   measuredDecks: number;
 }
@@ -405,8 +424,13 @@ const POPULAR_THEMED_RUNS: NicheSpec[] = [
  * LIVE_GEN_PANEL swaps the panel: `niche` = E221's thin-pool panel,
  * `popular` = E228's floored-weight no-harm panel, unset = the standard runs.
  */
-const PANEL =
-  process.env.LIVE_GEN_PANEL === 'niche'
+// LIVE_GEN_SPEC=<file.json>: an arbitrary panel — a JSON array of RunSpec rows
+// ({commanderName, variant, overrides?, partnerName?, themeName?+themeSlug?,
+// collection?}). The settings stress sweep drives ~50 rows through here without
+// committing a new hardcoded panel per sweep.
+const PANEL: RunSpec[] = process.env.LIVE_GEN_SPEC
+  ? (JSON.parse(readFileSync(resolve(process.env.LIVE_GEN_SPEC), 'utf8')) as RunSpec[])
+  : process.env.LIVE_GEN_PANEL === 'niche'
     ? NICHE_RUNS
     : process.env.LIVE_GEN_PANEL === 'popular'
       ? POPULAR_THEMED_RUNS
@@ -439,7 +463,17 @@ function projectCard(card: ScryfallCard, deck: GeneratedDeck) {
     mana_cost: card.mana_cost ?? null,
     cmc: card.cmc,
     type_line: card.type_line,
+    color_identity: card.color_identity,
+    rarity: card.rarity,
+    set: card.set,
+    games: card.games ?? null,
+    legalities: {
+      commander: card.legalities?.commander ?? null,
+      paupercommander: card.legalities?.paupercommander ?? null,
+      brawl: card.legalities?.brawl ?? null,
+    },
     price_usd: getCardPrice(card, 'USD'),
+    price_eur: getCardPrice(card, 'EUR'),
     oracle_text_snippet: oracleTextOf(card).slice(0, 140),
     edhrec_inclusion: deck.cardInclusionMap?.[card.name] ?? null,
     role: validateCardRole(card),
@@ -546,11 +580,18 @@ describe.skipIf(!process.env.LIVE_GEN)('deckGenerator LIVE eval', () => {
         const commander = await getCardByName(spec.commanderName);
         if (!commander)
           throw new Error(`getCardByName returned nothing for "${spec.commanderName}"`);
-        const colorIdentity = commander.color_identity;
+        const partnerCommander = spec.partnerName ? await getCardByName(spec.partnerName) : null;
+        if (spec.partnerName && !partnerCommander)
+          throw new Error(`getCardByName returned nothing for partner "${spec.partnerName}"`);
+        const colorIdentity = [
+          ...new Set([...commander.color_identity, ...(partnerCommander?.color_identity ?? [])]),
+        ];
         const custom = customization(spec.overrides);
+        const collectionNames =
+          COLLECTION_NAMES ?? (spec.collection ? fixtureCollectionNames() : undefined);
         const ctx: GenerationContext = {
           commander,
-          partnerCommander: null,
+          partnerCommander,
           colorIdentity,
           customization: custom,
           // Niche-panel rows carry a real EDHREC theme (source 'edhrec' + slug
@@ -567,14 +608,14 @@ describe.skipIf(!process.env.LIVE_GEN)('deckGenerator LIVE eval', () => {
                   },
                 ]
               : [],
-          collectionNames: COLLECTION_NAMES,
+          collectionNames,
         };
 
         const deck = await generateDeck(ctx);
         const buildReport = assembleBuildReport({
           generated: deck,
           customization: custom,
-          collectionNames: COLLECTION_NAMES ?? new Set(),
+          collectionNames: collectionNames ?? new Set(),
         });
 
         const decklist: Record<string, ReturnType<typeof projectCard>[]> = {};
@@ -599,7 +640,12 @@ describe.skipIf(!process.env.LIVE_GEN)('deckGenerator LIVE eval', () => {
         const output = {
           commander: spec.commanderName,
           variant: spec.variant,
+          partner: partnerCommander?.name ?? null,
           colorIdentity,
+          // The effective settings this deck was built under — the scanner's
+          // per-deck contract (budget, must-includes, rarity cap, ...).
+          customization: custom,
+          collectionSize: collectionNames?.size ?? 0,
           decklist,
           stats: {
             totalCards: deck.stats.totalCards,

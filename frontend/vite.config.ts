@@ -44,6 +44,28 @@ export default defineConfig({
       selfDestroying: true,
       injectRegister: false,
       devOptions: { enabled: false },
+      // Not a PWA (the service worker was retired in #482) — the manifest only
+      // gives an Android "Add to home screen" a real name, icon and colours
+      // instead of the plugin's package-name defaults and a generic glyph.
+      manifest: {
+        name: 'SpellControl',
+        short_name: 'SpellControl',
+        description:
+          'Plan your physical Magic: The Gathering collection: rule-based binders, deck building, and game tracking.',
+        theme_color: '#111830',
+        background_color: '#111830',
+        display: 'standalone',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          {
+            src: '/icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+      },
     }),
   ],
   resolve: {

@@ -61,8 +61,8 @@
   /* These four are the FALLBACK values only — what renders before any
      [data-typeset] rule matches. The real per-set values live in
      styles/typesets.css and are selected by the user (STYLE_GUIDE § Type
-     sets). Keep these four mirroring DEFAULT_TYPESET (currently `grimoire`)
-     and the static <link> in index.html: if they drift, the pre-attribute
+     sets). Keep these four mirroring DEFAULT_TYPESET (currently `codex`)
+     and the self-hosted faces in styles/fonts.css: if they drift, the pre-attribute
      paint uses faces that aren't downloaded and the first frame renders in
      Georgia before snapping.
 

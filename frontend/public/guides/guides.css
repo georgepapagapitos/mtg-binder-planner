@@ -37,6 +37,10 @@ h2 {
   margin: 2rem 0 0.5rem;
   font-size: 1.2rem;
 }
+h3 {
+  margin: 1.25rem 0 0.35rem;
+  font-size: 1.05rem;
+}
 a {
   color: #8fb4ff;
 }

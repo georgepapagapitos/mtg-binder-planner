@@ -14,7 +14,7 @@ const FONT_LINK_ID = 'sc-typeset-fonts';
  * Point <html data-typeset> at `id` and make sure the right font stylesheet is
  * in <head>.
  *
- * The default set's fonts are already linked statically in index.html, so it
+ * The default set's fonts are self-hosted (styles/fonts.css, bundled), so it
  * needs no injected link — switching back to it removes ours rather than
  * loading the same faces twice. Sets with `href: null` (Plain) likewise carry
  * no link.

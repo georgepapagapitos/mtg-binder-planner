@@ -10,6 +10,7 @@ import 'keyrune/css/keyrune.min.css';
 import './styles/icon-fonts.css';
 // Split from the former styles/global.css — imported in original cascade order
 // so the split is a pure file-organization change (no behavior change).
+import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base-layout.css';
 import './styles/import-upload.css';

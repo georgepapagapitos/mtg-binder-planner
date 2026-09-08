@@ -1,15 +1,34 @@
 name: Dependabot auto-merge
 
-on: pull_request
+# Two choices here are load-bearing, and both exist for the same reason: a
+# merge performed with the workflow's own GITHUB_TOKEN does not emit a push
+# event, so main's CI never ran on a dependabot auto-merge and the Fly deploy
+# (chained off that CI run) never fired. Every bot merge sat on main untested
+# and undeployed until the next human merge carried it along. Found
+# 2026-09-08: #1788–#1800, eight merges, zero CI runs on main — and #1762 the
+# day before, so it was never about that day's protection change.
+#
+# 1. The merge is armed with the scanner-bot app token (the identity
+#    scanner-ingest.yml and refresh-card-similar.yml already merge with). A
+#    merge by an app installation is an ordinary push: CI runs, deploy fires.
+# 2. The trigger is `pull_request_target`, not `pull_request`. A
+#    dependabot-triggered `pull_request` run can only read Dependabot secrets,
+#    and the app credentials are Actions secrets; `pull_request_target` on a
+#    base branch dependabot did not create runs with the base repo's secrets.
+#    That event executes in the base-branch context, so this workflow must
+#    NEVER check out or run code from the PR — it reads metadata and arms
+#    auto-merge, nothing else. Keep it that way.
+on: pull_request_target
 
+# GITHUB_TOKEN only serves fetch-metadata; the merge uses the app token.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
       - name: Fetch Dependabot metadata
         id: meta
@@ -17,9 +36,17 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate app token
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.SCANNER_BOT_APP_ID }}
+          private-key: ${{ secrets.SCANNER_BOT_PRIVATE_KEY }}
+
       - name: Enable auto-merge (patch and minor only)
         if: steps.meta.outputs.update-type != 'version-update:semver-major'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}

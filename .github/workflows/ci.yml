@@ -13,6 +13,13 @@ on:
   # trigger the jobs below never run for a queued entry, so the required
   # checks never report, and every PR sits in the queue until it times out.
   # Enabling the queue before this is merged is the classic way to wedge one.
+  #
+  # Still inert as of 2026-09-08: GitHub only offers merge queues on public
+  # repos OWNED BY AN ORGANIZATION, and this repo is user-owned (the ruleset
+  # API rejects a merge_queue rule with a bare 422). Protection is instead the
+  # `protect main` ruleset with the up-to-date requirement OFF; a red main is
+  # caught by the CI-gated Fly deploy, not by a queue. Keep this trigger — it
+  # costs nothing and a queue becomes possible the day the repo moves to an org.
   merge_group:
 
 # Cancel superseded runs on the same PR when new commits are pushed — rapid

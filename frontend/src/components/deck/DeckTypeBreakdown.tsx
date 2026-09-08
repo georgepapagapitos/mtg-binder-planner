@@ -51,8 +51,8 @@ export function DeckTypeBreakdown({
 
   return (
     <section className="deck-type-breakdown" aria-label="Card type breakdown">
+      {/* No inner heading: the host panel's "Types" eyebrow already names this. */}
       <div className="deck-type-breakdown-head">
-        <h4 className="deck-type-breakdown-heading">Card types</h4>
         <span className="deck-type-breakdown-total">{total} cards</span>
       </div>
 

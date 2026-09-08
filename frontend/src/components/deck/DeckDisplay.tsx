@@ -13,7 +13,7 @@ import type {
 import { suggestedTagForCard, collectDeckTags } from '@/lib/deck-tags';
 import { DeckTagManager } from './DeckTagManager';
 import { ConfirmDialog } from '../ConfirmDialog';
-import { buildManaData, tallyNames, type TypeGroup } from '@/lib/build-mana-data';
+import { buildManaData, tallyNames } from '@/lib/build-mana-data';
 import { DECK_FORMAT_CONFIGS } from '@/deck-builder/lib/constants/archetypes';
 import {
   validateDeck as runValidation,
@@ -59,7 +59,7 @@ import { useRarityCorrections } from '../../lib/use-rarity-corrections';
 import type { EnrichedCard } from '../../types';
 import { type BracketEstimation } from '@/deck-builder/services/deckBuilder/bracketEstimator';
 import type { LaneId, ChangeOwnership } from '@/lib/deck-change';
-import { useCardCarousel, tallyToEntries, type CarouselEntry } from './useCardCarousel';
+import { useCardCarousel, tallyToEntries } from './useCardCarousel';
 import { NewArrivalsSheet } from './NewArrivalsSheet';
 import type { ArrivalsByType } from '@/lib/new-arrivals';
 import type { ComboMatch } from '@/types/combos';
@@ -113,7 +113,7 @@ import {
   type Row,
   type CrossDeckCtx,
 } from './deck-display-rows';
-import { renderArrivalsChip, PartnerHeaderButton } from './deck-display-icons';
+import { PartnerHeaderButton } from './deck-display-icons';
 import { DeckToolbar } from './DeckToolbar';
 import { DeckCardGrid } from './DeckCardGrid';
 import { CategorySection } from './DeckMainboardRow';
@@ -537,8 +537,8 @@ export function DeckDisplay({
 }: DeckDisplayProps) {
   const formatConfig = DECK_FORMAT_CONFIGS[format];
   const currency: CurrencyCode = useCurrency();
-  // New-arrivals review (E140): which category's sheet is open, if any.
-  const [openArrivalsBucket, setOpenArrivalsBucket] = useState<TypeGroup | null>(null);
+  // New-arrivals review (E140): whether the (single, all-category) sheet is open.
+  const [arrivalsOpen, setArrivalsOpen] = useState(false);
   const [sort, setSort] = useState<SortMode>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const onToggleSort = (m: SortMode) => {
@@ -980,12 +980,6 @@ export function DeckDisplay({
   // it rendered before this feature existed.
   const cardProvenance = buildReport?.cardProvenance;
 
-  // Stats summary line.
-  const totalCards = allCards.length;
-  const totalPrice = useMemo(
-    () => allCards.reduce((sum, c) => sum + priceOf(c, currency), 0),
-    [allCards, currency]
-  );
   // Missing summary — cards in the deck that aren't allocated to a collection
   // copy (i.e. status !== 'allocated'). Surfaces buy-list info inline so we
   // don't need a separate banner above the deck.
@@ -1027,22 +1021,15 @@ export function DeckDisplay({
     }
     return tallyNames(list);
   }, [cards, collectionByCopyId]);
-  // Tally of every card in the deck (commanders included), feeding the tappable
-  // "cards" stat → swipe the whole list.
-  const deckTally = useMemo(() => tallyNames(allCards), [allCards]);
-  // The deck's cards as carousel entries sorted by price (desc) — the tappable
-  // "value" stat opens the most expensive cards first, each labeled with its
-  // price so the carousel reads as a value breakdown.
-  const valueEntries = useMemo<CarouselEntry[]>(() => {
-    return tallyNames(allCards)
-      .slice()
-      .sort((a, b) => priceOf(b.card, currency) - priceOf(a.card, currency))
-      .map((t) => ({
-        name: t.name,
-        label: formatMoney(priceOf(t.card, currency), { currency }),
-        card: t.card,
-      }));
-  }, [allCards, currency]);
+  // Every new-arrival row across categories, best fit first — feeds the
+  // "N new arrivals" stat and the sheet it opens.
+  const arrivalRows = useMemo(
+    () =>
+      Object.values(arrivalsByType ?? {})
+        .flat()
+        .sort((a, b) => b.score - a.score),
+    [arrivalsByType]
+  );
   // Mana curve / color demand+production / type breakdown / drill-downs — the
   // shared pure builder so this view and the deck-compare page agree exactly.
   const manaData = useMemo(
@@ -1238,12 +1225,6 @@ export function DeckDisplay({
       ? (slotIds: string[], sortIndex: number) => onReorder(zone, slotIds, sortIndex)
       : undefined;
 
-  // New-arrivals header chip (E140) — shared renderer used by both the list
-  // view's CategorySection headerAction slot (below) and the grid view's own
-  // section header (DeckCardGrid, a sibling component — see renderArrivalsChip).
-  const arrivalsChip = (bucket: TypeGroup) =>
-    renderArrivalsChip(bucket, arrivalsByType, setOpenArrivalsBucket);
-
   // Tap a headline stat (cards / value) to drill into the cards behind it —
   // the same carousel pattern as the analysis-tab drill-downs. The missing
   // stat opens the buy-list dialog instead; its rows hand off to this
@@ -1315,51 +1296,16 @@ export function DeckDisplay({
             page-top hub tab bar in DeckEditorPage switches between them. */}
         {activeView === 'deck' ? (
           <>
-            {/* High-level stats, glanceable while editing the list — these used
-                to live behind the Overview analysis tab. Each reads as a metric:
-                a bold value over a small muted label. Leads the surface (it used
-                to sit below the toolbar): these describe the deck, the toolbar
-                configures the list, and on a phone the toolbar's rows pushed the
-                strip — the most useful thing here — under the fold. */}
+            {/* Deck-tab metrics, glanceable while editing the list. Each reads
+                as a metric: a bold value over a small muted label. Only what the
+                page hero does NOT already say — card count, value and bracket
+                ride the hero on every tab and every width, so repeating them
+                here was the same number twice on one screen. */}
             <div className="deck-stat-strip" aria-label="Deck stats">
-              {deckTally.length > 0 ? (
-                <button
-                  type="button"
-                  className="deck-stat deck-stat-btn"
-                  onClick={() =>
-                    void statCarousel.open(tallyToEntries(deckTally), deckTally[0]?.name ?? '')
-                  }
-                  aria-label={`Show all ${totalCards} cards in the deck`}
-                >
-                  <span className="deck-stat-value">{totalCards}</span>
-                  <span className="deck-stat-label">cards</span>
-                </button>
-              ) : (
-                <span className="deck-stat">
-                  <span className="deck-stat-value">{totalCards}</span>
-                  <span className="deck-stat-label">cards</span>
-                </span>
-              )}
               <span className="deck-stat">
                 <span className="deck-stat-value">{manaData.averageCmc.toFixed(2)}</span>
                 <span className="deck-stat-label">avg mana value</span>
               </span>
-              {valueEntries.length > 0 ? (
-                <button
-                  type="button"
-                  className="deck-stat deck-stat-btn"
-                  onClick={() => void statCarousel.open(valueEntries, valueEntries[0]?.name ?? '')}
-                  aria-label="Show the deck's cards sorted by price, most valuable first"
-                >
-                  <span className="deck-stat-value">{formatMoney(totalPrice, { currency })}</span>
-                  <span className="deck-stat-label">value</span>
-                </button>
-              ) : (
-                <span className="deck-stat">
-                  <span className="deck-stat-value">{formatMoney(totalPrice, { currency })}</span>
-                  <span className="deck-stat-label">value</span>
-                </span>
-              )}
               {identity && (
                 <span className="deck-stat">
                   <span className="deck-stat-value">{identity.archetypeLabel}</span>
@@ -1387,6 +1333,19 @@ export function DeckDisplay({
                     </span>
                   </span>
                 ))}
+              {arrivalRows.length > 0 && (
+                <button
+                  type="button"
+                  className="deck-stat deck-stat-new deck-stat-btn"
+                  onClick={() => setArrivalsOpen(true)}
+                  aria-label={`Review ${arrivalRows.length} new ${arrivalRows.length === 1 ? 'card' : 'cards'} in your collection that fit this deck`}
+                >
+                  <span className="deck-stat-value">{arrivalRows.length}</span>
+                  <span className="deck-stat-label">
+                    new {arrivalRows.length === 1 ? 'arrival' : 'arrivals'}
+                  </span>
+                </button>
+              )}
             </div>
             {statCarousel.preview}
 
@@ -1705,9 +1664,7 @@ export function DeckDisplay({
                               hasPartner={!!partnerCommander}
                               onClick={onEditPartner}
                             />
-                          ) : g.icon === 'commander' ? undefined : (
-                            arrivalsChip(g.title as TypeGroup)
-                          )
+                          ) : undefined
                         }
                         synergyByName={synergyByName}
                         cardInclusionMap={cardInclusionMap}
@@ -1731,8 +1688,6 @@ export function DeckDisplay({
                     binderByCopyId={binderByCopyId}
                     hasPartner={!!partnerCommander}
                     onEditPartner={onEditPartner}
-                    arrivalsByType={arrivalsByType}
-                    onOpenArrivals={setOpenArrivalsBucket}
                   />
                 )}
 
@@ -2106,11 +2061,10 @@ export function DeckDisplay({
             }}
           />
         )}
-        {openArrivalsBucket && (
+        {arrivalsOpen && (
           <NewArrivalsSheet
-            bucket={openArrivalsBucket}
-            rows={arrivalsByType?.[openArrivalsBucket] ?? []}
-            onClose={() => setOpenArrivalsBucket(null)}
+            rows={arrivalRows}
+            onClose={() => setArrivalsOpen(false)}
             onMarkReviewed={() => onMarkArrivalsReviewed?.()}
             onAddCard={onAddSuggestedCard}
             addingCardNames={addingSuggestedCardNames}

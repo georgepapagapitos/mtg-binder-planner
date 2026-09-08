@@ -35,9 +35,8 @@ function slots(names: string[]): DeckDisplayCard[] {
 }
 
 describe('DeckDisplay empty state (E182)', () => {
-  // Default view mode is 'grid' (no persisted choice); pin to 'list' so the
-  // populated-deck assertions can check `.deck-card-list` directly rather
-  // than the grid's own markup.
+  // List is the default view mode, but pin it explicitly so the populated-deck
+  // assertions on `.deck-card-list` don't depend on that default.
   beforeEach(() => localStorage.setItem('mtg-decks-view-mode', 'list'));
 
   it('renders the empty state for a brand-new manual deck (no commander, no cards)', () => {

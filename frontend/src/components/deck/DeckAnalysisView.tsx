@@ -7,7 +7,6 @@ import type { ComboMatch } from '@/types/combos';
 import type { LaneId } from '@/lib/deck-change';
 import { usePanelCascade, panelCascadeClass } from '@/lib/use-panel-cascade';
 import type { BracketEstimation } from '@/deck-builder/services/deckBuilder/bracketEstimator';
-import { formatBracketLabel } from '@/lib/format-bracket-label';
 import type { PlanScore } from '@/deck-builder/services/deckBuilder/planScore';
 import { computeRoleCounts } from '@/deck-builder/services/deckBuilder/commanderDeckAnalysis';
 import { computeRoleDensity } from '@/deck-builder/services/deckBuilder/roleDensity';
@@ -247,13 +246,6 @@ export function DeckAnalysisView({
               </Panel>
             )}
           </div>
-          {/* Table record — this deck's real tracked W/L, full width. Always
-              rendered (owns its own empty state for zero tracked games). */}
-          {tableRecordSlot && (
-            <Panel title="Table record" wide>
-              {tableRecordSlot}
-            </Panel>
-          )}
           {/* Build report — full width, list-heavy. */}
           {buildReport && (
             <Panel title="Build report" wide className={panelCascadeClass(4, cascade.animating)}>
@@ -266,6 +258,16 @@ export function DeckAnalysisView({
                 oneAwayCombos={oneAwayCombos}
                 ownedOracleIds={ownedOracleIds}
               />
+            </Panel>
+          )}
+          {/* Table record — this deck's real tracked W/L, full width. Always
+              rendered (owns its own empty state for zero tracked games), so it
+              sits last: on a never-played deck it is an empty state, and an
+              empty state must not split the composition panels from the
+              build report. */}
+          {tableRecordSlot && (
+            <Panel title="Table record" wide>
+              {tableRecordSlot}
             </Panel>
           )}
         </div>
@@ -289,13 +291,10 @@ export function DeckAnalysisView({
           <div className="deck-stats-pair">
             {(bracketEstimation || bracketOverride != null) && (
               <Panel id="deck-power-bracket" title="Bracket">
+                {/* No repeated "Bracket N · Label" title here: the Power hero
+                    above already says it, and the verdict strip carries the
+                    target/detected pair (including a manual target). */}
                 <div className="deck-stats-bracket">
-                  <strong>
-                    {effectiveBracketValue != null
-                      ? formatBracketLabel(effectiveBracketValue)
-                      : 'Bracket —'}
-                    {bracketOverridden && <span className="deck-stats-bracket-tag"> manual</span>}
-                  </strong>
                   <BracketVerdictStrip
                     target={bracketOverride}
                     detected={bracketEstimation?.bracket}

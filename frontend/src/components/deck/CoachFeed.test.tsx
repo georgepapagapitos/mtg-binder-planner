@@ -259,7 +259,8 @@ describe('CoachFeed', () => {
     render(<CoachFeed {...makeProps({ onPreviewFit })} />);
     // Cultivate is an add row — should have a Fit? button
     const fitBtns = screen.getAllByRole('button', {
-      name: (n) => n.startsWith('Will ') && n.endsWith(' fit this deck?'),
+      name: (n) =>
+        n.startsWith('Will ') && n.endsWith(' fit this deck, and what would it replace?'),
     });
     expect(fitBtns.length).toBeGreaterThan(0);
   });
@@ -268,7 +269,11 @@ describe('CoachFeed', () => {
     const onPreviewFit = vi.fn();
     render(<CoachFeed {...makeProps({ onPreviewFit })} />);
     // Esper Sentinel is a budget swap row — should have a Fit? button
-    expect(screen.getByRole('button', { name: 'Will Esper Sentinel fit this deck?' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', {
+        name: 'Will Esper Sentinel fit this deck, and what would it replace?',
+      })
+    ).toBeTruthy();
   });
 
   it('Fit? button is absent on cut rows', () => {
@@ -291,7 +296,9 @@ describe('CoachFeed', () => {
   it('clicking Fit? calls onPreviewFit with the change', () => {
     const onPreviewFit = vi.fn();
     render(<CoachFeed {...makeProps({ onPreviewFit })} />);
-    const btn = screen.getByRole('button', { name: 'Will Cultivate fit this deck?' });
+    const btn = screen.getByRole('button', {
+      name: 'Will Cultivate fit this deck, and what would it replace?',
+    });
     fireEvent.click(btn);
     expect(onPreviewFit).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Cultivate', type: 'add' })

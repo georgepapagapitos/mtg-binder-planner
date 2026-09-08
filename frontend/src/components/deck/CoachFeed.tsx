@@ -918,8 +918,8 @@ export function CoachFeed({
                         secondaryAction={
                           showFit
                             ? {
-                                label: 'Fit?',
-                                ariaLabel: `Will ${change.name} fit this deck?`,
+                                label: 'Fit & cut',
+                                ariaLabel: `Will ${change.name} fit this deck, and what would it replace?`,
                                 onClick: () => onPreviewFit(change),
                               }
                             : undefined

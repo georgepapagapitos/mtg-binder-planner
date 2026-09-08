@@ -87,7 +87,7 @@ interface Props {
   existingCardCounts: Map<string, number>;
   onAdd: (choice: AddCardChoice) => void;
   /** Audition a card's fit before adding (E20). Opens the fit-preview panel with
-   *  the resolved card. Omit to hide the per-row "Fit?" affordance. */
+   *  the resolved card. Omit to hide the per-row "Fit & cut" affordance. */
   onPreviewFit?: (card: ScryfallCard) => void;
   /** Called when the user dismisses the panel via Escape. */
   onClose?: () => void;
@@ -1101,10 +1101,10 @@ function CollectionResults({
                       type="button"
                       className="card-search-fit"
                       aria-label={`Preview how ${c.name} fits`}
-                      title="Preview fit before adding"
+                      title="Check the fit and what it would replace"
                       onClick={() => void previewFitAt(i)}
                     >
-                      Fit?
+                      Fit & cut
                     </button>
                   </>
                 )}
@@ -1381,10 +1381,10 @@ function SuggestionsResults({
                 type="button"
                 className="card-search-fit"
                 aria-label={`Preview how ${row.name} fits`}
-                title="Preview fit before adding"
+                title="Check the fit and what it would replace"
                 onClick={() => void previewFitAt(i)}
               >
-                Fit?
+                Fit & cut
               </button>
             </>
           )}
@@ -1653,10 +1653,10 @@ function ScryfallResults({
                       type="button"
                       className="card-search-fit"
                       aria-label={`Preview how ${c.name} fits`}
-                      title="Preview fit before adding"
+                      title="Check the fit and what it would replace"
                       onClick={() => onPreviewFit(c)}
                     >
-                      Fit?
+                      Fit & cut
                     </button>
                   </>
                 )}

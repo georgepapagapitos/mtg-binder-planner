@@ -2,8 +2,6 @@
 // shrink the file — no logic changes.
 import type { CSSProperties } from 'react';
 import { Handshake, Tag as TagIcon } from 'lucide-react';
-import type { TypeGroup } from '@/lib/build-mana-data';
-import type { ArrivalsByType } from '@/lib/new-arrivals';
 import { getRoleBadge, type RoleKey } from '../../lib/role-badges';
 import { zoomBucket, zoomMinCol, zoomTier } from '@/lib/grid-zoom';
 import type { LegalityIssue } from '../../lib/deck-validation';
@@ -15,7 +13,7 @@ import {
   allocationSummary,
   type TypedGroup,
 } from './deck-display-rows';
-import { SectionIcon, FoilShimmer, renderArrivalsChip } from './deck-display-icons';
+import { SectionIcon, FoilShimmer } from './deck-display-icons';
 import { PartnerHeaderButton, LegalityBadge, RoleBadge } from './deck-display-icons';
 
 export function DeckCardGrid({
@@ -31,8 +29,6 @@ export function DeckCardGrid({
   binderByCopyId,
   hasPartner,
   onEditPartner,
-  arrivalsByType,
-  onOpenArrivals,
 }: {
   groups: TypedGroup[];
   onRowClick: (name: string) => void;
@@ -49,8 +45,6 @@ export function DeckCardGrid({
   binderByCopyId?: Map<string, BinderInfo[]>;
   hasPartner?: boolean;
   onEditPartner?: () => void;
-  arrivalsByType?: ArrivalsByType;
-  onOpenArrivals?: (bucket: TypeGroup) => void;
 }) {
   return (
     <div className="deck-card-grid-sections">
@@ -88,11 +82,8 @@ export function DeckCardGrid({
                   />
                 )}
               </div>
-              {g.icon === 'commander' && onEditPartner ? (
+              {g.icon === 'commander' && onEditPartner && (
                 <PartnerHeaderButton hasPartner={!!hasPartner} onClick={onEditPartner} />
-              ) : g.icon === 'commander' ? null : (
-                onOpenArrivals &&
-                renderArrivalsChip(g.title as TypeGroup, arrivalsByType, onOpenArrivals)
               )}
             </header>
             <ul

@@ -246,12 +246,21 @@ export function BracketBreakdown({
         )}
       </div>
 
-      {/* ── 2. Power signal ── the 0–100 tuning components. */}
-      <div className="bracket-breakdown-section">
-        <h4 className="bracket-breakdown-heading">
-          Power signal
+      {/* ── 2 + 3. Power signal + calculation ── the 0–100 tuning components
+          and the arithmetic that turns floor + signal into the bracket. Behind
+          a disclosure: the verdict sentence ("because: …") up in the Power
+          hero is the conclusion; this is the working, for anyone who wants to
+          see how the number adds up. The summary carries the score so a closed
+          disclosure still states the one figure that matters. */}
+      <details className="bracket-breakdown-section bracket-breakdown-details">
+        <summary className="bracket-breakdown-heading bracket-breakdown-summary-toggle">
+          <span>Power signal</span>
+          <span className="bracket-breakdown-summary-score">{softScore}/100</span>
+        </summary>
+        <p className="bracket-breakdown-signal-lede">
+          Fast mana, tutors, a low curve and interaction each add points.
           <InfoTip label="the power signal" text={SOFT_SCORE_TIP} wide />
-        </h4>
+        </p>
         <div className="deck-bracket-table" role="table" aria-label="Power signal">
           <div className="deck-bracket-row deck-bracket-head" role="row">
             <span className="deck-bracket-cell deck-bracket-col-head" role="columnheader">
@@ -310,34 +319,33 @@ export function BracketBreakdown({
             </span>
           </div>
         </div>
-      </div>
 
-      {/* ── 3. Calculation summary ── */}
-      <div className="bracket-breakdown-section bracket-breakdown-summary">
-        <p className="bracket-breakdown-summary-line">
-          Floor Bracket <strong>{floor}</strong> + power signal <strong>{softScore}/100</strong> →{' '}
-          {formatBracketLabel(bracket)}
-        </p>
-        {elevatedToCedh && (
-          <p className="bracket-breakdown-summary-note">
-            Power signal ≥ {ELEVATE_CEDH_THRESHOLD} with floor ≥ 4 elevated this to{' '}
-            {bracketLabel(5)}.
+        <div className="bracket-breakdown-summary">
+          <p className="bracket-breakdown-summary-line">
+            Floor Bracket <strong>{floor}</strong> + power signal <strong>{softScore}/100</strong> →{' '}
+            {formatBracketLabel(bracket)}
           </p>
-        )}
-        {elevatedByBump && (
-          <p className="bracket-breakdown-summary-note">
-            Power signal ≥ {ELEVATE_BUMP_THRESHOLD} bumped the floor from Bracket {floor} up to
-            Bracket {bracket}.
-          </p>
-        )}
-        {nextThreshold && (
-          <p className="bracket-breakdown-summary-note bracket-breakdown-distance">
-            <strong>{nextThreshold.need}</strong> more power{' '}
-            {nextThreshold.need === 1 ? 'point' : 'points'} ({softScore} → {nextThreshold.at}) would
-            move this to {nextThreshold.target}.
-          </p>
-        )}
-      </div>
+          {elevatedToCedh && (
+            <p className="bracket-breakdown-summary-note">
+              Power signal ≥ {ELEVATE_CEDH_THRESHOLD} with floor ≥ 4 elevated this to{' '}
+              {bracketLabel(5)}.
+            </p>
+          )}
+          {elevatedByBump && (
+            <p className="bracket-breakdown-summary-note">
+              Power signal ≥ {ELEVATE_BUMP_THRESHOLD} bumped the floor from Bracket {floor} up to
+              Bracket {bracket}.
+            </p>
+          )}
+          {nextThreshold && (
+            <p className="bracket-breakdown-summary-note bracket-breakdown-distance">
+              <strong>{nextThreshold.need}</strong> more power{' '}
+              {nextThreshold.need === 1 ? 'point' : 'points'} ({softScore} → {nextThreshold.at})
+              would move this to {nextThreshold.target}.
+            </p>
+          )}
+        </div>
+      </details>
     </section>
   );
 }

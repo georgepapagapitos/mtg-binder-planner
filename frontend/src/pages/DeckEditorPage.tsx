@@ -1161,6 +1161,28 @@ export function DeckEditorPage() {
         : [],
     [deck, substitutionPlan, landUpgrades, deckCardNames, refineOwnedOnly, ownedNames]
   );
+  // New arrivals, tailored to THIS deck: only cards the coach already
+  // recommends for it (the refine pool — gaps, synergy, substitutes, hidden
+  // gems, land upgrades) or that finish a one-away combo. The raw arrivals are
+  // "in colour identity, acquired since the deck last changed", which on any
+  // real import reads as random — every red card you bought lit up a Krenko
+  // deck. lib/new-arrivals.ts keeps the raw form: Home's arrivals signal wants
+  // it, so the narrowing lives here, at the one deck-scoped consumer.
+  const coachArrivals = useMemo<ArrivalsByType>(() => {
+    const wanted = new Set<string>();
+    for (const p of refinePool) wanted.add(p.name.toLowerCase());
+    for (const m of comboData.data?.oneAway ?? []) {
+      if (m.missingOracleIds.length !== 1) continue;
+      const piece = m.combo.cards.find((c) => c.oracleId === m.missingOracleIds[0]);
+      if (piece) wanted.add(piece.cardName.toLowerCase());
+    }
+    const out: ArrivalsByType = {};
+    for (const [bucket, rows] of Object.entries(arrivalsByType)) {
+      const kept = rows.filter((r) => wanted.has(r.name.toLowerCase()));
+      if (kept.length > 0) out[bucket as keyof ArrivalsByType] = kept;
+    }
+    return out;
+  }, [arrivalsByType, refinePool, comboData.data]);
   // Same-role re-roll index for the AI panel's swap rows — built from the engine
   // pool so a re-roll never needs another model call.
   //
@@ -3025,27 +3047,31 @@ export function DeckEditorPage() {
 
       <div className="deck-editor-layout">
         <div className="deck-editor-main">
-          {/* Deck re-sync discovery hint — hidden while the add-cards sheet is
-              open so it can never be on screen at the same time as the
-              binder-location hint inside that sheet (at most one wedge-
-              discovery hint visible at once, app-wide). */}
-          {!showAddPanel && !resyncHintDismissed && shouldShowResyncHint(deck.cards.length > 0) && (
-            <WedgeHintStrip
-              icon={<RefreshCw width={16} height={16} aria-hidden />}
-              headline="Keep this decklist in sync"
-              detail="Paste an updated list from Moxfield or Archidekt to diff and merge changes."
-              actionLabel="Resync"
-              onAction={() => {
-                dismissResyncHint();
-                setResyncHintDismissed(true);
-                setResyncOpen(true);
-              }}
-              onDismiss={() => {
-                dismissResyncHint();
-                setResyncHintDismissed(true);
-              }}
-            />
-          )}
+          {/* Deck re-sync discovery hint — Deck tab only (it acts on the list,
+              so it has no business above Stats/Power/Coach), and hidden while
+              the add-cards sheet is open so it can never be on screen at the
+              same time as the binder-location hint inside that sheet (at most
+              one wedge-discovery hint visible at once, app-wide). */}
+          {safeView === 'deck' &&
+            !showAddPanel &&
+            !resyncHintDismissed &&
+            shouldShowResyncHint(deck.cards.length > 0) && (
+              <WedgeHintStrip
+                icon={<RefreshCw width={16} height={16} aria-hidden />}
+                headline="Keep this decklist in sync"
+                detail="Paste an updated list from Moxfield or Archidekt to diff and merge changes."
+                actionLabel="Resync"
+                onAction={() => {
+                  dismissResyncHint();
+                  setResyncHintDismissed(true);
+                  setResyncOpen(true);
+                }}
+                onDismiss={() => {
+                  dismissResyncHint();
+                  setResyncHintDismissed(true);
+                }}
+              />
+            )}
           <DeckDisplay
             title={deck.name}
             deckId={deck.id}
@@ -3113,7 +3139,7 @@ export function DeckEditorPage() {
             oneAwayCombos={comboData.data?.oneAway}
             ownedOracleIds={ownedOracleIdSet}
             landUpgradeCount={landUpgrades.length}
-            arrivalsByType={arrivalsByType}
+            arrivalsByType={coachArrivals}
             existingCardCounts={existingCardCounts}
             ownershipFor={ownershipFor}
             onMarkArrivalsReviewed={() => markArrivalsReviewed(deck.id)}

@@ -254,25 +254,3 @@
   color: var(--warn-text, #b85c00);
   font-weight: 600;
 }
-
-/* ── Collection hook — full-width chip below the pillars. ── */
-.power-hero-collection {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin: 0;
-  padding: var(--space-2) 0.65rem;
-  background: var(--accent-light);
-  border: 0.5px solid var(--border);
-  border-radius: var(--radius);
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  color: var(--info);
-}
-
-.power-hero-collection-icon {
-  flex: 0 0 auto;
-  width: 1rem;
-  height: 1rem;
-  color: var(--accent);
-}

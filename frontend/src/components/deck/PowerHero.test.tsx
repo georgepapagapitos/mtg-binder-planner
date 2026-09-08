@@ -100,21 +100,10 @@ describe('PowerHero', () => {
     expect(hasText(/^1 combo in deck · /)).toBe(true);
   });
 
-  it('shows the collection chip only when owned-missing > 0 and not loading', () => {
-    renderHero({ comboOwnedMissing: 0 });
-    expect(hasText(/You own the missing piece/)).toBe(false);
-
-    renderHero({ comboOwnedMissing: 2, combosLoading: true });
-    expect(hasText(/You own the missing piece/)).toBe(false);
-  });
-
-  it('pluralizes the collection chip', () => {
-    const { unmount } = renderHero({ comboOwnedMissing: 1 });
-    expect(hasText(/You own the missing piece for 1 combo /)).toBe(true);
-    unmount();
-
+  it('never repeats the completable count as a separate collection chip', () => {
     renderHero({ comboOwnedMissing: 2 });
-    expect(hasText(/You own the missing piece for 2 combos /)).toBe(true);
+    expect(hasText(/^2 combos in deck · 2 you can complete$/)).toBe(true);
+    expect(hasText(/You own the missing piece/)).toBe(false);
   });
 
   it('renders tappable links that fire navigation callbacks when wired', () => {

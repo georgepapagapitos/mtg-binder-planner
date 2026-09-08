@@ -13,8 +13,6 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { DeckCategory } from '@/deck-builder/types';
-import { TYPE_GROUP_PLURAL, type TypeGroup } from '@/lib/build-mana-data';
-import type { ArrivalsByType } from '@/lib/new-arrivals';
 import { ManaSymbol } from '../shared/ManaSymbol';
 import { allocationSummary, type Row } from './deck-display-rows';
 import { CircleAlert } from 'lucide-react';
@@ -149,33 +147,6 @@ export function AllocationChip({ row }: { row: Row }) {
     >
       {label}
     </span>
-  );
-}
-
-// New-arrivals header chip (E140) — one renderer shared by the list view's
-// CategorySection headerAction slot and the grid view's DeckCardGrid section
-// header (a sibling component, not nested, so this can't be a closure).
-// Renders nothing when the bucket has no arrivals — never an empty affordance.
-export function renderArrivalsChip(
-  bucket: TypeGroup,
-  arrivalsByType: ArrivalsByType | undefined,
-  onOpen: (bucket: TypeGroup) => void
-): React.ReactNode {
-  const count = arrivalsByType?.[bucket]?.length ?? 0;
-  if (count === 0) return null;
-  const label = TYPE_GROUP_PLURAL[bucket];
-  return (
-    <button
-      type="button"
-      className="deck-arrivals-chip"
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen(bucket);
-      }}
-      aria-label={`Review ${count} new card${count === 1 ? '' : 's'} in your collection for ${label}`}
-    >
-      <span aria-hidden>✦</span> {count} new
-    </button>
   );
 }
 

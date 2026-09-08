@@ -2204,6 +2204,49 @@ and `UnresolvedNameRow`:
   search fallback if suggestions miss), collapse into a resolved state once
   the fix lands. Don't open a second overlay for a fix that fits inline.
 
+## Deck view — one fact, one place (2026-09-08)
+
+The deck editor is four tabs (Deck · Stats · Power · Coach) under one hero.
+A 2026-09-08 audit of a real generated deck found the same fact printed up to
+three times on one screen, so these rulings now hold:
+
+- **The hero owns the deck's identity numbers** — format, commander, card
+  count, value, bracket — on every tab and at every width (`.deck-hero-totals`
+  is no longer hidden on phones). The Deck tab's `.deck-stat-strip` carries only
+  what the hero does _not_ say: avg mana value, archetype, missing, new
+  arrivals. Never re-print a hero number in a strip, panel title or badge below
+  it. (Tab health badges are exempt — they are verdicts, not the number.)
+- **A panel's eyebrow is its only title.** `Panel title="Mana curve"` means the
+  child renders no `<h4>Mana curve</h4>` of its own; sub-headings inside a panel
+  (Color → Distribution / Mana base) are fine because they name _parts_. The
+  compare page names its sections itself, so `DeckCurvePhases` /
+  `DeckTypeBreakdown` carry no heading anywhere.
+- **The Power hero states the verdict; the panels show the working.** The
+  Bracket panel does not repeat "Bracket N · Label" (the hero and the verdict
+  strip already do), and the 0–100 power-signal table + the floor-plus-signal
+  arithmetic sit behind one `<details>` whose `<summary>` keeps the
+  `.bracket-breakdown-heading` signature and shows the score while closed
+  (the collapsed-group-shows-its-value ruling above).
+- **Wedge hint strips are scoped to the tab they act on.** The resync strip
+  acts on the list, so it renders on the Deck tab only — a strip above
+  Stats/Power/Coach that cannot act on what is below it is noise.
+- **New arrivals are one stat, and they are tailored.** The per-column
+  "✦ N new" chips are gone; the Deck-tab strip shows "N new arrivals" (accent,
+  next to "missing") and opens the single all-category `NewArrivalsSheet`. The
+  rows are narrowed at `DeckEditorPage` to cards the coach already recommends
+  for this deck or that finish a one-away combo — "in colour identity and
+  bought recently" is not a recommendation.
+- **List is the default deck view** (reversing E127's card-forward grid). The
+  list is the editing surface — steppers, kebab, reorder, price, mana cost,
+  hover-peek; the grid is a gallery that fits ~8 cards per row on desktop and
+  2 on a phone. An explicit persisted choice still wins either way.
+- **A "will it fit" affordance says what it does.** The row button is
+  `Fit & cut` (aria: "Will X fit this deck, and what would it replace?"), not
+  `Fit?` — on a full deck every suggestion is really a swap, and the cut is
+  the half the user is looking for.
+- **Empty states sit last.** `Table record` on Stats renders its empty state
+  below Build report, never between the composition panels.
+
 ## Deck diff rows (T22/E173)
 
 Any surface that shows "what changed" between two card lists — the compare
@@ -4556,7 +4599,7 @@ at every width.** The desktop facing-pages spread mode (two pages + spine,
 section index tabs on the gutters, `lib/binder-spreads.ts`, `binder-spread.css`,
 UX-403 / #602 / #603) was **retired in #1777**: the user's ruling is that the
 page itself is what gets centered, regardless of whether the binder is
-double-sided. A spread centered the *pair*, so every page sat ~290px off center
+double-sided. A spread centered the _pair_, so every page sat ~290px off center
 and the first spread of a double-sided binder was a lone page that then jumped
 to pairs — two different centering rules in one carousel. `doubleSided` still
 lives on the binder definition (capacity math, sheet backs as discrete pages);

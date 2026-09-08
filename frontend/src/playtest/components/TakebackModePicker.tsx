@@ -49,19 +49,20 @@ export function TakebackModePicker({ mode, onSelect, onClose, online }: Props) {
         className={`card-picker-sheet playtest-takeback-picker${isClosing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Takeback table rule"
+        aria-label="Your takeback rule"
         onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />
         <div className="card-picker-header">
-          <h2 className="card-picker-title">Takeback rule</h2>
+          <h2 className="card-picker-title">Your takeback rule</h2>
           <p className="playtest-takeback-picker__intro">
             Steps nobody but you saw always take back free. This only covers steps the table already
-            saw. Hidden information never returns.
+            saw, and it is your rule alone: every player sets their own. Hidden information never
+            returns.
           </p>
         </div>
-        <fieldset className="playtest-takeback-picker__list" aria-label="Takeback rule">
+        <fieldset className="playtest-takeback-picker__list" aria-label="Your takeback rule">
           {TAKEBACK_MODES.map((m) => {
             const active = m === mode;
             return (

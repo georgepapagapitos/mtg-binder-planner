@@ -16,6 +16,12 @@ primary_region = "ord"
   # oracle-bulk slim + gzip job headroom without OOM-ing the 1GB VM.
   NODE_OPTIONS = "--max-old-space-size=1536"
 
+# ⚠️ ONE machine, by construction. The Scryfall SQLite cache lives on the
+# volume below (volumes are per-machine), and the online table's realtime
+# state (SSE subscribers, published boards, consent requests, presence) is
+# in-process — see backend/src/routes/games.ts. `fly scale count 2` would not
+# fail; it would split the table silently. backend/src/fly-topology.ts logs an
+# error if it ever sees more than one machine.
 [http_service]
   internal_port = 3737
   force_https = true

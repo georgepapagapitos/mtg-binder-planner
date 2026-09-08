@@ -141,33 +141,51 @@ export function toProjectedCard(card: PlaytestCard): ProjectedCard {
   return { id, name, oracleId, scryfallId, manaValue, typeLine, isToken };
 }
 
+/** Per-load secret for `maskId` below. Module-level so a masked id is stable
+ *  for the page's lifetime — render keys, `attachedTo` references and an
+ *  opponent's point-at-this-card signal all keep lining up — and rotates on
+ *  reload, so no table of masked ids survives a session. */
+const FACE_DOWN_SALT = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+/** cyrb53 over `salt + id` — small, fast, non-cryptographic; the random salt
+ *  is what stops an opponent inverting it against the finite set of
+ *  `cmd-<scryfallId>` commander ids. Not used for anything security-critical
+ *  beyond that: the worst case was ever "which face-down permanent is your
+ *  commander", whose identity is public in the format anyway. */
+function maskId(id: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  const s = FACE_DOWN_SALT + id;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return `fd-${(h2 >>> 0).toString(36)}${(h1 >>> 0).toString(36)}`;
+}
+
 /** Face-down (morph/manifest) is the subtle case: the permanent sits in the
  *  battlefield zone, which is otherwise fully public, so a naive projection
  *  leaks its identity. Keep the public facts about the *object* — position,
  *  tapped, counters, stickers, the face-down flag itself, its attachment,
- *  whether it's phased — but reduce `card` to just its instance id. A
+ *  whether it's phased — but reduce `card` to a MASKED instance id. A
  *  face-up transformed card (`showBackFace: true`) is not redacted: which
  *  face a DFC is showing is public information, only `faceDown` hides it.
  *
- *  ⚠️ INVARIANT this redaction rests on: `PlaytestCard.id` must be OPAQUE. It
- *  is the one field a redacted card still carries (it has to — it's the render
- *  key). Deck cards satisfy this: `deck-to-playtest.ts`'s `instanceId` builds
- *  `${slotId}#${copy}` from `genId('slot')`, which is random.
- *
- *  Commanders are the exception and DO leak — they're built as
- *  `cmd-${commander.id}`, embedding the Scryfall card id. This engine enforces
- *  no rules, so any permanent can be turned face-down, and a face-down
- *  commander projects an id an opponent can resolve straight back to the card.
- *  Impact is small today (a commander's identity is public information in the
- *  format), so this leaks only *which* face-down permanent is the commander,
- *  not an unknown card. Left as-is rather than fixed because changing that id
- *  format would rekey `commanderTax` and break resume for saved sessions.
- *
- *  If any other instance id ever becomes identity-derived, this redaction
- *  silently stops working. Keep ids opaque. */
-function toPublicBattlefieldCard(bf: BattlefieldCard): PublicBattlefieldCard {
+ *  The id is masked (`maskId`) rather than passed through because instance
+ *  ids are not all opaque: deck cards build theirs from `genId('slot')`, but
+ *  commanders are `cmd-${commander.id}` with the Scryfall id embedded, and
+ *  this engine enforces no rules, so any permanent — a commander included —
+ *  can be turned face-down. Rekeying the commander id itself would break
+ *  `commanderTax` and resume for saved sessions; masking at the projection
+ *  boundary fixes the leak without touching stored state. `hidden` is the
+ *  set of face-down ids on this board, so an `attachedTo` reference pointing
+ *  at a face-down card is masked the same way and still resolves. */
+function toPublicBattlefieldCard(bf: BattlefieldCard, hidden: Set<string>): PublicBattlefieldCard {
   return {
-    card: bf.faceDown ? { id: bf.card.id } : toProjectedCard(bf.card),
+    card: bf.faceDown ? { id: maskId(bf.card.id) } : toProjectedCard(bf.card),
     tapped: bf.tapped,
     counters: bf.counters,
     stickers: bf.stickers,
@@ -175,7 +193,7 @@ function toPublicBattlefieldCard(bf: BattlefieldCard): PublicBattlefieldCard {
     y: bf.y,
     faceDown: bf.faceDown,
     showBackFace: bf.showBackFace,
-    attachedTo: bf.attachedTo,
+    attachedTo: bf.attachedTo && hidden.has(bf.attachedTo) ? maskId(bf.attachedTo) : bf.attachedTo,
     phased: bf.phased,
   };
 }
@@ -188,6 +206,7 @@ function toPublicBattlefieldCard(bf: BattlefieldCard): PublicBattlefieldCard {
  *  counts, and face-down battlefield cards redacted — see
  *  `toPublicBattlefieldCard`. */
 export function toPublicBoard(state: PlaytestState, seat: number): PublicBoard {
+  const hidden = new Set(state.battlefield.filter((b) => b.faceDown).map((b) => b.card.id));
   return {
     seat,
     turn: state.turn,
@@ -198,7 +217,7 @@ export function toPublicBoard(state: PlaytestState, seat: number): PublicBoard {
     monarch: state.monarch,
     initiative: state.initiative,
     citysBlessing: state.citysBlessing,
-    battlefield: state.battlefield.map(toPublicBattlefieldCard),
+    battlefield: state.battlefield.map((bf) => toPublicBattlefieldCard(bf, hidden)),
     graveyard: state.zones.graveyard.map(toProjectedCard),
     exile: state.zones.exile.map(toProjectedCard),
     command: state.zones.command.map(toProjectedCard),

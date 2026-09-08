@@ -83,12 +83,55 @@ describe('toPublicBoard', () => {
     expect(bf.y).toBe(0.5);
     expect(bf.counters).toEqual({ '+1/+1': 2 });
     expect(bf.stickers).toEqual(['flying']);
-    expect(bf.card.id).toBe('morph1');
+    // The instance id is masked, not passed through — see `maskId`.
+    expect(bf.card.id).not.toBe('morph1');
+    expect(bf.card.id).toMatch(/^fd-/);
+    // …and stable within a page, so it still works as a render key.
+    expect(toPublicBoard(s, 0).battlefield[0].card.id).toBe(bf.card.id);
 
     const serialized = JSON.stringify(board);
     expect(serialized).not.toContain('Willbender');
+    expect(serialized).not.toContain('morph1');
     expect(serialized).not.toContain('scry-morph1');
     expect(serialized).not.toContain('oracle-morph1');
+  });
+
+  it('masks a face-down commander id (which embeds the Scryfall id) and remaps attachments to it', () => {
+    const s = baseState({
+      battlefield: [
+        {
+          card: card('cmd-scryfall-uuid-1234', { name: 'Kenrith' }),
+          tapped: false,
+          counters: {},
+          stickers: [],
+          x: 0.1,
+          y: 0.1,
+          faceDown: true,
+        },
+        {
+          card: card('aura1', { name: 'Pacifism' }),
+          tapped: false,
+          counters: {},
+          stickers: [],
+          x: 0.2,
+          y: 0.2,
+          faceDown: false,
+          attachedTo: 'cmd-scryfall-uuid-1234',
+        },
+      ],
+    });
+    const board = toPublicBoard(s, 0);
+    const [commander, aura] = board.battlefield;
+    expect(JSON.stringify(board)).not.toContain('scryfall-uuid-1234');
+    expect(commander.card.id).toMatch(/^fd-/);
+    // The aura still points at the (masked) commander, so the attachment renders.
+    expect(aura.attachedTo).toBe(commander.card.id);
+    // A face-up host is referenced by its real id — masking is face-down only.
+    const faceUp = toPublicBoard(
+      baseState({ battlefield: s.battlefield.map((b) => ({ ...b, faceDown: false })) }),
+      0
+    );
+    expect(faceUp.battlefield[1].attachedTo).toBe('cmd-scryfall-uuid-1234');
   });
 
   it('projects a face-up card identity normally', () => {

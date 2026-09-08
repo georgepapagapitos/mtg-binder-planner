@@ -44,9 +44,9 @@ export const TAKEBACK_MODE_LABEL: Record<TakebackMode, string> = {
 };
 
 export const TAKEBACK_MODE_DESCRIPTION: Record<TakebackMode, string> = {
-  ask: "Steps the table already saw need everyone's OK before they're taken back.",
-  free: 'Trusted table — those steps apply the moment you take them back, no asking. Hidden information is still never returned to anyone.',
-  off: 'No takebacks at all this game.',
+  ask: "Steps the table already saw need everyone's OK before you take them back.",
+  free: 'Steps the table already saw apply the moment you take them back, no asking. Hidden information is still never returned to anyone.',
+  off: 'No takebacks for you this game.',
 };
 
 const TAKEBACK_MODE_KEY = 'spellcontrol:playtest:takebackMode';

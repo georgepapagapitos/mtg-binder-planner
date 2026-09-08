@@ -555,24 +555,41 @@ export const usePlaytestStore = create<PlaytestStore>((set, get) => ({
     // Newest-first as we go, matching rewindTrail's own convention — each
     // card bottomed later is pushed onto `past` after the one before it.
     const trailAdds: RewindTrailEntry[] = [];
+    // One journal line per bottomed card. Built here rather than via
+    // `buildLogEntries` because the generic zone-move line ("hand → library")
+    // hides the one thing that matters about this step: the card went to
+    // the BOTTOM. `toPublicTicker` drops hand→library moves, so these never
+    // reach opponents.
+    const bottomed: Omit<GameLogEntry, 'seq'>[] = [];
     // Each card moves to the bottom of the library (toIndex = library length).
     // Recompute the index between actions so successive sends append correctly.
     for (const cardId of cardIds) {
+      const name = current.zones.hand.find((c) => c.id === cardId)?.name;
       const move = {
         type: 'MOVE_TO_ZONE',
         cardId,
         to: 'library',
         toIndex: current.zones.library.length,
       } as const;
-      // Not journaled (game-log.ts doesn't cover MOVE_TO_ZONE during the
-      // opening-hand bottom step either) — summary falls back generically.
-      trailAdds.unshift(trailEntry(classifyAction(current, move), null));
+      const line = name ? `${name}: hand → bottom of library` : null;
+      if (name && line) {
+        bottomed.push({
+          turn: current.turn,
+          kind: 'zone-move',
+          text: line,
+          cardName: name,
+          from: 'hand',
+          to: 'library',
+        });
+      }
+      trailAdds.unshift(trailEntry(classifyAction(current, move), line));
       current = applyAction(current, move);
     }
-    const { resistanceState, resistancePast, onDraw, rewindTrail } = get();
+    const { resistanceState, resistancePast, onDraw, rewindTrail, gameLog } = get();
     set({
       state: current,
       phase: 'playing',
+      gameLog: appendLogEntries(gameLog, bottomed),
       rewindTrail: [...trailAdds, ...rewindTrail].slice(0, current.past.length),
       ...(resistanceState && {
         resistancePast: [

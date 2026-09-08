@@ -23,7 +23,7 @@
     "*.{ts,tsx,css,json,md}": "prettier --write --ignore-unknown"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
+    "concurrently": "^10.0.5",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
     "prettier": "^3.9.6",

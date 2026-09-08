@@ -271,6 +271,15 @@
   color: var(--warn-text, #b85c00);
 }
 
+/* "N new arrivals" — the one entry point to the new-arrivals review (E140).
+   It used to be a "✦ N new" chip over every card column; one deck-relative
+   metric in the strip, next to "missing", is where a number about the deck
+   belongs. Accent, not warn: it is an opportunity, not a gap. */
+.deck-stat-new .deck-stat-value,
+.deck-stat-new .deck-stat-label {
+  color: var(--accent);
+}
+
 .deck-stats-caret {
   display: inline-flex;
   align-items: center;
@@ -696,14 +705,6 @@
 .deck-stats-bracket-note {
   font-size: var(--text-xs);
   color: var(--text-muted);
-}
-
-.deck-stats-bracket-tag {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--accent);
 }
 
 /* UX-313: the target-bracket control moved to the PowerHero. The Bracket panel

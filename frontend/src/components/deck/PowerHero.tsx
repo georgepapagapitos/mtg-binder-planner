@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import './PowerHero.css';
-import { AlertTriangle, Loader2, Sparkles } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { bracketLabel } from '@/deck-builder/services/deckBuilder/bracketEstimator';
 import { SelectMenu, type SelectOption } from '../SelectMenu';
 import { useAnimatedNumber } from '@/lib/use-animated-number';
@@ -107,8 +107,9 @@ const TARGET_OPTIONS: SelectOption<string>[] = [
 /**
  * The Power-tab verdict hero: a two-pillar summary that leads with how strong a
  * deck is (Power level, self-explained via its bracket floors) and what it does
- * (Gameplan — the primary engine + combo counts), plus a collection-aware chip
- * when the user owns the missing piece for a one-away combo. Each pillar line
+ * (Gameplan — the primary engine + combo counts). The combo line already says
+ * how many one-away combos the user can complete, so there is no separate
+ * collection chip repeating it. Each pillar line
  * can deep-link (tap to reveal) the matching detail panel below; values map to
  * existing fields computed by the page.
  *
@@ -149,7 +150,6 @@ export function PowerHero({
   const payoffs = enginePayoffs ?? 0;
   const engineBalanced = producers > 0 && payoffs > 0 && !engineLopsided;
   const showReasons = !bracketOverridden && bracketReasons.length > 0;
-  const showCollection = !combosLoading && comboOwnedMissing > 0;
 
   // UX-313: "Target" control — shows when the caller provides the override callback.
   const showTargetControl = !!onSetBracketOverride;
@@ -279,14 +279,6 @@ export function PowerHero({
           )}
         </div>
       </div>
-
-      {showCollection && (
-        <p className="power-hero-collection">
-          <Sparkles className="power-hero-collection-icon" aria-hidden="true" />
-          You own the missing piece for {comboOwnedMissing}{' '}
-          {comboOwnedMissing === 1 ? 'combo' : 'combos'} you're one away from.
-        </p>
-      )}
     </section>
   );
 }

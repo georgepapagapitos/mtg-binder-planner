@@ -362,3 +362,44 @@
     padding: var(--space-2) 0.6rem;
   }
 }
+
+/* Power signal + calculation live behind one disclosure; the summary row
+   keeps the heading signature and shows the score while closed (style guide:
+   a collapsed group states its value in the header). The marker is the
+   score itself, not a browser triangle. */
+.bracket-breakdown-details > summary {
+  cursor: pointer;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.bracket-breakdown-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bracket-breakdown-summary-score {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+
+.bracket-breakdown-details[open] > summary .bracket-breakdown-summary-score {
+  color: var(--text-primary);
+}
+
+.bracket-breakdown-details > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.bracket-breakdown-signal-lede {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}

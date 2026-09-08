@@ -167,9 +167,10 @@ export function DeckCurvePhases({
 
   return (
     <section className="deck-curve-phases" aria-label="Mana curve and phases">
+      {/* No inner heading: every host (the Stats bento's "Mana curve" panel,
+          the compare page's section title) already names this. */}
       <div className="deck-curve-phases-head">
         <div className="deck-curve-phases-head-meta">
-          <h4 className="deck-curve-phases-heading">Mana curve</h4>
           <span className="deck-curve-phases-avg">
             {averageCmc.toFixed(1)}{' '}
             <span className="deck-curve-phases-avg-label">avg mana value</span>

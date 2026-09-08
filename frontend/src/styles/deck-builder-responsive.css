@@ -13,13 +13,6 @@
      old stats-sidebar layout; it was inert dead CSS — `display` was never
      `grid` — and was removed.) */
 
-  /* Totals (cards + value) are surfaced by the Statistics panel header
-     once the sidebar collapses above the deck — duplicating them in
-     the hero would be noise. Hide on tablet/mobile only. */
-  .deck-hero-totals {
-    display: none;
-  }
-
   /* Tablet/mobile: flatten the per-section bordered cards into one
      continuous panel. Each section keeps its header + rows for
      organization but loses its own background/border/padding, so the

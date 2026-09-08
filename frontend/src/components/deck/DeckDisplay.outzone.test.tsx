@@ -11,13 +11,13 @@ import { DeckDisplay, type DeckDisplayCard } from './DeckDisplay';
 // test suites).
 vi.mock('@/lib/card-thumbs', () => ({ useCardThumb: () => undefined }));
 
-function card(name: string): ScryfallCard {
+function card(name: string, cmc = 1): ScryfallCard {
   return {
     id: `id-${name}`,
     oracle_id: `oracle-${name}`,
     name,
-    mana_cost: '{1}',
-    cmc: 1,
+    mana_cost: `{${cmc}}`,
+    cmc,
     type_line: 'Artifact',
     color_identity: [],
     keywords: [],
@@ -30,8 +30,8 @@ function card(name: string): ScryfallCard {
   } as unknown as ScryfallCard;
 }
 
-function slots(names: string[]): DeckDisplayCard[] {
-  return names.map((name, i) => ({ slotId: `slot-${name}-${i}`, card: card(name) }));
+function slots(names: string[], cmc?: number): DeckDisplayCard[] {
+  return names.map((name, i) => ({ slotId: `slot-${name}-${i}`, card: card(name, cmc) }));
 }
 
 function renderDeck(opts: {
@@ -48,7 +48,7 @@ function renderDeck(opts: {
         format="commander"
         cards={slots(['Mainboard Card'])}
         sideboard={slots(opts.sideboard ?? [])}
-        considering={slots(opts.considering ?? [])}
+        considering={slots(opts.considering ?? [], 5)}
       />
     </MemoryRouter>
   );
@@ -111,10 +111,11 @@ describe('DeckDisplay "Not in the deck" zone (E176)', () => {
     expect(chip!.textContent).toContain('3');
   });
 
-  it('considering cards never reach the mainboard card-count stat (E122)', () => {
+  it('considering cards never reach the mainboard stats (E122)', () => {
     const { container } = renderDeck({ considering: ['Considering Card'] });
+    // The strip leads with avg mana value (the card count rides the page hero).
+    // Mainboard is one 1-drop; the 5-drop in Considering must not move it.
     const statValue = container.querySelector('.deck-stat-value');
-    // Only the one mainboard card counts — Considering stays excluded.
-    expect(statValue?.textContent).toBe('1');
+    expect(statValue?.textContent).toBe('1.00');
   });
 });

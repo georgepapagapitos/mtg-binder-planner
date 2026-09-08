@@ -10,7 +10,8 @@ import { ManaCost } from '../ManaCost';
 import './NewArrivalsSheet.css';
 
 interface Props {
-  bucket: TypeGroup;
+  /** Category the rows came from. Omit when the sheet shows every category at once. */
+  bucket?: TypeGroup;
   rows: ArrivalRow[];
   onClose: () => void;
   /** Stamp deck.lastArrivalReviewAt (silent). Fired once, from the real close
@@ -86,7 +87,8 @@ export function NewArrivalsSheet({
     if (e.key === 'Escape') beginClose();
   };
 
-  const label = TYPE_GROUP_PLURAL[bucket];
+  const label = bucket ? TYPE_GROUP_PLURAL[bucket] : null;
+  const heading = label ? `New arrivals · ${label}` : 'New arrivals';
 
   return createPortal(
     <div
@@ -100,14 +102,15 @@ export function NewArrivalsSheet({
         onAnimationEnd={onAnimationEnd}
         role="dialog"
         aria-modal="true"
-        aria-label={`New arrivals · ${label}`}
+        aria-label={heading}
       >
         <div className="new-arrivals-sheet-header">
           <div className="new-arrivals-sheet-title-row">
             <div className="new-arrivals-sheet-title-text">
-              <h2 className="new-arrivals-sheet-heading">New arrivals · {label}</h2>
+              <h2 className="new-arrivals-sheet-heading">{heading}</h2>
               <p className="new-arrivals-sheet-subheading">
-                Added to your collection since you last updated this deck.
+                Cards this deck's coach already recommends, added to your collection since you last
+                updated the deck.
               </p>
             </div>
             <button

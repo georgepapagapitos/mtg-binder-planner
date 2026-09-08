@@ -155,7 +155,11 @@ export const SHOW_PREFS_STORAGE_KEY = 'mtg-decks-show-prefs';
 export const DEFAULT_SHOW_PREFS: ShowPrefs = { price: true, roles: true, mana: true };
 
 export function readStoredViewMode(): DeckViewMode {
-  if (typeof window === 'undefined') return 'grid';
+  // Default is the list: it is the editing surface (steppers, kebab, reorder,
+  // per-row price and mana cost, hover-peek). The grid is a gallery that fits
+  // ~8 cards per row on desktop and 2 on a phone, so it was hiding the editor
+  // behind a view-mode toggle nobody was told about.
+  if (typeof window === 'undefined') return 'list';
   try {
     const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     if (v === 'list' || v === 'grid') return v;
@@ -165,10 +169,10 @@ export function readStoredViewMode(): DeckViewMode {
   } catch {
     /* ignore */
   }
-  // No explicit choice on record (E127) — default posture is card-forward
-  // grid (list ships with zero card art). An explicit persisted 'list'
-  // above always wins.
-  return 'grid';
+  // No explicit choice on record: list (see the note above — this reverses
+  // E127's card-forward grid default). An explicit persisted 'grid' above
+  // always wins.
+  return 'list';
 }
 
 export function readStoredShowPrefs(): ShowPrefs {

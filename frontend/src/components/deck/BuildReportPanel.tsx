@@ -301,6 +301,10 @@ export function BuildReportPanel({
           Aimed Bracket <strong>1 (Exhibition)</strong>, estimated{' '}
           <strong>{estimatedBracket}</strong>. {EXHIBITION_BRACKET_NOTE}
         </p>
+      ) : targetBracket === 'all' ? (
+        <p className="build-report-line build-report-bracket">
+          No bracket target &rarr; estimated <strong>{estimatedBracket}</strong>
+        </p>
       ) : (
         <p className="build-report-line build-report-bracket">
           Aimed Bracket <strong>{targetBracket}</strong> &rarr; estimated{' '}

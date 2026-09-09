@@ -126,6 +126,8 @@ export async function createTestEnv(): Promise<TestEnv> {
       content TEXT NOT NULL,
       input_tokens INTEGER NOT NULL,
       output_tokens INTEGER NOT NULL,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
       created_at BIGINT NOT NULL,
       deck_id TEXT,
       prompt_version TEXT,

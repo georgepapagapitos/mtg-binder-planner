@@ -19,6 +19,29 @@ export interface AdminUserSummary {
   aiDailyLimit: number | null;
 }
 
+export interface AiSpendWindow {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+  /** Estimated cost at the model's list price. */
+  usd: number;
+}
+
+export interface AiSpend {
+  model: string;
+  windows: { today: AiSpendWindow; d7: AiSpendWindow; d30: AiSpendWindow };
+  /** Per-user totals over the last 30 days; users with no calls are absent. */
+  users: (AiSpendWindow & { userId: string })[];
+}
+
+/** Estimated AI cost (T116): totals per window plus a 30-day per-user breakdown. */
+export async function getAiSpend(): Promise<AiSpend> {
+  const res = await authedFetch('/api/admin/ai-spend');
+  return handleResponse<AiSpend>(res);
+}
+
 export async function listUsers(): Promise<AdminUserSummary[]> {
   const res = await authedFetch('/api/admin/users');
   const data = await handleResponse<{ users: AdminUserSummary[] }>(res);

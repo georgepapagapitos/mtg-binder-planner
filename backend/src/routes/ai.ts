@@ -465,8 +465,8 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
 
   await pool.query(
     `INSERT INTO ai_reviews
-       (id, user_id, feature, input_hash, model, content, input_tokens, output_tokens, created_at, deck_id, prompt_version, fetched_names)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       (id, user_id, feature, input_hash, model, content, input_tokens, output_tokens, cache_write_tokens, cache_read_tokens, created_at, deck_id, prompt_version, fetched_names)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (user_id, feature, input_hash) DO NOTHING`,
     [
       crypto.randomUUID(),
@@ -477,6 +477,8 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
       generation.content,
       generation.inputTokens,
       generation.outputTokens,
+      generation.cacheWriteTokens ?? 0,
+      generation.cacheReadTokens ?? 0,
       Date.now(),
       request.deckId,
       DECK_REVIEW_PROMPT_VERSION,
@@ -867,8 +869,8 @@ aiRouter.post('/deck-refine', reviewLimiter, requireAuth, async (req: Request, r
 
   await pool.query(
     `INSERT INTO ai_reviews
-       (id, user_id, feature, input_hash, model, content, input_tokens, output_tokens, created_at, deck_id, prompt_version, fetched_names)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       (id, user_id, feature, input_hash, model, content, input_tokens, output_tokens, cache_write_tokens, cache_read_tokens, created_at, deck_id, prompt_version, fetched_names)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (user_id, feature, input_hash) DO NOTHING`,
     [
       crypto.randomUUID(),
@@ -879,6 +881,8 @@ aiRouter.post('/deck-refine', reviewLimiter, requireAuth, async (req: Request, r
       generation.content,
       generation.inputTokens,
       generation.outputTokens,
+      generation.cacheWriteTokens ?? 0,
+      generation.cacheReadTokens ?? 0,
       Date.now(),
       request.deckId,
       DECK_REFINE_PROMPT_VERSION,
@@ -1141,8 +1145,8 @@ aiRouter.post(
 
     await pool.query(
       `INSERT INTO ai_reviews
-       (id, user_id, feature, input_hash, model, content, input_tokens, output_tokens, created_at, prompt_version, fetched_names, question)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       (id, user_id, feature, input_hash, model, content, input_tokens, output_tokens, cache_write_tokens, cache_read_tokens, created_at, prompt_version, fetched_names, question)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (user_id, feature, input_hash) DO NOTHING`,
       [
         crypto.randomUUID(),
@@ -1153,6 +1157,8 @@ aiRouter.post(
         generation.content,
         generation.inputTokens,
         generation.outputTokens,
+        generation.cacheWriteTokens ?? 0,
+        generation.cacheReadTokens ?? 0,
         Date.now(),
         RULES_QA_PROMPT_VERSION,
         JSON.stringify(fetchedNames),

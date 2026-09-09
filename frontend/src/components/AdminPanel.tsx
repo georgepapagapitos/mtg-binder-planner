@@ -1,14 +1,18 @@
 import { formatBytes } from '../lib/format-bytes';
+import { formatMoney } from '../lib/format-money';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   listUsers,
   deleteUser,
   clearUserProfile,
   setUserAi,
+  getAiSpend,
   listReports,
   resolveReport,
   type AdminUserSummary,
   type AdminReportRow,
+  type AiSpend,
+  type AiSpendWindow,
 } from '../lib/admin-api';
 import { toast } from '../store/toasts';
 import { Modal } from './Modal';
@@ -20,6 +24,26 @@ const REPORT_KIND_LABEL: Record<AdminReportRow['kind'], string> = {
   profile: 'Profile',
   'game-result': 'Game result',
 };
+
+/** AI spend is billed in USD whatever the display currency is. */
+const usd = (n: number) => formatMoney(n, { currency: 'USD' });
+
+const SPEND_WINDOWS: { key: keyof AiSpend['windows']; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'd7', label: '7 days' },
+  { key: 'd30', label: '30 days' },
+];
+
+function SpendTile({ label, w }: { label: string; w: AiSpendWindow }) {
+  return (
+    <div className="deck-stat">
+      <span className="deck-stat-value">{usd(w.usd)}</span>
+      <span className="deck-stat-label">
+        {label} · {w.calls} {w.calls === 1 ? 'call' : 'calls'}
+      </span>
+    </div>
+  );
+}
 
 function formatDate(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, {
@@ -42,6 +66,32 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
   const [aiAccessDraft, setAiAccessDraft] = useState(false);
   const [aiLimitDraft, setAiLimitDraft] = useState('');
   const [savingAi, setSavingAi] = useState(false);
+
+  // AI spend (T116): null while loading; per-user 30-day USD keyed by id so
+  // the users table can show a column without a second fetch.
+  const [spend, setSpend] = useState<AiSpend | null>(null);
+  const [spendError, setSpendError] = useState<string | null>(null);
+  const [spendReloadKey, setSpendReloadKey] = useState(0);
+  const spendByUser = new Map(spend?.users.map((u) => [u.userId, u.usd]) ?? []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAiSpend()
+      .then((s) => {
+        if (!cancelled) {
+          setSpend(s);
+          setSpendError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setSpendError(userMessage(err, "Couldn't load AI spend. Try again in a moment."));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [spendReloadKey]);
 
   // Reports: null while the initial GET is in flight (mirrors
   // SharedLinksSettings' shares===null loading sentinel).
@@ -247,6 +297,56 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
 
   return (
     <>
+      <section className="settings-card" aria-labelledby="settings-ai-spend-title">
+        <header className="settings-card-header">
+          <h2 id="settings-ai-spend-title" className="settings-card-title">
+            AI spend
+          </h2>
+          <p className="settings-card-hint">
+            Estimated from token counts at list price
+            {spend ? ` for ${spend.model}` : ''}. Cached replays cost nothing and aren't counted.
+          </p>
+        </header>
+        <div className="settings-card-body">
+          {spendError && (
+            <div className="settings-row-hint" role="alert">
+              {spendError}{' '}
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => {
+                  setSpendError(null);
+                  setSpend(null);
+                  setSpendReloadKey((k) => k + 1);
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {spend === null && !spendError && (
+            <div className="deck-stat-strip admin-spend-strip" aria-hidden="true">
+              {SPEND_WINDOWS.map((w) => (
+                <div className="deck-stat admin-spend-skeleton" key={w.key}>
+                  <div className="admin-report-skeleton-bar is-wide" />
+                  <div className="admin-report-skeleton-bar is-narrow" />
+                </div>
+              ))}
+            </div>
+          )}
+          {spend && (
+            <div className="deck-stat-strip admin-spend-strip">
+              {SPEND_WINDOWS.map((w) => (
+                <SpendTile key={w.key} label={w.label} w={spend.windows[w.key]} />
+              ))}
+            </div>
+          )}
+          {spend && spend.windows.d30.calls === 0 && (
+            <div className="settings-row-hint">No AI calls in the last 30 days.</div>
+          )}
+        </div>
+      </section>
+
       <section className="settings-card" aria-labelledby="settings-admin-title">
         <header className="settings-card-header">
           <h2 id="settings-admin-title" className="settings-card-title">
@@ -278,6 +378,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
                     <th scope="col">Profile</th>
                     <th scope="col">Role</th>
                     <th scope="col">AI</th>
+                    <th scope="col">AI spend (30d)</th>
                     <th scope="col">Registered</th>
                     <th scope="col">Data</th>
                     <th scope="col" aria-label="Actions" />
@@ -320,6 +421,13 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
                             </span>
                           ) : (
                             <span className="admin-role-pill">Off</span>
+                          )}
+                        </td>
+                        <td>
+                          {spendByUser.has(u.id) ? (
+                            usd(spendByUser.get(u.id)!)
+                          ) : (
+                            <span className="settings-row-hint">—</span>
                           )}
                         </td>
                         <td>{formatDate(u.createdAt)}</td>

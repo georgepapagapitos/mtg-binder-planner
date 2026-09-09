@@ -212,7 +212,11 @@
 .deck-analysis-suggest-title-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  /* Wrap so the nowrap chips (role / Owned / In other deck) drop to a second
+     line in a narrow column instead of spilling under the Add button once the
+     name has ellipsized to nothing. Mirrors .deck-card-row-title. */
+  flex-wrap: wrap;
+  gap: 0.2rem 0.4rem;
   min-width: 0;
 }
 

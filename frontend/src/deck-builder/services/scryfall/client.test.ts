@@ -29,6 +29,7 @@ import {
   searchTokenArt,
   commanderSearchIdentity,
   upgradeCardPrintings,
+  validateScryfallFilter,
 } from './client';
 import { resetScryfallRateLimit } from '@/lib/scryfall-fetch';
 
@@ -859,5 +860,55 @@ describe('upgradeCardPrintings', () => {
 
     await expect(upgradeCardPrintings(cards, 'is:full-art', true)).resolves.toBeUndefined();
     expect(cards.has('Sol Ring')).toBe(false);
+  });
+});
+
+// Primary, unbatched check — meant to run at the very start of generation
+// before any pool work. LIVE-CONFIRMED the batched upgradeCardPrintings check
+// above didn't reliably surface a 400 in a live rerun (queued behind a 429
+// retry), so this runs independent of any card names or batching.
+describe('validateScryfallFilter', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws with Scryfall's own message on a 400 (invalid search syntax)", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({ object: 'error', status: 400, details: "Invalid syntax near '(('." }),
+      })
+    );
+
+    await expect(validateScryfallFilter('garbage((')).rejects.toThrow(
+      /Your Scryfall filter isn't valid: Invalid syntax near/
+    );
+  });
+
+  it('does not throw on a 404 (no matches — a legitimate empty result)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
+    );
+
+    await expect(validateScryfallFilter('t:nonexistenttype')).resolves.toBeUndefined();
+  });
+
+  it('does not throw on a network failure — a validation-only request never blocks generation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('NetworkError')));
+
+    await expect(validateScryfallFilter('t:creature')).resolves.toBeUndefined();
+  });
+
+  it('is a no-op for an empty query (never calls fetch)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await validateScryfallFilter('   ');
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -226,19 +226,30 @@ describe('buildLandCountClampNote', () => {
   it('discloses when targetCounts.ts clamped a below-floor request upward', () => {
     // LIVE-CONFIRMED: `landCount: 25` shipped 33 lands with zero disclosure —
     // only the archetype auto-tune branch composed a note.
-    const note = buildLandCountClampNote(25, 33);
+    const note = buildLandCountClampNote(25, 32, 32);
     expect(note).toContain('You set land count to 25');
-    expect(note).toContain('needs at least 33');
+    expect(note).toContain('needs at least 32');
+    expect(note).not.toContain('Delivered');
+  });
+
+  // A live rerun caught the clamp note itself misreporting the floor: a
+  // 32-floor request said "needs at least 33", where 33 was a LATER +1
+  // land-generation adjustment, not the clamp. The plan (32) and the
+  // delivered count (33) must be named separately.
+  it('names the plan and a later delivered-count drift separately', () => {
+    const note = buildLandCountClampNote(25, 32, 33);
+    expect(note).toContain('needs at least 32');
     expect(note).toContain('Delivered 33');
+    expect(note).not.toContain('needs at least 33');
   });
 
   it('discloses when an absurd request got capped down to deckCards-1', () => {
-    const note = buildLandCountClampNote(999, 98);
+    const note = buildLandCountClampNote(999, 98, 98);
     expect(note).toContain('only has room for 98');
   });
 
-  it('is undefined when the delivered count matches what was typed', () => {
-    expect(buildLandCountClampNote(37, 37)).toBeUndefined();
+  it('is undefined when the plan matches what was typed', () => {
+    expect(buildLandCountClampNote(37, 37, 37)).toBeUndefined();
   });
 });
 

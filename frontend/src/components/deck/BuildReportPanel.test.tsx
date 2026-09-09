@@ -52,6 +52,34 @@ describe('BuildReportPanel', () => {
     expect(container.textContent).toContain('target 75%');
   });
 
+  it('shows the owned-percent gap "why" note when present', () => {
+    const { container } = render(
+      <BuildReportPanel
+        report={makeReport({
+          collectionStrategy: 'partial',
+          ownedPercentActual: 10,
+          ownedPercentTarget: 100,
+          ownedPercentGapNote:
+            "You asked for 100% owned cards, but only 12 owned cards fit this commander's pool. 12 were used and the rest came from recommendations.",
+        })}
+      />
+    );
+    expect(container.textContent).toContain("only 12 owned cards fit this commander's pool");
+  });
+
+  it('lists the actual card names behind collectionRelaxed, not just the count', () => {
+    const { container } = render(
+      <BuildReportPanel
+        report={makeReport({
+          collectionRelaxed: 2,
+          collectionRelaxedNames: ['Skullclamp', 'The One Ring'],
+        })}
+      />
+    );
+    expect(container.textContent).toContain('Skullclamp');
+    expect(container.textContent).toContain('The One Ring');
+  });
+
   it('shows padded basics when present', () => {
     const { container } = render(<BuildReportPanel report={makeReport({ basicsPadded: 4 })} />);
     expect(container.textContent?.replace(/\s+/g, ' ')).toContain('padded 4 basics');

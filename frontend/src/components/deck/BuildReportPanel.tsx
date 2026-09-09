@@ -186,8 +186,10 @@ export function BuildReportPanel({
     collectionStrategy,
     ownedPercentActual,
     ownedPercentTarget,
+    ownedPercentGapNote,
     basicsPadded,
     collectionRelaxed,
+    collectionRelaxedNames,
     collectionSubstitutions,
     synergyFills,
     roleGaps,
@@ -486,10 +488,15 @@ export function BuildReportPanel({
         </p>
       )}
 
+      {ownedPercentGapNote && <p className="build-report-flag">{ownedPercentGapNote}</p>}
+
       {typeof collectionRelaxed === 'number' && collectionRelaxed > 0 && (
         <p className="build-report-flag">
           Your collection ran short. Added <strong>{collectionRelaxed}</strong> card
           {collectionRelaxed === 1 ? '' : 's'} from outside it to complete the deck.
+          {collectionRelaxedNames && collectionRelaxedNames.length > 0 && (
+            <span className="build-report-muted"> ({collectionRelaxedNames.join(', ')})</span>
+          )}
         </p>
       )}
 

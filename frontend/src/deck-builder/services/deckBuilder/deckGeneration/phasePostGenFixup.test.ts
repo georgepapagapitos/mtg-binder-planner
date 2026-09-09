@@ -177,6 +177,71 @@ describe('postGenFixupPhase', () => {
     expect(swapCandidates['type:creature']).toEqual([filler]);
   });
 
+  // E-arena-leak: the role-deficit backfill (5a) had NO price/rarity/CMC/
+  // Arena/legality gate at all — LIVE-CONFIRMED shipping Massacre Wurm past
+  // an explicit maxCardPrice and Ninja of the Deep Hours (cmc 4) past
+  // tinyLeaders' CMC cap. The top-priority candidate must be skipped when it
+  // violates a user cap, falling through to a clean one.
+  it('skips a role-deficit candidate that violates the user caps, falling through to a clean one', () => {
+    const state = makeState();
+    state.cfg.maxCardPrice = 1;
+    const filler = scryfallCard('Filler');
+    const overpriced = scryfallCard('Massacre Wurm', { cmc: 6, prices: { usd: '1.70' } });
+    const cheap = scryfallCard('Cheap Wipe', { cmc: 4, prices: { usd: '0.50' } });
+    roleMap['Massacre Wurm'] = 'boardwipe';
+    roleMap['Cheap Wipe'] = 'boardwipe';
+    state.categories.creatures = [filler];
+    state.usedNames = new Set(['Filler']);
+    state.currentRoleCounts = { ramp: 0, removal: 0, boardwipe: 0, cardDraw: 0 };
+    state.edhrecData = {
+      cardlists: {
+        allNonLand: [
+          { name: 'Massacre Wurm', inclusion: 90 },
+          { name: 'Cheap Wipe', inclusion: 60 },
+        ],
+      },
+    } as unknown as GenerationState['edhrecData'];
+
+    const result = postGenFixupPhase(state, {
+      roleTargets: { ramp: 0, removal: 0, boardwipe: 4, cardDraw: 0 },
+      swapCandidates: undefined,
+      scryfallCardMap: new Map([
+        ['Massacre Wurm', overpriced],
+        ['Cheap Wipe', cheap],
+      ]),
+      repairAddedNames: new Set(),
+    });
+
+    expect(result.fixupSwaps).toBe(1);
+    expect(state.usedNames.has('Massacre Wurm')).toBe(false);
+    expect(state.usedNames.has('Cheap Wipe')).toBe(true);
+  });
+
+  it('never fires a role-deficit swap when every candidate violates the user caps', () => {
+    const state = makeState();
+    state.cfg.maxCmc = 3; // tinyLeaders-style cap
+    const filler = scryfallCard('Filler');
+    const overCmc = scryfallCard('Ninja of the Deep Hours', { cmc: 4 });
+    roleMap['Ninja of the Deep Hours'] = 'cardDraw';
+    state.categories.creatures = [filler];
+    state.usedNames = new Set(['Filler']);
+    state.currentRoleCounts = { ramp: 0, removal: 0, boardwipe: 0, cardDraw: 0 };
+    state.edhrecData = {
+      cardlists: { allNonLand: [{ name: 'Ninja of the Deep Hours', inclusion: 90 }] },
+    } as unknown as GenerationState['edhrecData'];
+
+    const result = postGenFixupPhase(state, {
+      roleTargets: { ramp: 0, removal: 0, boardwipe: 0, cardDraw: 4 },
+      swapCandidates: undefined,
+      scryfallCardMap: new Map([['Ninja of the Deep Hours', overCmc]]),
+      repairAddedNames: new Set(),
+    });
+
+    expect(result.fixupSwaps).toBe(0);
+    expect(state.usedNames.has('Ninja of the Deep Hours')).toBe(false);
+    expect(state.usedNames.has('Filler')).toBe(true);
+  });
+
   // Contract B: 5a's disclosure — was logger.debug-only (invisible to the
   // build report / cardProvenance) before E167.
   it('discloses a 5a swap with the role-gap reason (Contract B)', () => {

@@ -40,7 +40,7 @@ export interface ComboAuditResult {
   repairs: CoherenceRepair[];
   /** Count of otherwise-eligible candidates skipped for exceeding budget. */
   budgetSkipped: number;
-  /** E104: adds auditAdd() blocked for exceeding the target-bracket ceiling
+  /** E104: adds auditCanAdd() blocked for exceeding the target-bracket ceiling
    *  after a weak card was already evicted to make room. */
   bracketBlocked: number;
 }
@@ -143,7 +143,16 @@ export function comboIntegrityAuditPhase(
     return !exceedsMaxPrice(card, cap, currency);
   }
 
-  function auditAdd(card: ScryfallCard): boolean {
+  // Pure eligibility check — no mutation. E-strand-fix: every call site below
+  // used to evict a weak card FIRST and only check the incoming candidate
+  // afterward (auditAdd used to do both at once), so a candidate that looked
+  // fine at pre-filter time but fails a check re-evaluated fresh (bracketGuard
+  // ceiling state and usedNames both advance as this pass makes swaps, so a
+  // later candidate's ceiling/dup status can flip between pre-filter and
+  // add time) stranded the deck one card short — LIVE-CONFIRMED as the
+  // Krenko-arenaOnly/Atraxa-impossible/Krenko-brawl60 "-2 cards" regression.
+  // Callers must verify auditCanAdd BEFORE auditRemove, never after.
+  function auditCanAdd(card: ScryfallCard): boolean {
     if (usedNames.has(card.name)) return false; // guard against duplicates
     if (bannedCards.has(card.name)) return false; // respect banlist
     // Combo candidates come from the (Commander-scoped) EDHREC combo dataset,
@@ -160,8 +169,8 @@ export function comboIntegrityAuditPhase(
     // target-bracket ceiling before accepting a card — the combo audit
     // never did, so it could push a bracket<=2 ask's Game Changer/mass
     // land denial/extra-turn/stax signal past the ceiling with no gate at
-    // all (e.g. auditAdd seating Teferi, Master of Time into a bracket-2
-    // deck, later silently evicted again by bracket convergence).
+    // all (e.g. seating Teferi, Master of Time into a bracket-2 deck, later
+    // silently evicted again by bracket convergence).
     if (bracketGuard?.exceedsCeiling(card.name)) {
       bracketBlocked++;
       return false;
@@ -171,9 +180,14 @@ export function comboIntegrityAuditPhase(
     // fetch batch pulls in EVERY combo's cards, on- or off-color, purely
     // to resolve near-miss detection — see the batch fetch above — so this
     // is the only gate standing between an off-identity combo card and the
-    // decklist). Sites must still pre-filter so a rejected add doesn't
-    // strand the just-evicted card with nothing added back.
+    // decklist).
     if (!fitsColorIdentity(card, colorIdentity)) return false;
+    return true;
+  }
+
+  // Mutates — assumes auditCanAdd(card) already returned true. Never call
+  // this without that check immediately before (see auditCanAdd's doc).
+  function auditCommitAdd(card: ScryfallCard): void {
     stampRoleSubtypes(card);
     routeCardByType(card, categories);
     usedNames.add(card.name);
@@ -186,7 +200,6 @@ export function comboIntegrityAuditPhase(
       budgetTracker?.deductCard(card);
     }
     bracketGuard?.record(card.name);
-    return true;
   }
 
   // ── Phase 1: Multi-combo enablers ──
@@ -212,7 +225,7 @@ export function comboIntegrityAuditPhase(
       // color identity (needed to detect near-misses at all) — this is
       // the only gate keeping an off-identity combo card out of the deck.
       if (!fitsColorIdentity(scryfallCardMap.get(name)!, colorIdentity)) continue;
-      // Pre-filter mirrors auditAdd's user-caps gate so an eviction is never
+      // Pre-filter mirrors auditCanAdd's user-caps gate so an eviction is never
       // stranded by a rejected add.
       if (
         violatesUserCaps(
@@ -222,7 +235,7 @@ export function comboIntegrityAuditPhase(
         )
       )
         continue;
-      // E101: pre-filter mirrors auditAdd's bracket-ceiling gate — same
+      // E101: pre-filter mirrors auditCanAdd's bracket-ceiling gate — same
       // stranding concern as the caps gate above.
       if (bracketGuard?.exceedsCeiling(name)) continue;
       enablerScore.set(name, (enablerScore.get(name) ?? 0) + 1);
@@ -243,33 +256,37 @@ export function comboIntegrityAuditPhase(
         budgetSkipped++;
         continue; // next-best enabler under budget
       }
+      // Re-verify fresh, immediately before evicting — bracketGuard/usedNames
+      // state advances with every swap this pass makes, so a candidate that
+      // cleared the enablerScore pre-filter (evaluated once, before ANY swap)
+      // can go stale by the time we get here (E-strand-fix, see auditCanAdd).
+      if (!auditCanAdd(card)) continue;
       const weak = auditWeakest();
       if (!weak) break;
       auditRemove(weak.card, weak.category);
-      if (auditAdd(card)) {
-        auditSwaps++;
-        repairs.push({
-          cut: weak.card.name,
-          added: card.name,
-          reason: `Swapped ${weak.card.name} for ${card.name}. Completes ${combosCompleted} more combo${combosCompleted === 1 ? '' : 's'}.`,
-        });
-        // Mark all combos this card completes
-        for (const dc of detectedCombos) {
-          if (dc.isComplete) continue;
-          const stillMissing = dc.missingCards.filter((n) => !usedNames.has(n));
-          if (stillMissing.length === 0) {
-            dc.isComplete = true;
-            dc.missingCards = [];
-          }
+      auditCommitAdd(card);
+      auditSwaps++;
+      repairs.push({
+        cut: weak.card.name,
+        added: card.name,
+        reason: `Swapped ${weak.card.name} for ${card.name}. Completes ${combosCompleted} more combo${combosCompleted === 1 ? '' : 's'}.`,
+      });
+      // Mark all combos this card completes
+      for (const dc of detectedCombos) {
+        if (dc.isComplete) continue;
+        const stillMissing = dc.missingCards.filter((n) => !usedNames.has(n));
+        if (stillMissing.length === 0) {
+          dc.isComplete = true;
+          dc.missingCards = [];
         }
-        // Update completeComboCards so newly completed combo pieces are protected
-        for (const dc of detectedCombos) {
-          if (dc.isComplete) for (const n of dc.cards) completeComboCards.add(n);
-        }
-        logger.debug(
-          `[DeckGen] Combo audit: added multi-combo enabler ${name} (completes ${combosCompleted} combos) → evicted ${weak.card.name} (${auditInclusion.get(weak.card.name) ?? 0}%)`
-        );
       }
+      // Update completeComboCards so newly completed combo pieces are protected
+      for (const dc of detectedCombos) {
+        if (dc.isComplete) for (const n of dc.cards) completeComboCards.add(n);
+      }
+      logger.debug(
+        `[DeckGen] Combo audit: added multi-combo enabler ${name} (completes ${combosCompleted} combos) → evicted ${weak.card.name} (${auditInclusion.get(weak.card.name) ?? 0}%)`
+      );
     }
   }
 
@@ -302,10 +319,10 @@ export function comboIntegrityAuditPhase(
       // color identity (needed to detect near-misses at all) — this is
       // the only gate keeping an off-identity combo card out of the deck.
       .filter((c) => fitsColorIdentity(c, colorIdentity))
-      // Pre-filter mirrors auditAdd's user-caps gate so an eviction is never
+      // Pre-filter mirrors auditCanAdd's user-caps gate so an eviction is never
       // stranded by a rejected add.
       .filter((c) => !violatesUserCaps(c, userCapsForComboCompletion(state.cfg), collectionNames))
-      // E101: pre-filter mirrors auditAdd's bracket-ceiling gate — same
+      // E101: pre-filter mirrors auditCanAdd's bracket-ceiling gate — same
       // stranding concern as the caps gate above.
       .filter((c) => !bracketGuard?.exceedsCeiling(c.name))
       .filter((c) => {
@@ -331,6 +348,13 @@ export function comboIntegrityAuditPhase(
       let ok = true;
       for (const missing of missingResolved) {
         if (usedNames.has(missing.name)) continue; // already in deck from a prior combo
+        // Re-verify fresh, immediately before evicting (E-strand-fix) — a
+        // prior iteration's auditCommitAdd can have advanced bracketGuard's
+        // ceiling state since missingResolved's one-time pre-filter ran.
+        if (!auditCanAdd(missing)) {
+          ok = false;
+          break;
+        }
         const weak = auditWeakest(evicted);
         if (!weak) {
           ok = false;
@@ -338,10 +362,7 @@ export function comboIntegrityAuditPhase(
         }
         evicted.add(weak.card.name);
         auditRemove(weak.card, weak.category);
-        if (!auditAdd(missing)) {
-          ok = false;
-          break;
-        }
+        auditCommitAdd(missing);
         auditSwaps++;
         repairs.push({
           cut: weak.card.name,
@@ -383,7 +404,7 @@ export function comboIntegrityAuditPhase(
               !bannedCards.has(c.name) &&
               scryfallCardMap.has(c.name) &&
               fitsColorIdentity(scryfallCardMap.get(c.name)!, colorIdentity) &&
-              // E101: pre-filter mirrors auditAdd's bracket-ceiling gate so
+              // E101: pre-filter mirrors auditCanAdd's bracket-ceiling gate so
               // an orphan eviction is never stranded by a rejected add.
               !bracketGuard?.exceedsCeiling(c.name) &&
               !(
@@ -392,10 +413,15 @@ export function comboIntegrityAuditPhase(
               )
           )
           .sort((a, b) => b.inclusion - a.inclusion);
-        // Fall through past budget-exceeding candidates to the next-best one.
+        // Fall through past budget-exceeding or otherwise-ineligible
+        // candidates to the next-best one. auditCanAdd re-verified here
+        // (E-strand-fix) — evaluated fresh, immediately before the eviction
+        // below, not from a snapshot taken before this orphan's own eviction.
         let replacement: (typeof replacementCandidates)[0] | undefined;
         for (const cand of replacementCandidates) {
-          if (auditPassesBudget(scryfallCardMap.get(cand.name)!)) {
+          const candCard = scryfallCardMap.get(cand.name)!;
+          if (!auditCanAdd(candCard)) continue;
+          if (auditPassesBudget(candCard)) {
             replacement = cand;
             break;
           }
@@ -403,21 +429,16 @@ export function comboIntegrityAuditPhase(
         }
         if (!replacement) continue;
         auditRemove(found.card, found.category);
-        // Gate on the result — an EDHREC-pool candidate should always be
-        // legal/unbanned/undupe by construction, but auditAdd is the sole
-        // backstop; an unchecked call here previously left the orphan
-        // evicted with nothing added back if it ever returned false.
-        if (auditAdd(scryfallCardMap.get(replacement.name)!)) {
-          auditSwaps++;
-          repairs.push({
-            cut: orphanName,
-            added: replacement.name,
-            reason: `${orphanName}'s combo was still missing ${trulyMissing.length} card${trulyMissing.length === 1 ? '' : 's'}. Swapped for ${replacement.name}.`,
-          });
-          logger.debug(
-            `[DeckGen] Combo audit: evicted orphan ${orphanName} (${auditInclusion.get(orphanName) ?? 0}% inclusion) → ${replacement.name}`
-          );
-        }
+        auditCommitAdd(scryfallCardMap.get(replacement.name)!);
+        auditSwaps++;
+        repairs.push({
+          cut: orphanName,
+          added: replacement.name,
+          reason: `${orphanName}'s combo was still missing ${trulyMissing.length} card${trulyMissing.length === 1 ? '' : 's'}. Swapped for ${replacement.name}.`,
+        });
+        logger.debug(
+          `[DeckGen] Combo audit: evicted orphan ${orphanName} (${auditInclusion.get(orphanName) ?? 0}% inclusion) → ${replacement.name}`
+        );
       }
     }
   }

@@ -654,11 +654,19 @@ export interface BuildReport {
   ownedPercentActual?: number;
   /** Requested owned-% target (partial mode only). */
   ownedPercentTarget?: number;
+  /** Why the delivered owned share (ownedPercentActual) falls meaningfully
+   *  short of ownedPercentTarget — set only when a thin owned pool (not a
+   *  bug) is the honest reason, e.g. "You asked for 100% owned cards, but
+   *  only 12 owned cards fit this commander's pool." Partial mode only. */
+  ownedPercentGapNote?: string;
   /** Basic lands added as last-resort filler (collection + filter shortfall). */
   basicsPadded?: number;
   /** Cards added from outside the collection to complete an owned-only build
    *  (the collection was exhausted before the deck was full). */
   collectionRelaxed?: number;
+  /** The actual names behind `collectionRelaxed` — a count alone doesn't tell
+   *  the user WHICH cards came from outside their collection. */
+  collectionRelaxedNames?: string[];
   /** "Wanted X → used your Y" substitutions: closest owned cards swapped in for
    *  unowned staples to keep an owned-only deck inside the collection. */
   collectionSubstitutions?: SubstituteRow[];
@@ -774,9 +782,18 @@ export interface GeneratedDeck {
   /** Cards pulled from OUTSIDE the collection to complete an owned-constrained
    *  deck when the owned pool was exhausted — relaxation before basic padding. */
   collectionRelaxedCount?: number;
+  /** The actual names behind collectionRelaxedCount (survived to the final
+   *  deck) — see BuildReport's field of the same name. */
+  collectionRelaxedNames?: string[];
   /** "Wanted X → used your Y" substitutions: owned cards swapped in for unowned
    *  EDHREC staples to complete an owned-only deck from the collection. */
   collectionSubstitutions?: SubstituteRow[];
+  /** Partial mode only: the total distinct owned card names present in this
+   *  commander's candidate pool (seated in the deck or not) — the honest
+   *  denominator for "only N owned cards fit this pool" when the delivered
+   *  owned share falls short of collectionOwnedPercent. Undefined outside
+   *  partial mode. */
+  partialOwnedEligibleCount?: number;
   detectedCombos?: DetectedCombo[];
   typeTargets?: Record<string, number>;
   /** Target counts per DeckCategory bucket, computed unconditionally (unlike

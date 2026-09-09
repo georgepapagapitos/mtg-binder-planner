@@ -47,6 +47,10 @@ export interface TypePassContext {
   currency: 'USD' | 'EUR';
   gameChangerNames: Set<string>;
   arenaOnly: boolean;
+  /** Format-keyed legality (notLegalForFormat) — undefined defaults to
+   *  commander. Threaded through to both the EDHREC-pool pick and the
+   *  Scryfall-only fallback below. */
+  mtgFormat?: string;
   strictCurve: boolean;
   collectionStrategy: CollectionStrategy;
   collectionOwnedPercent: number;
@@ -148,7 +152,8 @@ export function pickEdhrecTypePass(
     ctx.priceSanity,
     ctx.getComboBoosts(),
     ctx.priceSanityDecided,
-    ctx.brewLevel
+    ctx.brewLevel,
+    ctx.mtgFormat
   );
 }
 
@@ -193,6 +198,7 @@ export type ScryfallFallbackContext = Pick<
   | 'collectionNames'
   | 'currency'
   | 'arenaOnly'
+  | 'mtgFormat'
   | 'collectionStrategy'
   | 'ignoreOwnedBudget'
   | 'ignoreOwnedRarity'
@@ -241,6 +247,7 @@ export async function scryfallFallbackTypePass(
     ctx.ignoreOwnedRarity,
     ctx.isCardAllowedBySynergyDependencies,
     ctx.liftScoreOf,
-    ctx.fillGates
+    ctx.fillGates,
+    ctx.mtgFormat
   );
 }

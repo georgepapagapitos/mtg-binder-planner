@@ -218,7 +218,25 @@ export function assembleBuildReport(input: {
 
     // Requested owned-% target only applies in partial mode.
     if (collectionStrategy === 'partial') {
-      report.ownedPercentTarget = customization.collectionOwnedPercent;
+      const target = customization.collectionOwnedPercent;
+      report.ownedPercentTarget = target;
+
+      // "Why" disclosure: only when a thin owned pool (not a bug elsewhere)
+      // honestly explains a gap between what was asked and what shipped —
+      // fires only when the commander's candidate pool genuinely couldn't
+      // supply enough owned names to hit the requested count, never when
+      // more were actually available (that would be a bug, not a pool limit).
+      const eligible = generated.partialOwnedEligibleCount;
+      if (eligible != null && mainboard.length > 0) {
+        const ownedCount = mainboard.filter((card) => collectionNames.has(card.name)).length;
+        const ownedTargetCount = Math.round((mainboard.length * target) / 100);
+        if (eligible < ownedTargetCount) {
+          report.ownedPercentGapNote =
+            `You asked for ${target}% owned cards, but only ${eligible} owned ` +
+            `card${eligible === 1 ? '' : 's'} fit this commander's pool. ${ownedCount} ` +
+            `${ownedCount === 1 ? 'was' : 'were'} used and the rest came from recommendations.`;
+        }
+      }
     }
   }
 
@@ -231,6 +249,7 @@ export function assembleBuildReport(input: {
   // Cards pulled from outside the collection to complete an owned-only build.
   if (generated.collectionRelaxedCount && generated.collectionRelaxedCount > 0) {
     report.collectionRelaxed = generated.collectionRelaxedCount;
+    report.collectionRelaxedNames = generated.collectionRelaxedNames;
   }
 
   // Owned cards substituted in for unowned staples ("Wanted X → used your Y").

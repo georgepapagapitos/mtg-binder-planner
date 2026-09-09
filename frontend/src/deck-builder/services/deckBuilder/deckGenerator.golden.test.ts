@@ -987,6 +987,39 @@ describe('generateDeck — collection relaxation (T43 PR-3)', () => {
       clearGenerationCache();
     }
   });
+
+  it('partial mode: leftover owned cards a single type slot has no room for get swapped into OTHER type slots (E128 residual)', async () => {
+    // Own EVERY instant in the pool (15) but nothing else, asking for 100%
+    // owned in 'partial' mode. The instant type slot itself only has room for
+    // 8 of those 15 (this fixture's balanced 99-card composition) — a card
+    // routed by its OWN type (routeCardByType) can only ever land back in the
+    // instant-shaped slot, so this proves the reconciliation actually seated
+    // MORE owned instants than that slot alone could ever hold — LIVE-
+    // CONFIRMED (Lathril/Krenko) that the leftover owned cards were being
+    // left on the table instead of backfilled once their own type slot filled.
+    const ctx = baseContext();
+    ctx.customization = customization({
+      collectionMode: true,
+      collectionStrategy: 'partial',
+      collectionOwnedPercent: 100,
+    });
+    const ownedInstants = Array.from({ length: 15 }, (_, i) => `Instant_${i + 1}`);
+    (ctx as { collectionNames?: Set<string> }).collectionNames = new Set([
+      'Test Commander',
+      ...ownedInstants,
+    ]);
+    clearGenerationCache();
+    const deck = await generateDeck(ctx);
+    const nonLandCards = Object.entries(deck.categories)
+      .filter(([cat]) => cat !== 'lands')
+      .flatMap(([, cards]) => cards);
+    const ownedNonLandCount = nonLandCards.filter((c) => ownedInstants.includes(c.name)).length;
+    // This fixture's instant-type target is 8 (see the sibling "STRESS" tests'
+    // debug logs) — more than that shipping proves the reconciliation pulled
+    // leftover owned instants in past their own type slot's cap.
+    expect(ownedNonLandCount).toBeGreaterThan(8);
+    clearGenerationCache();
+  });
 });
 
 describe('generateDeck — land-squeeze reconciliation (E88, iter-7 Slice B)', () => {

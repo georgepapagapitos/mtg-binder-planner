@@ -28,7 +28,7 @@ import { isTapland } from '@/deck-builder/services/tagger/client';
 import { BudgetTracker } from './budgetTracker';
 import { pickFromPrefetched } from './cardPicking';
 import { fillWithScryfall, type FillHardGates } from './scryfallFill';
-import { constrainsToCollection, notInCollection } from './deckFilters';
+import { constrainsToCollection, notInCollection, notLegalForFormat } from './deckFilters';
 import {
   planBasicColorSplit,
   weightedColorDemand,
@@ -148,7 +148,12 @@ export async function generateLands(
   gates?: FillHardGates,
   // Mana-philosophy wheel (E231). `null`/omitted = OFF and the boost pass below
   // is skipped entirely, so the manabase is byte-identical while unset.
-  manaPhilosophy: ManaPhilosophy | null = null
+  manaPhilosophy: ManaPhilosophy | null = null,
+  // Format-keyed legality (notLegalForFormat) — undefined defaults to
+  // commander. Threaded to both land pick paths and the Command Tower
+  // named-staple pick below (E-arena-leak: Path of Ancestry, not_legal in
+  // brawl, shipped in a 60-card Brawl build with no legality gate at all).
+  mtgFormat?: string
 ): Promise<ScryfallCard[]> {
   const lands: ScryfallCard[] = [];
   const enforceAvailableCounts = collectionStrategy === 'available';
@@ -372,7 +377,10 @@ export async function generateLands(
       collectionOwnedPercent,
       ignoreOwnedBudget,
       ignoreOwnedRarity,
-      gates?.isSaltBlocked ? (card) => !gates.isSaltBlocked!(card.name) : undefined
+      gates?.isSaltBlocked ? (card) => !gates.isSaltBlocked!(card.name) : undefined,
+      undefined,
+      0.5,
+      mtgFormat
     );
     lands.push(...nonBasics);
     logger.debug(
@@ -407,7 +415,8 @@ export async function generateLands(
       ignoreOwnedRarity,
       undefined,
       undefined,
-      gates
+      gates,
+      mtgFormat
     );
     lands.push(...moreLands);
   }
@@ -426,8 +435,10 @@ export async function generateLands(
   ) {
     try {
       const commandTower = await getCardByName('Command Tower');
-      lands.push(commandTower);
-      usedNames.add('Command Tower');
+      if (!notLegalForFormat(commandTower, mtgFormat)) {
+        lands.push(commandTower);
+        usedNames.add('Command Tower');
+      }
     } catch {
       // Ignore if not found
     }

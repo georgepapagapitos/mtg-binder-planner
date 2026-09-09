@@ -549,6 +549,29 @@ const CASES: Case[] = [
     },
   },
   {
+    // Only an explicit USER/deck pick is forced. An AUTO-sourced must-include
+    // (combo completion, via tempMustIncludeCards) is a candidate like any
+    // other pick and must respect the game-changer limit — SKIPPED, not
+    // kept+disclosed, unlike the user-sourced case above.
+    name: 'combo-sourced must-include is SKIPPED over the game-changer limit (not kept+disclosed)',
+    customize: { tempMustIncludeCards: ['Creature_3'], gameChangerLimit: 'none' },
+    setup: () => vi.mocked(getGameChangerNames).mockResolvedValueOnce(GC_NAMES),
+    extra: (deck) => {
+      expect(deck.mustIncludeOverrideNote).toBeUndefined();
+      // Silent like every other combo-source skip (mustIncludeSkippedNote is
+      // user/deck-only, mirroring noteSkip's own source filter).
+      expect(deck.mustIncludeSkippedNote).toBeUndefined();
+    },
+  },
+  {
+    name: 'combo-sourced must-include is SKIPPED over max card price (not kept+disclosed)',
+    customize: { tempMustIncludeCards: ['Creature_4'], maxCardPrice: 1 },
+    extra: (deck) => {
+      expect(allCards(deck).map((c) => c.name)).not.toContain('Creature_4');
+      expect(deck.mustIncludeOverrideNote).toBeUndefined();
+    },
+  },
+  {
     name: 'bannedCards + enabled banList + disabled banList',
     customize: {
       bannedCards: ['Creature_13'],

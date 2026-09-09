@@ -332,6 +332,48 @@ describe('generateLands', () => {
     expect(names).toContain('Command Tower');
   });
 
+  // E-arena-leak: Command Tower is auto-added with NO legality check at all —
+  // LIVE-CONFIRMED a brawl (60-card) build could ship a not-legal-in-brawl
+  // named staple. mtgFormat must thread through to this pick.
+  it('skips Command Tower when it is not legal in the active format', async () => {
+    vi.mocked(getCardByName).mockImplementationOnce(async (name: string) => ({
+      ...card(name),
+      legalities: { commander: 'legal', brawl: 'not_legal' },
+    }));
+    const lands = await generateLands(
+      [],
+      ['W', 'U'],
+      2,
+      new Set(),
+      0,
+      99,
+      [],
+      undefined,
+      new Set(),
+      null,
+      null,
+      null,
+      null,
+      undefined,
+      undefined,
+      'USD',
+      false,
+      '',
+      undefined,
+      'full',
+      100,
+      false,
+      false,
+      'balanced',
+      undefined,
+      undefined,
+      undefined,
+      null,
+      'brawl'
+    );
+    expect(lands.map((c) => c.name)).not.toContain('Command Tower');
+  });
+
   it('splits basics across owned printings by available count (largest group first)', async () => {
     const lands = await generateLands(
       [],

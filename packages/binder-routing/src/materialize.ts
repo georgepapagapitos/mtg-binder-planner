@@ -21,7 +21,7 @@ import { ALL_SECTION, UNKNOWN_ORDER, getSectionMeta, type SectionMeta } from './
 import {
   sortCards,
   buildQtyByPrintingKey,
-  getImplicitTiebreakers,
+  withImplicitTiebreakers,
   getDisplaySorts,
   normalizeSorts,
   printingFinishKey,
@@ -38,6 +38,13 @@ export interface MaterializeOptions {
   allocatedCopyIds?: ReadonlySet<string>;
   /** Scryfall set metadata. When provided, "set" sort uses release date. */
   setMap?: SetMap;
+  /**
+   * Copies per printing for the `quantity` sort, when the caller has already
+   * collapsed duplicates to one representative card (BinderPage's "group
+   * printings"). Counted from each binder's own cards when absent — which on
+   * a pre-collapsed input is 1 everywhere, i.e. a Quantity sort that does nothing.
+   */
+  qtyByPrintingKey?: Map<string, number>;
 }
 
 const DEFAULT_UNCATEGORIZED_SORTS: SortEntry[] = [
@@ -78,7 +85,9 @@ export function materializeBinders(
   opts: MaterializeOptions
 ): { binders: MaterializedBinder[]; uncategorized: UncategorizedBucket } {
   const search = opts.search.trim().toLowerCase();
-  const isMatch = search ? (c: EnrichedCard) => c.name.toLowerCase().includes(search) : () => true;
+  const isMatch = search
+    ? (c: EnrichedCard) => (c.name ?? '').toLowerCase().includes(search)
+    : () => true;
 
   const orderedDefs = [...binderDefs].sort((a, b) => a.position - b.position);
   // Compile each binder's groups once. Outer index = binder, inner = OR-branches.
@@ -208,10 +217,10 @@ export function materializeBinders(
       DEFAULT_POCKET_SIZE) as PocketSize;
     const useManualOrder = !!def.manualOrder?.length;
     const defSorts = normalizeSorts(def.sorts);
-    const effectiveSorts = useManualOrder ? [] : withImplicitTiebreaker(defSorts);
+    const effectiveSorts = useManualOrder ? [] : withImplicitTiebreakers(defSorts);
     const sortCtx = {
       setMap: opts.setMap,
-      qtyByPrintingKey: buildQtyByPrintingKey(rawCards),
+      qtyByPrintingKey: opts.qtyByPrintingKey ?? buildQtyByPrintingKey(rawCards),
       valueOrders: def.sortValueOrders,
     };
     const sections = useManualOrder
@@ -252,12 +261,12 @@ export function materializeBinders(
     };
   });
 
-  const uncategorizedSorts = withImplicitTiebreaker(
+  const uncategorizedSorts = withImplicitTiebreakers(
     opts.uncategorizedSorts ?? DEFAULT_UNCATEGORIZED_SORTS
   );
   const uncatCtx = {
     setMap: opts.setMap,
-    qtyByPrintingKey: buildQtyByPrintingKey(uncategorized),
+    qtyByPrintingKey: opts.qtyByPrintingKey ?? buildQtyByPrintingKey(uncategorized),
   };
   const uncategorizedSections = buildSections(
     uncategorized,
@@ -322,18 +331,6 @@ function buildManualSection(
   const matchingCards = cards.filter(isMatch);
   if (!matchingCards.length) return [];
   return [{ key: ALL_SECTION.key, label: ALL_SECTION.label, cards: matchingCards, pages }];
-}
-
-/**
- * Append implicit tiebreakers so cards that compare equal across all chosen
- * sort fields land in a stable, meaningful order. Treatment groups fancy
- * frames before the plain printing; finish puts foils before non-foils;
- * name is the final alphabetical fallback. Any field already in the user's
- * chain is left alone so their explicit choice wins.
- */
-function withImplicitTiebreaker(sorts: SortEntry[]): SortEntry[] {
-  const extras = getImplicitTiebreakers(sorts);
-  return extras.length ? [...sorts, ...extras] : sorts;
 }
 
 /** A primary-sort group, before it becomes a section. */
@@ -401,7 +398,13 @@ function buildSections(
   // "1 CMC" that repeats per parent) and carry a unique key per parent group.
   labelPrefix = '',
   keyPrefix = '',
-  packSections: boolean | 'continuous' = false
+  packSections: boolean | 'continuous' = false,
+  // The whole chain, for the leaf sort. `sorts` shrinks by one per page-break
+  // level so each level groups by its own field, but the cards inside the
+  // deepest group must still be ordered by EVERY field — dropping the parents
+  // left a "$20+ · All cards" section unsorted by price, and "Multicolor ·
+  // CMC 3" unsorted by guild.
+  fullSorts: SortEntry[] = sorts
 ): BinderSection[] {
   const primary = sorts[0];
   const useGrouping = !!primary && primary.field !== 'none';
@@ -457,7 +460,7 @@ function buildSections(
   };
 
   if (!useGrouping) {
-    const sorted = sortCards(cards, sorts, ctx);
+    const sorted = sortCards(cards, fullSorts, ctx);
     const section = buildSection(ALL_SECTION, sorted);
     return section ? [section] : [];
   }
@@ -472,10 +475,18 @@ function buildSections(
     else groups.set(meta.key, { meta, cards: [card] });
   }
 
-  // Section ordering: by meta.order, ties broken by label (alphabetical).
-  // For set/name groupings, all groups share order=0 so label sort kicks in.
-  // When the primary sort is descending, both layers are reversed.
+  // Section ordering: by meta.order, ties broken by label. Ties only happen in
+  // the set family — every `setName` group is order 0, and `setReleaseDate`
+  // groups are per SET so same-day sets share an order. The label tiebreak
+  // therefore follows the chain's own `setName` direction (the primary's for a
+  // Set sort, the user's secondary for a Release-date › Set chain), and A → Z
+  // when the chain has none — NOT the primary's direction, which put "Newest
+  // first" same-day drops in Z → A while the cards inside sorted A → Z.
+  // Compared lowercase with `<`, exactly like `cardSortValue('setName')`, so
+  // header order and card order can't disagree on punctuation or accents.
   const dirMult = primary.dir === 'desc' ? -1 : 1;
+  const labelDir = fullSorts.find((s) => s?.field === 'setName')?.dir ?? 'asc';
+  const labelMult = labelDir === 'desc' ? -1 : 1;
   const ordered = [...groups.values()].sort((a, b) => {
     if (a.meta.order !== b.meta.order) {
       // Unknown-valued groups trail in both directions — a descending "newest
@@ -484,7 +495,9 @@ function buildSections(
       if (b.meta.order === UNKNOWN_ORDER) return -1;
       return (a.meta.order - b.meta.order) * dirMult;
     }
-    return a.meta.label.localeCompare(b.meta.label) * dirMult;
+    const la = a.meta.label.toLowerCase();
+    const lb = b.meta.label.toLowerCase();
+    return (la < lb ? -1 : la > lb ? 1 : 0) * labelMult;
   });
 
   const subSorts = sorts.slice(1);
@@ -508,7 +521,9 @@ function buildSections(
         pageBreakDepth - 1,
         pageOffsetRef,
         labelPrefix ? `${labelPrefix} · ${meta.label}` : meta.label,
-        keyPrefix ? `${keyPrefix}/${meta.key}` : meta.key
+        keyPrefix ? `${keyPrefix}/${meta.key}` : meta.key,
+        false,
+        fullSorts
       );
       sections.push(...subSections);
     } else {
@@ -518,7 +533,7 @@ function buildSections(
       // finish/date* land in one "All cards" group, and cmc 7+/price/name-letter/
       // edhrec buckets each span a range), so dropping the primary here left the
       // user's first sort field — and its direction — with no effect at all.
-      const sorted = sortCards(gCards, sorts, ctx);
+      const sorted = sortCards(gCards, fullSorts, ctx);
       const section = buildSection(meta, sorted, labels);
       if (section) sections.push(section);
     }

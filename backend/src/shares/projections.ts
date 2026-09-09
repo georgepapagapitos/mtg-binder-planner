@@ -22,9 +22,11 @@ import {
   materializeBinders,
   type BinderDef,
   type EnrichedCard,
+  type SetMap,
 } from '@spellcontrol/binder-routing';
 import type { GameEvent } from '@spellcontrol/game-core';
 import { anyBinderUsesTagRules, decorateCardsWithTags } from './card-tags';
+import { anyBinderUsesSetSorts, decorateCardsWithSldDrops } from './card-sld-drops';
 
 /** Owner identity passed to every project* function — same shape everywhere
  *  so a display-name preference propagates uniformly across share kinds. */
@@ -554,7 +556,9 @@ export function projectBinder(
   owner: ShareOwner,
   binderId: string,
   collection: unknown,
-  bindersRaw: unknown
+  bindersRaw: unknown,
+  /** Scryfall set metadata — the Release-date sort dates every non-SLD card from it. */
+  setMap?: SetMap
 ): PublicBinder | null {
   if (!Array.isArray(bindersRaw)) return null;
   const binders = bindersRaw.filter((b): b is AnyRecord => asRecord(b) !== null);
@@ -567,13 +571,19 @@ export function projectBinder(
   // Decorate with Scryfall oracle tags so a binder whose rule reads an otag
   // (e.g. "mana-rock") projects the same membership the owner sees. Only pays
   // the cost (and loads the snapshot) when a binder actually uses a tag rule.
-  const cards = anyBinderUsesTagRules(binders)
+  const tagged = anyBinderUsesTagRules(binders)
     ? decorateCardsWithTags(rawCards as EnrichedCard[])
     : (rawCards as EnrichedCard[]);
+  // Same again for Secret Lair drops: a Set / Release-date sort sections an SLD
+  // card by its drop, and only decorated cards carry one.
+  const cards = anyBinderUsesSetSorts(binders) ? decorateCardsWithSldDrops(tagged) : tagged;
 
   let materialized;
   try {
-    const result = materializeBinders(cards, binders as unknown as BinderDef[], { search: '' });
+    const result = materializeBinders(cards, binders as unknown as BinderDef[], {
+      search: '',
+      setMap,
+    });
     materialized = result.binders.find((b) => b.def.id === binderId);
   } catch {
     // Malformed binder/card JSONB — treat as not found rather than 500.

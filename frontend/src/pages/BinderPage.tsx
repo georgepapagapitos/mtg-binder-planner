@@ -23,6 +23,7 @@ import { materializeBinders } from '../lib/materialize';
 import { findRedundantPins } from '../lib/binder-pin-dissolve';
 import { useCardsWithTags, bindersUseTags } from '../lib/card-tags';
 import { useCardsWithSldDrops, bindersUseSldDrops } from '../lib/sld-drops';
+import { buildQtyByPrintingKey } from '../lib/sorting';
 import { useAllocations } from '../lib/allocations';
 import { useDebouncedValue } from '../lib/use-debounced-value';
 import { BinderTabs } from '../components/BinderTabs';
@@ -102,8 +103,9 @@ export function BinderPage() {
   // (scryfallId, foil) into a single representative copy and remember the
   // total via qtyByCopyId. The materializer then lays out unique
   // printings; CardSlot paints a ×N badge on slots with qty > 1.
-  const { effectiveCards, qtyByCopyId } = useMemo(() => {
-    if (!groupPrintings) return { effectiveCards: cards, qtyByCopyId: undefined };
+  const { effectiveCards, qtyByCopyId, qtyByPrintingKey } = useMemo(() => {
+    if (!groupPrintings)
+      return { effectiveCards: cards, qtyByCopyId: undefined, qtyByPrintingKey: undefined };
     const seen = new Map<string, { card: (typeof cards)[number]; qty: number }>();
     for (const c of cards) {
       const key = `${c.scryfallId}:${c.finish ?? (c.foil ? 'foil' : 'nonfoil')}`;
@@ -116,7 +118,14 @@ export function BinderPage() {
       qtyMap.set(card.copyId, qty);
       return card;
     });
-    return { effectiveCards: deduped, qtyByCopyId: qtyMap };
+    // The materializer counts copies per printing for the Quantity sort from the
+    // cards it is handed — one each after this collapse — so hand it the real
+    // per-printing totals or "Most copies first" sorts nothing in grouped view.
+    return {
+      effectiveCards: deduped,
+      qtyByCopyId: qtyMap,
+      qtyByPrintingKey: buildQtyByPrintingKey(cards),
+    };
   }, [cards, groupPrintings]);
 
   const allocations = useAllocations();
@@ -129,8 +138,9 @@ export function BinderPage() {
       search: debouncedSearch,
       allocatedCopyIds,
       setMap,
+      qtyByPrintingKey,
     }).binders;
-  }, [effectiveCards, binders, debouncedSearch, allocatedCopyIds, setMap]);
+  }, [effectiveCards, binders, debouncedSearch, allocatedCopyIds, setMap, qtyByPrintingKey]);
 
   // Drift ("since last reviewed") compares full binder membership against the
   // baseline snapshot, so it must ignore the in-binder search filter — otherwise
@@ -143,8 +153,17 @@ export function BinderPage() {
       search: '',
       allocatedCopyIds,
       setMap,
+      qtyByPrintingKey,
     }).binders;
-  }, [materialized, debouncedSearch, effectiveCards, binders, allocatedCopyIds, setMap]);
+  }, [
+    materialized,
+    debouncedSearch,
+    effectiveCards,
+    binders,
+    allocatedCopyIds,
+    setMap,
+    qtyByPrintingKey,
+  ]);
 
   // Computed before the early returns below (Rules of Hooks: the dissolve
   // effect that depends on it must run unconditionally on every render).

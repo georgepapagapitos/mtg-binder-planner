@@ -700,14 +700,6 @@
   /* Below this the auto-summary clips to "legendary creat…"; the count and
      actions wrap under it instead (the legend is flex-wrap). */
   min-width: min(100%, 12rem);
-}
-
-/* On a phone the auto-summary owns the whole first line and the count and
-   actions sit under it — an <input> can't wrap, so anything less clips it. */
-@media (max-width: 600px) {
-  .filter-group-name {
-    flex-basis: 100%;
-  }
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -716,6 +708,14 @@
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-primary);
+}
+
+/* On a phone the auto-summary owns the whole first line and the count and
+   actions sit under it — an <input> can't wrap, so anything less clips it. */
+@media (max-width: 600px) {
+  .filter-group-name {
+    flex-basis: 100%;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {

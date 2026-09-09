@@ -352,6 +352,17 @@ this register elsewhere, and don't flatten it here.
 | **Pills (labels)**          | `999px`                            | **Non-actionable** chips, badges, counts, tags, color swatches/dots — things that _label_ state.                          |
 | **Tape labels**             | `2px` (`.site-nav-count`)          | The Dymo-tape material label tier (T53): fixed dark tape + pale caps on **navigation chrome only** (nav/hub counts).      |
 
+**One frame per surface — never box a grid of self-framed tiles.** A
+container whose children already carry border + raised fill (result-grid
+tiles, playstyle chips, `CardGridCell`) gets no border or fill of its own;
+the tiles _are_ the chrome. The commander picker's results panel shipped
+framed around framed tiles and read as a box inside a box, worst with one
+hit (a lone tile pressed flush into a tray with an empty framed column
+beside it). The frame belongs only where the rows are borderless — the
+partner picker's list keeps its tray (`.partner-panel`) for exactly that
+reason. When you unbox a container, drop the inner padding it had for the
+frame too, so its grid lines up with the sibling grids.
+
 **A label chip that carries card art is a rect, not a pill.** The pill rule is
 about _role_, and a chip holding a thumbnail is still a label — but a pill
 cannot physically contain one. A pill's cap radius is half the chip's height,

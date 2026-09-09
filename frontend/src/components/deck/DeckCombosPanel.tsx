@@ -85,7 +85,7 @@ export const DeckCombosPanel = forwardRef<DeckCombosPanelHandle, Props>(function
   const firstButtonRef = useRef<HTMLButtonElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { data, loading, error } = useDeckCombos({
+  const { data, loading, error, refetch } = useDeckCombos({
     deckOracleIds,
     ownedOracleIds,
     format,
@@ -329,6 +329,14 @@ export const DeckCombosPanel = forwardRef<DeckCombosPanelHandle, Props>(function
         {error && (
           <div className="discover-decks-error" role="alert">
             <span>{error}</span>
+            <button
+              type="button"
+              className="discover-decks-error-retry"
+              onClick={refetch}
+              disabled={loading}
+            >
+              {loading ? 'Retrying…' : 'Retry'}
+            </button>
           </div>
         )}
 

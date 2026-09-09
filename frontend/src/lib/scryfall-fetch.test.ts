@@ -6,6 +6,7 @@ import {
   resetScryfallStats,
   scryfallFetch,
   scryfallRequest,
+  setScryfallRealTimingForTests,
 } from './scryfall-fetch';
 
 const ok = (body: unknown = {}) =>
@@ -89,6 +90,11 @@ describe('scryfallRequest', () => {
   // queued request at 100ms — so a throttled burst went right on striking through
   // the entire cooldown, deepening the block.
   it('parks OTHER in-flight callers for the cooldown after a single 429', async () => {
+    // Real spacing between the two concurrent requests below is what gives
+    // the first one time to 429 and set the cooldown before the second is
+    // released — the exact ordering this test verifies (default is 0 — see
+    // setScryfallRealTimingForTests).
+    setScryfallRealTimingForTests(true);
     vi.useFakeTimers();
     const hits: Array<{ url: string; at: number }> = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
@@ -119,6 +125,9 @@ describe('scryfallRequest', () => {
   // 429 branch above never runs. Before this, that meant a real throttle set NO
   // cooldown and the rest of the burst kept firing into an active block.
   it('parks the queue when a request fails opaquely while online', async () => {
+    // The wait amount is exactly what this test verifies, so opt back into
+    // real magnitudes (default is 0 — see setScryfallRealTimingForTests).
+    setScryfallRealTimingForTests(true);
     vi.useFakeTimers();
     const hits: Array<{ url: string; at: number }> = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
@@ -158,6 +167,9 @@ describe('scryfallRequest', () => {
   });
 
   it('spaces sequential requests by the minimum delay', async () => {
+    // The spacing amount is exactly what this test verifies, so opt back into
+    // real magnitudes (default is 0 — see setScryfallRealTimingForTests).
+    setScryfallRealTimingForTests(true);
     vi.useFakeTimers();
     const at: number[] = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {

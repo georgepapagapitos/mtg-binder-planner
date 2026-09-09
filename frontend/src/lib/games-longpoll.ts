@@ -60,6 +60,13 @@ export function subscribeGameLongPoll(
   let stopped = false;
   let first = true;
   const controller = new AbortController();
+  // The floor-the-cycle sleep below is a bare `setTimeout` with nothing
+  // awaiting cancellation — stop() used to only flip `stopped` and let this
+  // timer fire on its own up to MIN_CYCLE_MS later. Track it so stop() can
+  // resolve the wait immediately and clear the real timer, instead of
+  // leaving both dangling past teardown.
+  let cycleTimer: ReturnType<typeof setTimeout> | null = null;
+  let resolveCycle: (() => void) | null = null;
 
   void (async function loop() {
     while (!stopped) {
@@ -108,7 +115,12 @@ export function subscribeGameLongPoll(
       // most active. Capping at ~4 req/s is imperceptible for real updates.
       const elapsed = Date.now() - startedAt;
       if (elapsed < MIN_CYCLE_MS) {
-        await new Promise((resolve) => setTimeout(resolve, MIN_CYCLE_MS - elapsed));
+        await new Promise<void>((resolve) => {
+          resolveCycle = resolve;
+          cycleTimer = setTimeout(resolve, MIN_CYCLE_MS - elapsed);
+        });
+        cycleTimer = null;
+        resolveCycle = null;
       }
     }
   })();
@@ -116,5 +128,7 @@ export function subscribeGameLongPoll(
   return () => {
     stopped = true;
     controller.abort();
+    if (cycleTimer) clearTimeout(cycleTimer);
+    resolveCycle?.();
   };
 }

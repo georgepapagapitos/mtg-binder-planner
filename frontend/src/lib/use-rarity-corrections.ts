@@ -50,16 +50,22 @@ export function useRarityCorrections(cards: ScryfallCard[]): ReadonlyMap<string,
   useEffect(() => {
     if (!suspectKey) return;
     const myReqId = ++reqIdRef.current;
+    // Cancelled on unmount: the offline-IDB lookup can outlive the component
+    // (same pattern as CardListTable's catalog fetch).
+    let cancelled = false;
     void (async () => {
       if (!(await offlineDataAvailable())) return;
       const resolved = await offlineGetCardsByOracleIds(suspectKey.split(','));
-      if (reqIdRef.current !== myReqId) return;
+      if (cancelled || reqIdRef.current !== myReqId) return;
       const next = new Map<string, string>();
       for (const [id, card] of resolved) {
         if (card.rarity && card.rarity !== 'common') next.set(id, card.rarity);
       }
       if (next.size > 0) setCorrections(next);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [suspectKey]);
 
   return corrections;

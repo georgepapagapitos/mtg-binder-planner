@@ -1,7 +1,7 @@
 import type { EnrichedCard, SetMap, SortField } from './types.js';
 import { COLOR_INFO, COLOR_ORDER, getColorKey } from './colors.js';
 import { TYPE_ORDER, getCardType } from './card-types.js';
-import { releaseDateOf } from './sorting.js';
+import { releaseDateOf, setMeta } from './sorting.js';
 
 export interface SectionContext {
   setMap?: SetMap;
@@ -37,21 +37,6 @@ const RARITY_INFO: Record<string, { label: string; order: number }> = {
   special: { label: 'Special', order: 4 },
   bonus: { label: 'Bonus', order: 5 },
 };
-
-/**
- * Set identity for the two set-driven groupings. A Secret Lair printing reports
- * its *drop* — Scryfall files all ~2,300 of them under one flat `SLD` set, so
- * grouping by the set code alone gives one useless "Secret Lair Drop" bucket
- * while the drop is the thing you actually bought and sleeve together. Numbers
- * MTGJSON doesn't cover keep the flat set name (see EnrichedCard.sldDrop).
- */
-function setMeta(card: EnrichedCard): { key: string; label: string } {
-  if (card.sldDrop) return { key: `sld-${card.sldDrop}`, label: card.sldDrop };
-  return {
-    key: card.setCode || 'unknown',
-    label: card.setName || card.setCode || 'Unknown set',
-  };
-}
 
 function capitalize(s: string): string {
   if (!s) return s;

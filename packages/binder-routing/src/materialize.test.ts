@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { materializeBinders } from './materialize.js';
-import { printingFinishKey } from './sorting.js';
+import { printingFinishKey, printingKey } from './sorting.js';
 import type {
   EnrichedCard,
   BinderDef,
@@ -1442,5 +1442,111 @@ describe('Secret Lair drop sections + packSections', () => {
     for (const page of pages.slice(0, -1)) {
       expect(page.slots.every((c) => c !== null)).toBe(true);
     }
+  });
+});
+
+describe('page-break depth sorts the leaf by the FULL chain', () => {
+  it('depth 2 keeps cards inside a sub-section ordered by the parent field', () => {
+    // Primary price (sections), secondary quantity (all in one "All cards"
+    // sub-bucket). Before the fix the leaf sorted by [quantity, tiebreakers]
+    // only, so a "$20+ · All cards" section came out unsorted by price.
+    const cards = [25, 60, 40, 99, 31].map((p) =>
+      makeCard({ name: `P${p}`, purchasePrice: p, scryfallId: `s${p}` })
+    );
+    const binder = makeBinder({
+      filter: {},
+      sorts: [
+        { field: 'price', dir: 'desc' },
+        { field: 'quantity', dir: 'desc' },
+      ],
+      pageBreakDepth: 2,
+    });
+    const { binders } = materializeBinders(cards, [binder], defaultOpts);
+    expect(binders[0].sections).toHaveLength(1);
+    expect(binders[0].sections[0].cards.map((c) => c.purchasePrice)).toEqual([99, 60, 40, 31, 25]);
+  });
+});
+
+describe('same-day sets under a Release-date sort', () => {
+  const day = '2026-02-16';
+  const setMap = {
+    AAA: { code: 'AAA', name: 'Alpha Drop', iconSvgUri: '', releasedAt: day },
+    MMM: { code: 'MMM', name: 'Middle Drop', iconSvgUri: '', releasedAt: day },
+    ZZZ: { code: 'ZZZ', name: 'Zeta Drop', iconSvgUri: '', releasedAt: day },
+    OLD: { code: 'OLD', name: 'Older Set', iconSvgUri: '', releasedAt: '2020-01-01' },
+  };
+  const cards = [
+    makeCard({ name: 'z1', setCode: 'ZZZ', setName: 'Zeta Drop' }),
+    makeCard({ name: 'a1', setCode: 'AAA', setName: 'Alpha Drop' }),
+    makeCard({ name: 'm1', setCode: 'MMM', setName: 'Middle Drop' }),
+    makeCard({ name: 'o1', setCode: 'OLD', setName: 'Older Set' }),
+    makeCard({ name: 'z0', setCode: 'ZZZ', setName: 'Zeta Drop' }),
+    makeCard({ name: 'a0', setCode: 'AAA', setName: 'Alpha Drop' }),
+  ];
+  const opts = { ...defaultOpts, setMap };
+
+  it('"Newest first" orders same-day sections A → Z, not Z → A', () => {
+    const binder = makeBinder({ filter: {}, sorts: [{ field: 'setReleaseDate', dir: 'desc' }] });
+    const { binders } = materializeBinders(cards, [binder], opts);
+    expect(binders[0].sections.map((s) => s.label)).toEqual([
+      'Alpha Drop',
+      'Middle Drop',
+      'Zeta Drop',
+      'Older Set',
+    ]);
+  });
+
+  it("follows the chain's own Set direction when it has one", () => {
+    const binder = makeBinder({
+      filter: {},
+      sorts: [
+        { field: 'setReleaseDate', dir: 'desc' },
+        { field: 'setName', dir: 'desc' },
+      ],
+    });
+    const { binders } = materializeBinders(cards, [binder], opts);
+    expect(binders[0].sections.map((s) => s.label)).toEqual([
+      'Zeta Drop',
+      'Middle Drop',
+      'Alpha Drop',
+      'Older Set',
+    ]);
+  });
+
+  it('page filling keeps same-day sets contiguous instead of interleaving them by name', () => {
+    const binder = makeBinder({
+      filter: {},
+      sorts: [{ field: 'setReleaseDate', dir: 'desc' }],
+      packSections: 'continuous',
+      pocketSize: 9,
+    });
+    const { binders } = materializeBinders(cards, [binder], opts);
+    const merged = binders[0].sections[0];
+    expect(merged.cards.map((c) => c.name)).toEqual(['a0', 'a1', 'm1', 'z0', 'z1', 'o1']);
+    expect(merged.cardLabels).toEqual([
+      'Alpha Drop',
+      'Alpha Drop',
+      'Middle Drop',
+      'Zeta Drop',
+      'Zeta Drop',
+      'Older Set',
+    ]);
+  });
+});
+
+describe('quantity sort with a caller-supplied per-printing count', () => {
+  it('uses opts.qtyByPrintingKey instead of counting the (collapsed) input', () => {
+    const one = makeCard({ name: 'One', scryfallId: 'one' });
+    const many = makeCard({ name: 'Many', scryfallId: 'many' });
+    const binder = makeBinder({ filter: {}, sorts: [{ field: 'quantity', dir: 'desc' }] });
+    const qtyByPrintingKey = new Map([
+      [printingKey(one), 1],
+      [printingKey(many), 4],
+    ]);
+    const { binders } = materializeBinders([one, many], [binder], {
+      ...defaultOpts,
+      qtyByPrintingKey,
+    });
+    expect(binders[0].sections[0].cards.map((c) => c.name)).toEqual(['Many', 'One']);
   });
 });

@@ -1,6 +1,6 @@
 import { ArrowUpDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { sortEntryLabel } from '../lib/sorting';
+import { SORT_FIELDS, sortDirectionLabel, sortEntryLabel } from '../lib/sorting';
 import { SortEditor } from './SortEditor';
 import type { SortEntry, SortField } from '../types';
 import { useAnchoredPanel } from '@/lib/use-anchored-panel';
@@ -34,6 +34,17 @@ export function SortPopover({ sorts, valueOrders, onSortsChange, onValueOrdersCh
 
   const activeSorts = sorts.filter((s) => s && s.field !== 'none');
   const breadcrumb = activeSorts.map(sortEntryLabel).join(' › ');
+  // The pill's ↑/↓ glyph marks a non-default direction but can't say what it
+  // does — "release date ↑" reads two ways. The tooltip and accessible name
+  // spell each level out by effect ("Release date, oldest first"), the same
+  // wording the editor's direction buttons use (STYLE_GUIDE § Sort chains).
+  const spoken = activeSorts
+    .map(
+      (s) =>
+        `${SORT_FIELDS.find((f) => f.value === s.field)?.label ?? s.field}, ${sortDirectionLabel(s.field, s.dir).toLowerCase()}`
+    )
+    .join(' › ');
+  const description = spoken ? `Sorted by ${spoken}. Change sort order` : 'Change sort order';
 
   return (
     <div className="sort-popover">
@@ -43,8 +54,8 @@ export function SortPopover({ sorts, valueOrders, onSortsChange, onValueOrdersCh
         className={`sort-popover-btn${open ? ' open' : ''}`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label="Change sort order"
-        title="Change sort order"
+        aria-label={description}
+        title={description}
         onClick={toggle}
       >
         <ArrowUpDown width={13} height={13} strokeWidth={2} aria-hidden />

@@ -9,6 +9,7 @@ import { areFriends } from '../friends/relations';
 import type { ShareDataView } from '../shares/cache';
 import { invalidateShareContext, loadShareContext } from '../shares/context';
 import { resolveShareLabels } from '../shares/labels';
+import { getSetMap } from '../sets';
 import {
   findCubeById,
   findDeckById,
@@ -304,12 +305,12 @@ sharesRouter.get(
 
 /** Dispatch a loaded share to its per-kind projector. Extracted so the access
  *  gate above stays readable. */
-function projectAndRespond(
+async function projectAndRespond(
   res: Response,
   share: { kind: string; resourceId: string },
   data: ShareDataView,
   owner: ShareOwner
-): Response {
+): Promise<Response> {
   if (share.kind === 'collection') {
     return res.json({
       kind: 'collection' as const,
@@ -335,7 +336,10 @@ function projectAndRespond(
     return res.json({ kind: 'list' as const, data: projected });
   }
   if (share.kind === 'binder') {
-    const projected = projectBinder(owner, share.resourceId, data.collection, data.binders);
+    // Release-date sorts date every non-Secret-Lair card from the set map; a
+    // Scryfall hiccup degrades to undated (tie-broken) order, never a 500.
+    const setMap = await getSetMap().catch(() => undefined);
+    const projected = projectBinder(owner, share.resourceId, data.collection, data.binders, setMap);
     if (!projected) {
       return res.status(404).json({ error: 'Share not found.' });
     }

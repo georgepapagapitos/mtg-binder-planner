@@ -104,8 +104,15 @@ export function sortDirectionLabel(field: SortField, dir: SortDir): string {
  */
 export function normalizeSorts(sorts: SortEntry[]): SortEntry[] {
   const legacy = (s: SortEntry) => (s?.field as string) === 'sldDrop';
-  if (!sorts.some(legacy)) return sorts;
-  return sorts.map((s) => (legacy(s) ? { ...s, field: 'setName' as const } : s));
+  const seen = new Set<string>();
+  // A field repeated in a stored chain sorts nothing the second time but still
+  // renders ("name › name") — keep the first occurrence only.
+  const dup = (s: SortEntry) => s && (seen.has(s.field) || (seen.add(s.field), false));
+  if (!sorts.some((s) => legacy(s) || dup(s))) return sorts;
+  seen.clear();
+  return sorts
+    .map((s) => (legacy(s) ? { ...s, field: 'setName' as const } : s))
+    .filter((s) => !dup(s));
 }
 
 /**
@@ -321,6 +328,38 @@ export function releaseDateOf(card: EnrichedCard, setMap?: SetMap): string | und
   return setMap?.[code]?.releasedAt;
 }
 
+/**
+ * Set identity for the two set-driven sorts AND their section grouping. A
+ * Secret Lair printing reports its *drop* — Scryfall files all ~2,300 of them
+ * under one flat `SLD` set, so grouping by the set code alone gives one useless
+ * "Secret Lair Drop" bucket while the drop is the thing you actually bought and
+ * sleeve together. Numbers MTGJSON doesn't cover keep the flat set name (see
+ * EnrichedCard.sldDrop). The `setName` sort value is `label` lowercased, so a
+ * section's position and its cards' order can never disagree (a card with no
+ * set used to sort as '' — first — while its "Unknown set" header sorted last).
+ */
+export function setMeta(card: EnrichedCard): { key: string; label: string } {
+  if (card.sldDrop) return { key: `sld-${card.sldDrop}`, label: card.sldDrop };
+  return {
+    key: card.setCode || 'unknown',
+    label: card.setName || card.setCode || 'Unknown set',
+  };
+}
+
+/**
+ * Natural-order key for a collector number: every digit run is zero-padded so
+ * plain string comparison gives 2 < 10 < 123 < 123a < 123★, and The List's
+ * "2XM-114" / "MMA-90" style numbers sort by their set prefix then number
+ * instead of `parseInt` reading "2XM-114" as 2 and "MMA-90" as not-a-number.
+ * Digits sort before letters in ASCII, so plain numbers still lead.
+ */
+export function collectorNumberKey(n: string): string {
+  const key = n.toLowerCase().replace(/\d+/g, (d) => d.padStart(6, '0'));
+  // Plain numbers (with or without a variant suffix) first; anything carrying
+  // a set prefix ("2XM-114", "A-123") after them, in its own natural order.
+  return /^\d+[^-]*$/.test(n) ? key : `~${key}`;
+}
+
 export function cardSortValue(
   card: EnrichedCard,
   field: SortField,
@@ -334,23 +373,23 @@ export function cardSortValue(
       return idx === -1 ? 99 : idx;
     }
     case 'rarity':
-      return RARITY_ORDER[card.rarity.toLowerCase()] ?? 9;
+      // `|| 'common'` mirrors getSectionMeta so a blank rarity sorts where its
+      // section header sits (and a missing one can't crash the whole binder).
+      return RARITY_ORDER[(card.rarity || 'common').toLowerCase()] ?? 9;
     case 'cmc':
       return card.cmc ?? UNKNOWN_VALUE;
     case 'name':
-      return card.name.toLowerCase();
+      return (card.name ?? '').toLowerCase();
     case 'setReleaseDate':
       return releaseDateOf(card, ctx?.setMap) ?? UNKNOWN_VALUE;
     case 'setName':
-      return (card.sldDrop || card.setName || card.setCode).toLowerCase();
+      return setMeta(card).label.toLowerCase();
     case 'price':
       return card.purchasePrice;
     case 'edhrec':
       return card.edhrecRank ?? UNKNOWN_VALUE;
-    case 'collectorNumber': {
-      const n = parseInt(card.collectorNumber, 10);
-      return isNaN(n) ? 99999 : n;
-    }
+    case 'collectorNumber':
+      return card.collectorNumber ? collectorNumberKey(card.collectorNumber) : UNKNOWN_VALUE;
     case 'quantity':
       return ctx?.qtyByPrintingKey?.get(printingKey(card)) ?? 1;
     case 'treatment':
@@ -394,7 +433,12 @@ export function sortCards(
       if (va < vb) return dir === 'desc' ? 1 : -1;
       if (va > vb) return dir === 'desc' ? -1 : 1;
     }
-    return 0;
+    // Full tie: fall back to copyId so the same cards always land in the same
+    // order whatever order they arrived in. Array#sort is stable, so without
+    // this two copies of one printing swapped places between renders whenever
+    // the collection array was rebuilt (IDB hydration vs a fresh pull), which
+    // read as pages shuffling under the user.
+    return a.copyId < b.copyId ? -1 : a.copyId > b.copyId ? 1 : 0;
   });
 }
 
@@ -407,8 +451,36 @@ export const MAX_SORTS = 3;
 /**
  * Fields applied as implicit tie-breakers after the user's explicit sort chain.
  * They run in order and are skipped per-field if already present in the chain.
+ * Set + number close the chain so two printings of the same card (Sol Ring
+ * SLD #2417 vs #2539) land in one fixed order rather than input order.
  */
-export const IMPLICIT_TIEBREAKER_FIELDS: SortField[] = ['treatment', 'finish', 'name'];
+export const IMPLICIT_TIEBREAKER_FIELDS: SortField[] = [
+  'treatment',
+  'finish',
+  'name',
+  'setName',
+  'collectorNumber',
+];
+
+/**
+ * The user's chain plus the implicit tie-breakers — the order `materializeBinders`
+ * actually sorts by. One rule beyond appending: a chain sorted by release date
+ * gets `setName` spliced in **right after** the date entry when it lacks one.
+ * Release-date sections are per SET (same-day sets are separate headers), so
+ * the cards must stay grouped by set too — otherwise a page-filled binder
+ * interleaves three same-day Secret Lair drops by treatment/finish/name and
+ * every page labels itself with all three. Sections tie-break same-day sets
+ * A → Z (`buildSections`) to match.
+ */
+export function withImplicitTiebreakers(sorts: SortEntry[]): SortEntry[] {
+  const out = [...sorts];
+  const has = (f: SortField) => out.some((s) => s?.field === f);
+  const dateIdx = out.findIndex((s) => s?.field === 'setReleaseDate');
+  if (dateIdx !== -1 && !has('setName'))
+    out.splice(dateIdx + 1, 0, { field: 'setName', dir: 'asc' });
+  for (const field of IMPLICIT_TIEBREAKER_FIELDS) if (!has(field)) out.push({ field, dir: 'asc' });
+  return out;
+}
 
 /**
  * Human-readable resolved order for fields whose direction is non-obvious.
@@ -454,7 +526,6 @@ export function getDisplaySorts(
   return effectiveSorts.filter((s) => {
     if (s.field === 'none') return false;
     if (explicitFields.has(s.field)) return true;
-    if (s.field === 'name') return false;
     if (s.field === 'treatment' || s.field === 'finish') {
       return isValueOrderCustomized(s.field, valueOrders?.[s.field]);
     }
@@ -462,12 +533,9 @@ export function getDisplaySorts(
   });
 }
 
-/** Returns the implicit tie-breaker entries that would be appended to a chain. */
+/** The implicit tie-breaker entries `withImplicitTiebreakers` adds to a chain, in effect order. */
 export function getImplicitTiebreakers(sorts: SortEntry[]): SortEntry[] {
-  const active = sorts.filter((s) => s && s.field !== 'none');
-  return IMPLICIT_TIEBREAKER_FIELDS.filter((f) => !active.some((s) => s.field === f)).map(
-    (field) => ({ field, dir: 'asc' as const })
-  );
+  return withImplicitTiebreakers(sorts).filter((e) => !sorts.includes(e));
 }
 
 const SORT_LABEL: Record<SortField, string> = SORT_FIELDS.reduce(

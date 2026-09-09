@@ -462,7 +462,7 @@ describe('helpers around treatment/finish ordering', () => {
   it('getImplicitTiebreakers skips fields already in the chain', async () => {
     const { getImplicitTiebreakers } = await import('./sorting');
     const extras = getImplicitTiebreakers([{ field: 'treatment', dir: 'desc' }]);
-    expect(extras.map((e) => e.field)).toEqual(['finish', 'name']);
+    expect(extras.map((e) => e.field)).toEqual(['finish', 'name', 'setName', 'collectorNumber']);
   });
 
   it('getDisplaySorts hides default implicit tie-breakers but keeps customized ones', async () => {
@@ -564,5 +564,132 @@ describe('colorSortRank — canonical multicolor ordering', () => {
       '5c',
       'colorless',
     ]);
+  });
+});
+
+describe('collector numbers sort naturally, and unknown ones trail', () => {
+  const byNumber = (numbers: string[], dir: 'asc' | 'desc' = 'asc') =>
+    sortCards(
+      numbers.map((n) => makeCard({ collectorNumber: n, name: n })),
+      [{ field: 'collectorNumber', dir }]
+    ).map((c) => c.collectorNumber);
+
+  it('orders 2 < 10 < 123 < 123a < 123★ and puts The List prefixes after plain numbers', () => {
+    expect(byNumber(['123★', 'MMA-90', '10', '123a', '2XM-114', '2', '123'])).toEqual([
+      '2',
+      '10',
+      '123',
+      '123a',
+      '123★',
+      '2XM-114',
+      'MMA-90',
+    ]);
+  });
+
+  it('keeps a missing number last in both directions', () => {
+    expect(byNumber(['', '5', '3'])).toEqual(['3', '5', '']);
+    expect(byNumber(['', '5', '3'], 'desc')).toEqual(['5', '3', '']);
+  });
+});
+
+describe('sortCards is deterministic and crash-proof', () => {
+  it('lands the same order whatever order the cards arrive in', () => {
+    const cards = ['A', 'B', 'C', 'D'].flatMap((set, i) =>
+      [1, 2, 3].map((n) =>
+        makeCard({
+          name: 'Sol Ring',
+          setCode: set,
+          setName: `Set ${set}`,
+          collectorNumber: String(n),
+          scryfallId: `${set}-${n}`,
+          copyId: `${set}-${n}-${i}`,
+        })
+      )
+    );
+    const sorts = [{ field: 'color' as const, dir: 'asc' as const }];
+    const forward = sortCards(cards, sorts).map((c) => c.copyId);
+    const reversed = sortCards([...cards].reverse(), sorts).map((c) => c.copyId);
+    expect(reversed).toEqual(forward);
+  });
+
+  it('does not throw on a row missing name, rarity or collector number', () => {
+    const broken = {
+      ...makeCard(),
+      name: undefined,
+      rarity: undefined,
+      collectorNumber: undefined,
+    } as unknown as EnrichedCard;
+    for (const field of ['name', 'rarity', 'collectorNumber', 'color', 'setName'] as const) {
+      expect(() => sortCards([broken, makeCard()], [{ field, dir: 'asc' }])).not.toThrow();
+    }
+  });
+
+  it('a blank rarity sorts as common, where its section header sits', () => {
+    expect(cardSortValue(makeCard({ rarity: '' }), 'rarity')).toBe(
+      cardSortValue(makeCard({ rarity: 'common' }), 'rarity')
+    );
+  });
+});
+
+describe('setName sort value is the section label, lowercased', () => {
+  it('a card with no set sorts as "unknown set", not as the empty string', async () => {
+    const { setMeta } = await import('./sorting');
+    const nameless = makeCard({ setCode: '', setName: '' });
+    expect(cardSortValue(nameless, 'setName')).toBe(setMeta(nameless).label.toLowerCase());
+    // "Unknown set" lands after "Unglued" both as a header and as a card.
+    expect(
+      sortCards(
+        [nameless, makeCard({ setName: 'Unglued' })],
+        [{ field: 'setName', dir: 'asc' }]
+      ).map((c) => c.setName)
+    ).toEqual(['Unglued', '']);
+  });
+});
+
+describe('withImplicitTiebreakers', () => {
+  it('splices Set right after Release date so same-day sets stay together', async () => {
+    const { withImplicitTiebreakers } = await import('./sorting');
+    const chain = withImplicitTiebreakers([
+      { field: 'setReleaseDate', dir: 'desc' },
+      { field: 'collectorNumber', dir: 'asc' },
+    ]);
+    expect(chain.map((s) => s.field)).toEqual([
+      'setReleaseDate',
+      'setName',
+      'collectorNumber',
+      'treatment',
+      'finish',
+      'name',
+    ]);
+  });
+
+  it('leaves a chain that already sorts by Set alone', async () => {
+    const { withImplicitTiebreakers } = await import('./sorting');
+    const chain = withImplicitTiebreakers([
+      { field: 'setReleaseDate', dir: 'desc' },
+      { field: 'setName', dir: 'desc' },
+    ]);
+    expect(chain.slice(0, 2).map((s) => `${s.field}:${s.dir}`)).toEqual([
+      'setReleaseDate:desc',
+      'setName:desc',
+    ]);
+  });
+});
+
+describe('normalizeSorts drops a field repeated in a stored chain', () => {
+  it('keeps the first occurrence only', async () => {
+    const { normalizeSorts } = await import('./sorting');
+    const out = normalizeSorts([
+      { field: 'name', dir: 'asc' },
+      { field: 'name', dir: 'desc' },
+      { field: 'cmc', dir: 'asc' },
+    ]);
+    expect(out.map((s) => `${s.field}:${s.dir}`)).toEqual(['name:asc', 'cmc:asc']);
+  });
+
+  it('returns the same array when there is nothing to fix', async () => {
+    const { normalizeSorts } = await import('./sorting');
+    const sorts = [{ field: 'name' as const, dir: 'asc' as const }];
+    expect(normalizeSorts(sorts)).toBe(sorts);
   });
 });

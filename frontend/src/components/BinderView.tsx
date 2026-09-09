@@ -662,8 +662,8 @@ const SectionBlock = memo(function SectionBlock({
         {section.pip && <ColorPip color={section.key} pip="lg" />}
         <span className="section-title">{section.label}</span>
         <span className="section-meta">
-          {section.cards.length} cards · {section.pages.length} page
-          {section.pages.length !== 1 ? 's' : ''}
+          {section.cards.length} {section.cards.length === 1 ? 'card' : 'cards'} ·{' '}
+          {section.pages.length} page{section.pages.length !== 1 ? 's' : ''}
         </span>
       </button>
       {!isCollapsed && (

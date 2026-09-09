@@ -1891,6 +1891,16 @@ to anything new that edits a predicate.
   own pair beside its option list; it does not fall back to asc/desc.
 - **The field picker hides fields another row already uses.** A second pass on
   the same field has no ties left to break.
+- **The compact breadcrumb pill ("sort: release date ↑ › set") keeps its glyph,
+  but its `title` / accessible name spell every level out by effect** ("Sorted
+  by Release date, oldest first › Set, A → Z"). The glyph is the only thing that
+  fits the pill; the words are what it means.
+- **Same-day sets under a Release-date sort read A → Z** (or follow the chain's
+  own Set direction when it has one) — never the date's direction. "Newest
+  first" used to flip three same-day Secret Lair drops into Z → A headers while
+  the cards inside sorted A → Z. The engine also keeps those sets contiguous on
+  page-filled binders (`withImplicitTiebreakers` splices Set in after the date)
+  so a page never labels itself with every drop released that day.
 - **Reorder/remove buttons name their row** ("Move Color earlier in the sort
   order"), not "Move sort up" three times.
 - Put the grid on the LIST and let rows `display: contents`, so pickers,

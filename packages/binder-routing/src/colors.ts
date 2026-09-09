@@ -31,7 +31,7 @@ export function isLand(card: EnrichedCard): boolean {
 
 /** Color-identity of a basic land detected purely by name. Returns null if not a basic. */
 function basicLandColorByName(name: string): string | null {
-  const n = name.toLowerCase();
+  const n = (name ?? '').toLowerCase();
   if (n.startsWith('plains')) return 'W';
   if (n.startsWith('island')) return 'U';
   if (n.startsWith('swamp')) return 'B';

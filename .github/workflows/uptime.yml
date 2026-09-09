@@ -41,6 +41,9 @@ concurrency:
   group: uptime
   cancel-in-progress: true
 
+# No checkout, no API calls: the probe needs nothing from GITHUB_TOKEN.
+permissions: {}
+
 jobs:
   probe:
     name: Probe production /health

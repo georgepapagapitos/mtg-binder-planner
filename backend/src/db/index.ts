@@ -720,6 +720,31 @@ export async function ensureSchema(): Promise<void> {
       PRIMARY KEY (day, name, path)
     );
 
+    -- Same contract, two more shapes (quality program, 2026-09-09). An error
+    -- row is one distinct (message, script frame) per day per path, scrubbed
+    -- and length-capped by the route; a vital row is one Core Web Vitals
+    -- band per metric per path. Neither holds a value, an id, or a visitor.
+    -- last_seen feeds the heartbeat's burst alert (heartbeat.ts).
+    CREATE TABLE IF NOT EXISTS error_counts (
+      day DATE NOT NULL,
+      path TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      message TEXT NOT NULL,
+      frame TEXT NOT NULL DEFAULT '',
+      count INTEGER NOT NULL DEFAULT 0,
+      last_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (day, path, kind, message, frame)
+    );
+    CREATE INDEX IF NOT EXISTS error_counts_last_seen_idx ON error_counts(last_seen);
+    CREATE TABLE IF NOT EXISTS vital_counts (
+      day DATE NOT NULL,
+      path TEXT NOT NULL,
+      metric TEXT NOT NULL,
+      rating TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, path, metric, rating)
+    );
+
     -- Opt-in AI features (T96 "Read the deck"). Consent lives on the user
     -- row, deliberately outside the sync layer; NULL ai_daily_limit means
     -- the app default applies (per-user override = a data change, not a

@@ -53,6 +53,103 @@ describe('POST /api/events', () => {
   });
 });
 
+describe('POST /api/events {name:"error"}', () => {
+  async function errorRows() {
+    const { rows } = await pool.query<{
+      path: string;
+      kind: string;
+      message: string;
+      frame: string;
+      count: number;
+    }>('SELECT path, kind, message, frame, count FROM error_counts ORDER BY message');
+    return rows;
+  }
+
+  it('counts one row per (path, kind, message, frame) with the text scrubbed and capped', async () => {
+    const body = {
+      name: 'error',
+      path: '/decks/:id/*',
+      kind: 'error',
+      message:
+        'Failed to fetch https://api.example.com/x?token=SECRET for bob@example.com id 123456789 ' +
+        'y'.repeat(400),
+      frame: '/assets/index-abc123.js:10:20',
+    };
+    for (let i = 0; i < 2; i++) {
+      expect((await request(app).post('/api/events').send(body)).status).toBe(204);
+    }
+    const rows = await errorRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].count).toBe(2);
+    expect(rows[0].message).not.toContain('SECRET');
+    expect(rows[0].message).not.toContain('bob@');
+    expect(rows[0].message).not.toContain('123456789');
+    expect(rows[0].message).toContain('[email]');
+    expect(rows[0].message.length).toBeLessThanOrEqual(200);
+    expect(rows[0].frame).toBe('/assets/index-abc123.js:10:20');
+    const { rows: cols } = await pool.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'error_counts' AND table_schema = current_schema()`
+    );
+    expect(cols.map((r) => r.column_name).sort()).toEqual([
+      'count',
+      'day',
+      'frame',
+      'kind',
+      'last_seen',
+      'message',
+      'path',
+    ]);
+  });
+
+  it('drops unknown kinds and stores a placeholder for an empty message', async () => {
+    await pool.query('DELETE FROM error_counts');
+    await request(app)
+      .post('/api/events')
+      .send({ name: 'error', path: '/', kind: 'weird', message: 'x' });
+    await request(app).post('/api/events').send({ name: 'error', path: '/', kind: 'rejection' });
+    const rows = await errorRows();
+    expect(rows).toEqual([
+      expect.objectContaining({ kind: 'rejection', message: '[no message]', frame: '', count: 1 }),
+    ]);
+  });
+});
+
+describe('POST /api/events {name:"vital"}', () => {
+  it('stores only the Core Web Vitals band, never the value', async () => {
+    const send = (metric: string, value: unknown) =>
+      request(app).post('/api/events').send({ name: 'vital', path: '/', metric, value });
+    await send('LCP', 1200);
+    await send('LCP', 3000);
+    await send('LCP', 9000);
+    await send('INP', 150);
+    await send('CLS', 0.3);
+    await send('TTFB', 100); // not a tracked metric
+    await send('LCP', 'fast'); // not a number
+    const { rows } = await pool.query<{ metric: string; rating: string; count: number }>(
+      'SELECT metric, rating, count FROM vital_counts ORDER BY metric, rating'
+    );
+    expect(rows).toEqual([
+      { metric: 'CLS', rating: 'poor', count: 1 },
+      { metric: 'INP', rating: 'good', count: 1 },
+      { metric: 'LCP', rating: 'good', count: 1 },
+      { metric: 'LCP', rating: 'needs-improvement', count: 1 },
+      { metric: 'LCP', rating: 'poor', count: 1 },
+    ]);
+    const { rows: cols } = await pool.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'vital_counts' AND table_schema = current_schema()`
+    );
+    expect(cols.map((r) => r.column_name).sort()).toEqual([
+      'count',
+      'day',
+      'metric',
+      'path',
+      'rating',
+    ]);
+  });
+});
+
 describe('GET /api/admin/events', () => {
   it('is admin-only and returns the raw daily rows', async () => {
     const reg = await request(app)
@@ -70,11 +167,27 @@ describe('GET /api/admin/events', () => {
       .send({ username: 'evadmin', password: 'correct horse battery' });
     const admin = extractSessionCookie(login.headers['set-cookie'])!;
     await request(app).post('/api/events').send({ name: 'guide_cta', path: '/guides/' });
+    await request(app)
+      .post('/api/events')
+      .send({ name: 'error', path: '/play', kind: 'render', message: 'boom', frame: 'f.js:1:1' });
+    await request(app)
+      .post('/api/events')
+      .send({ name: 'vital', path: '/play', metric: 'CLS', value: 0.02 });
     const res = await request(app).get('/api/admin/events?days=7').set('Cookie', admin);
     expect(res.status).toBe(200);
     expect(res.body.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'guide_cta', path: '/guides/', count: 1 }),
+      ])
+    );
+    expect(res.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '/play', kind: 'render', message: 'boom', count: 1 }),
+      ])
+    );
+    expect(res.body.vitals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '/play', metric: 'CLS', rating: 'good', count: 1 }),
       ])
     );
   });

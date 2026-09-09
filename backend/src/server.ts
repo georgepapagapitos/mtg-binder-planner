@@ -47,7 +47,7 @@ import {
 } from './routes/public';
 import { reportsRouter } from './routes/reports';
 import { discoverRouter } from './routes/discover';
-import { eventsRouter } from './routes/events';
+import { eventsRouter, recentErrorCount } from './routes/events';
 import { sitemapHandler } from './sitemap';
 import { isSpaRoute } from './spa-routes';
 import { activityRouter } from './routes/activity';
@@ -1433,10 +1433,16 @@ async function start() {
   // and watch /fail land, without touching prod's check.
   const heartbeatUrl = process.env.HEALTHCHECKS_PING_URL;
   if (heartbeatUrl && process.env.UPTIME_HEARTBEAT_DISABLED !== '1') {
+    // ERROR_BURST_ALERT client errors inside 15 minutes also report a failure
+    // (a crashing bundle behind a healthy shell). 0 disables the burst check.
+    const burstThreshold = Number(process.env.ERROR_BURST_ALERT ?? 25);
     afterBoot('uptime heartbeat', 0, () =>
       scheduleHeartbeat(
         heartbeatUrl,
-        process.env.HEALTHCHECKS_PROBE_ORIGIN ?? 'https://spellcontrol.com'
+        process.env.HEALTHCHECKS_PROBE_ORIGIN ?? 'https://spellcontrol.com',
+        burstThreshold > 0
+          ? { count: recentErrorCount, minutes: 15, threshold: burstThreshold }
+          : undefined
       )
     );
   }

@@ -80,7 +80,11 @@ import { loadCardSimilar } from './deck-builder/services/deckBuilder/cardSimilar
 import { registerPwa } from './lib/register-pwa';
 import { tagPlatform, syncStatusBar, hideSplashWhenReady } from './lib/platform';
 import { initKeyboardLayer } from './lib/keyboard';
+import { installErrorReporting, startVitals } from './lib/analytics';
 
+// First, so an exception anywhere in the boot below is counted too.
+installErrorReporting();
+startVitals();
 tagPlatform();
 bootstrapTheme();
 bootstrapTypeSet();

@@ -441,31 +441,34 @@ export function BindersIndexPage() {
           )}
           {sortField === 'position' && sortDir === 'asc' && (
             <p className="muted" style={{ marginBottom: 'var(--space-2)' }}>
-              Cards file into the first binder whose rules match, top to bottom.{' '}
-              <InfoTip
-                label="binder priority order"
-                text={
-                  <>
-                    <p className="info-tip-lead">
-                      This order is a <strong>priority list</strong>, not just a display order.
-                    </p>
-                    <ul className="info-tip-list">
-                      <li>
-                        A card lands in exactly one binder: the first one, top to bottom, whose
-                        rules match it.
-                      </li>
-                      <li>
-                        A binder further down only ever sees the cards every binder above it passed
-                        on.
-                      </li>
-                      <li>
-                        Reorder from a row's ⋮ menu (Move up / Move down). You'll get a toast
-                        showing how many cards moved.
-                      </li>
-                    </ul>
-                  </>
-                }
-              />
+              Cards file into the first binder whose rules match, top to{' '}
+              <span className="binders-index-hint-tail">
+                bottom.{' '}
+                <InfoTip
+                  label="binder priority order"
+                  text={
+                    <>
+                      <p className="info-tip-lead">
+                        This order is a <strong>priority list</strong>, not just a display order.
+                      </p>
+                      <ul className="info-tip-list">
+                        <li>
+                          A card lands in exactly one binder: the first one, top to bottom, whose
+                          rules match it.
+                        </li>
+                        <li>
+                          A binder further down only ever sees the cards every binder above it
+                          passed on.
+                        </li>
+                        <li>
+                          Reorder from a row's ⋮ menu (Move up / Move down). You'll get a toast
+                          showing how many cards moved.
+                        </li>
+                      </ul>
+                    </>
+                  }
+                />
+              </span>
             </p>
           )}
           <ul className={`binders-index-list is-${view}`}>
@@ -501,46 +504,52 @@ export function BindersIndexPage() {
                     <div className="binders-index-card-body">
                       <div className="binders-index-card-name">{b.def.name}</div>
                       <div className="binders-index-card-meta">
-                        {sortField === 'position' && sortDir === 'asc' && (
-                          <span
-                            className="binders-index-card-tag"
-                            aria-label={`Priority ${b.def.position + 1}`}
-                          >
-                            #{b.def.position + 1}
-                          </span>
-                        )}
-                        {b.def.mode === 'manual' && (
-                          <span className="binders-index-card-tag">Manual</span>
-                        )}
-                        {(reviewCounts.get(b.def.id) ?? 0) > 0 && (
-                          <span
-                            className="binders-index-card-tag binders-index-card-tag--review"
-                            aria-label={`${reviewCounts.get(b.def.id)} ${
-                              reviewCounts.get(b.def.id) === 1 ? 'change' : 'changes'
-                            } to review`}
-                          >
-                            {reviewCounts.get(b.def.id)} to review
-                          </span>
-                        )}
-                        {/* Split into two spans so compact mode (which hides the
+                        {/* Tags on one line, the card/page/value stats on the next when the
+                            row is tight, so a wrap never lands mid-stat with a stray "·". */}
+                        <span className="binders-index-card-tags">
+                          {sortField === 'position' && sortDir === 'asc' && (
+                            <span
+                              className="binders-index-card-tag"
+                              aria-label={`Priority ${b.def.position + 1}`}
+                            >
+                              #{b.def.position + 1}
+                            </span>
+                          )}
+                          {b.def.mode === 'manual' && (
+                            <span className="binders-index-card-tag">Manual</span>
+                          )}
+                          {(reviewCounts.get(b.def.id) ?? 0) > 0 && (
+                            <span
+                              className="binders-index-card-tag binders-index-card-tag--review"
+                              aria-label={`${reviewCounts.get(b.def.id)} ${
+                                reviewCounts.get(b.def.id) === 1 ? 'change' : 'changes'
+                              } to review`}
+                            >
+                              {reviewCounts.get(b.def.id)} to review
+                            </span>
+                          )}
+                          {b.def.fixedCapacity != null && (
+                            <span className="binders-index-card-tag">
+                              Cap {b.def.fixedCapacity.toLocaleString()}
+                            </span>
+                          )}
+                        </span>
+                        <span className="binders-index-card-stats">
+                          {/* Split into two spans so compact mode (which hides the
                         cards count via CSS) can still show the page count
                         as a quick skim signal. */}
-                        <span className="binders-index-card-cards">
-                          {b.totalCards.toLocaleString()} {b.totalCards === 1 ? 'card' : 'cards'}
-                        </span>
-                        <span className="binders-index-card-pages">
-                          {b.totalPages.toLocaleString()} {b.totalPages === 1 ? 'page' : 'pages'}
-                        </span>
-                        {b.totalValue > 0 && (
-                          <span className="binders-index-card-value">
-                            {formatMoney(b.totalValue, { wholeDollars: true })}
+                          <span className="binders-index-card-cards">
+                            {b.totalCards.toLocaleString()} {b.totalCards === 1 ? 'card' : 'cards'}
                           </span>
-                        )}
-                        {b.def.fixedCapacity != null && (
-                          <span className="binders-index-card-tag">
-                            Cap {b.def.fixedCapacity.toLocaleString()}
+                          <span className="binders-index-card-pages">
+                            {b.totalPages.toLocaleString()} {b.totalPages === 1 ? 'page' : 'pages'}
                           </span>
-                        )}
+                          {b.totalValue > 0 && (
+                            <span className="binders-index-card-value">
+                              {formatMoney(b.totalValue, { wholeDollars: true })}
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </Link>

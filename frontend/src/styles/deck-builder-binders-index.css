@@ -274,6 +274,20 @@
   color: var(--text-muted);
 }
 
+.binders-index-card-tags,
+.binders-index-card-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+/* The one-liner explaining priority order keeps its info tip glued to the
+   last word instead of orphaning the icon on its own line at 360px. */
+.binders-index-hint-tail {
+  white-space: nowrap;
+}
+
 .binders-index-card-tag {
   display: inline-block;
   padding: 0.05rem 0.45rem;

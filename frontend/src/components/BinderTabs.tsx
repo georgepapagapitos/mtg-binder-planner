@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Download, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, MoreHorizontal, Pencil, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +19,7 @@ import { useSheetExit } from '../lib/use-sheet-exit';
  * revisit condition for extending `Tabs` wasn't met): the per-binder buttons
  * carry `role="tab"`/`aria-selected` inside a `role="tablist"` wrapper, with
  * roving tabindex and ←/→/Home/End navigation. The wrapper only spans the
- * real tabs — "+ New binder" / "Export" / "Delete all" are toolbar actions,
+ * real tabs — "+ New binder" / "Export" are toolbar actions,
  * not views, so they stay outside it as plain buttons (`display: contents`
  * keeps the wrapper invisible to the `.binder-tab-row` flex layout). The
  * `BinderOverflowMenu` trigger is a DOM *sibling* of the tab button inside
@@ -42,7 +42,6 @@ export function BinderTabs({ binders }: Props) {
   const navigate = useNavigate();
   const moveBinder = useCollectionStore((s) => s.moveBinder);
   const deleteBinder = useCollectionStore((s) => s.deleteBinder);
-  const deleteAllBinders = useCollectionStore((s) => s.deleteAllBinders);
   const [exportOpen, setExportOpen] = useState(false);
   const { confirm, dialog: confirmDialog } = useConfirm();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -98,16 +97,6 @@ export function BinderTabs({ binders }: Props) {
       danger: true,
     });
     if (ok) deleteBinder(id);
-  };
-
-  const handleDeleteAll = async () => {
-    const ok = await confirm({
-      title: `Delete all ${binders.length} binders?`,
-      body: `Every binder definition will be removed. Your cards fall back to the Uncategorized view. This can't be undone.`,
-      confirmLabel: 'Delete all binders',
-      danger: true,
-    });
-    if (ok) deleteAllBinders();
   };
 
   return (
@@ -192,18 +181,6 @@ export function BinderTabs({ binders }: Props) {
         <Download width={14} height={14} strokeWidth={1.6} aria-hidden />
         <span>Export</span>
       </button>
-
-      {binders.length > 1 && (
-        <button
-          type="button"
-          className="tab tab-delete-all"
-          onClick={handleDeleteAll}
-          title="Delete every binder"
-        >
-          <Trash2 width={14} height={14} strokeWidth={1.6} aria-hidden />
-          <span>Delete all</span>
-        </button>
-      )}
 
       {exportOpen && (
         <BinderExportDialog

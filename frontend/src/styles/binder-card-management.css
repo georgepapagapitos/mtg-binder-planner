@@ -1653,6 +1653,24 @@
   }
 }
 
+/* Inside a form field (the editor's Sections / Page filling controls) the
+   track hugs its options and sits flush with the field label — the modal
+   margin above indented it 1.25rem past its own label. */
+.binder-mode-toggle--inline {
+  display: inline-flex;
+  margin: 0;
+}
+
+/* Three options wrapped every label onto three lines at 390px ("NEW / PAGE /
+   PER / SECTION"). Stack them full-width instead. */
+@media (max-width: 600px) {
+  .binder-mode-toggle--inline {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
 /* ── Import binder (inside BinderEditor) ─────────────────────── */
 
 .import-binder-textarea {

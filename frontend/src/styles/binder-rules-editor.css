@@ -146,16 +146,20 @@
   color: var(--accent);
 }
 
-/* Below 600px the row is already tight with four columns; the arrow alone
-   carries the direction and the words would force a wrap. The button keeps
-   its aria-label, so nothing is lost to assistive tech. */
+/* Below 600px four columns don't fit, so each sort takes two lines: the
+   field and its direction on the first, the reorder/remove cluster tucked
+   under them on the second. The direction keeps its words — a bare arrow is
+   the asc/desc ambiguity the direction label exists to remove. */
 @media (max-width: 600px) {
-  .sort-editor-dir-label {
-    display: none;
+  .sort-editor-list {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 0.45rem;
   }
 
-  .sort-editor-dir {
-    padding-inline: var(--space-2);
+  .sort-editor-actions {
+    grid-column: 2 / -1;
+    justify-self: end;
+    margin-bottom: var(--space-2);
   }
 }
 
@@ -693,7 +697,9 @@
 
 .filter-group-name {
   flex: 1 1 8rem;
-  min-width: 0;
+  /* Below this the auto-summary clips to "legendary creat…"; the count and
+     actions wrap under it instead (the legend is flex-wrap). */
+  min-width: min(100%, 12rem);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -702,6 +708,14 @@
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-primary);
+}
+
+/* On a phone the auto-summary owns the whole first line and the count and
+   actions sit under it — an <input> can't wrap, so anything less clips it. */
+@media (max-width: 600px) {
+  .filter-group-name {
+    flex-basis: 100%;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -919,8 +919,7 @@ export function BinderEditor() {
                       <label>Sections</label>
                       <fieldset
                         aria-label="Section mode"
-                        className="binder-mode-toggle"
-                        style={{ display: 'inline-flex' }}
+                        className="binder-mode-toggle binder-mode-toggle--inline"
                       >
                         {(
                           [
@@ -952,8 +951,7 @@ export function BinderEditor() {
                       <label>Page filling</label>
                       <fieldset
                         aria-label="Page filling"
-                        className="binder-mode-toggle"
-                        style={{ display: 'inline-flex' }}
+                        className="binder-mode-toggle binder-mode-toggle--inline"
                       >
                         {(
                           [

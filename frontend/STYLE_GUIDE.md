@@ -1876,6 +1876,30 @@ to anything new that edits a predicate.
 - **A control that can only ever produce the empty set is a bug, not a
   freedom.** Rarity's joiner is locked to `OR` because a card has exactly one
   rarity, so "rare AND mythic" matches nothing by construction.
+- **A segmented control that would wrap its labels stacks instead.** Three
+  options in a 390px track turned "New page per section" into three lines
+  apiece; below 600px `.binder-mode-toggle--inline` goes column, full width.
+  The inline variant also drops the modal track margin so it sits flush with
+  its own field label.
+- **A rule group's auto-summary owns the whole first line on a phone.** It is
+  an `<input>` (the name is editable in place) and an input cannot wrap, so
+  the count and actions wrap under it rather than clipping it to
+  "legendary creat…".
+
+### Binder views
+
+- **The list collapses identical adjacent copies; the page grid never does.**
+  Seven "Mountain SLD #2418" rows say nothing seven times, so the list shows
+  one row with a ×7 badge and the first copy's page number, and the section
+  header reads "81 cards · 55 unique". The grid stays one pocket per copy
+  because that IS the physical binder. Both read the same physical
+  materialization, so the hero totals and page numbers never change with the
+  view — the earlier "Group printings" toggle collapsed copies BEFORE
+  materializing and so reported 452 cards in a 591-card binder; it now
+  applies to the page grid only, where fewer pockets is the point.
+- **A whole-library destructive action has one home: the index, below the
+  list, as a danger link.** "Delete all binders" used to sit in every binder
+  page's tab strip as a peer of "+ New binder" and "Export".
 
 ### Sort chains
 

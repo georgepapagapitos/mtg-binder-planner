@@ -26,6 +26,7 @@ import { Legend } from './Legend';
 import { BinderPagePreview } from './BinderPagePreview';
 import { useAllocations, type AllocationInfo } from '../lib/allocations';
 import { sectionHeading } from '../lib/section-heading';
+import { printingFinishKey } from '../lib/collection-mutations';
 
 interface Props {
   binder: MaterializedBinder;
@@ -114,8 +115,8 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
    * physical copy, so we look up that single copyId. Grouped rows stand in
    * for every copy of (scryfallId, foil), so we aggregate.
    */
-  const allocationsFor = (card: EnrichedCard): AllocationInfo[] => {
-    if (!isGrouped) {
+  const allocationsFor = (card: EnrichedCard, qty = qtyOf(card)): AllocationInfo[] => {
+    if (!isGrouped && qty <= 1) {
       const a = allocations.get(card.copyId);
       return a ? [a] : [];
     }
@@ -144,14 +145,21 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
     [binder.sections]
   );
 
-  // Build rows per section. Each materialized card is one row — when the
-  // binder is in group-printings mode the materializer has already fed
-  // one card per unique (scryfallId × foil) and `qtyByCopyId` carries the
-  // per-row total. Off-mode = one row per physical copy with qty 1.
+  // Build rows per section. The binder is materialized physically — one
+  // card per copy, so page numbers and totals are the real binder — and the
+  // LIST collapses identical adjacent copies into one row with a ×N badge:
+  // seven "Mountain SLD #2418" rows say nothing seven times. Identical
+  // printings always sort adjacent (they tie on every field), so a run is
+  // exactly one printing's stack; the row keeps the first copy's page. When
+  // the page grid's "Group printings" mode is on the materializer has
+  // already collapsed to one card per (scryfallId × foil) and `qtyByCopyId`
+  // carries the totals instead.
   const flat = useMemo(() => {
     const cards: EnrichedCard[] = [];
     const sectionLabels: string[] = [];
     const pageNumbers: number[] = [];
+    const qtys: number[] = [];
+    const qtyByCopy = new Map<string, number>();
     const sectionRows: { sectionKey: string; rows: Row[] }[] = [];
     for (const section of binder.sections) {
       const cardToPage = new Map<EnrichedCard, number>();
@@ -160,23 +168,35 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
           if (slot && !cardToPage.has(slot)) cardToPage.set(slot, page.pageNum);
         }
       }
-      const rows: Row[] = section.cards.map((card, idx) => ({
-        // copyId is unique per physical copy; in grouped mode it's the
-        // surviving representative, also unique. Fallback for safety.
-        key: card.copyId ?? `${section.key}-${idx}`,
-        card,
-        qty: qtyByCopyId?.get(card.copyId) ?? 1,
-        pageNum: cardToPage.get(card) ?? 0,
-      }));
+      const rows: Row[] = [];
+      section.cards.forEach((card, idx) => {
+        const prev = rows[rows.length - 1];
+        if (!qtyByCopyId && prev && printingFinishKey(prev.card) === printingFinishKey(card)) {
+          prev.qty += 1;
+          return;
+        }
+        rows.push({
+          // copyId is unique per physical copy; in grouped mode it's the
+          // surviving representative, also unique. Fallback for safety.
+          key: card.copyId ?? `${section.key}-${idx}`,
+          card,
+          qty: qtyByCopyId?.get(card.copyId) ?? 1,
+          pageNum: cardToPage.get(card) ?? 0,
+        });
+      });
       sectionRows.push({ sectionKey: section.key, rows });
-      rows.forEach((r, i) => {
+      rows.forEach((r) => {
+        const i = section.cards.indexOf(r.card);
         cards.push(r.card);
         sectionLabels.push(section.cardLabels?.[i] ?? section.label);
         pageNumbers.push(r.pageNum);
+        qtys.push(r.qty);
+        qtyByCopy.set(r.card.copyId, r.qty);
       });
     }
-    return { cards, sectionLabels, pageNumbers, sectionRows };
+    return { cards, sectionLabels, pageNumbers, qtys, qtyByCopy, sectionRows };
   }, [binder, qtyByCopyId]);
+  const qtyOf = (card: EnrichedCard) => flat.qtyByCopy.get(card.copyId) ?? 1;
 
   const toggle = (key: string) => {
     setCollapsed((prev) => {
@@ -334,7 +354,7 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
               </span>
               <span className="section-meta">
                 {totalQty} {totalQty === 1 ? 'card' : 'cards'}
-                {isGrouped && totalQty !== rows.length && ` · ${rows.length} unique`}
+                {totalQty !== rows.length && ` · ${rows.length} unique`}
               </span>
             </button>
             {!isCollapsed && (
@@ -349,7 +369,7 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
                     key={r.key}
                     card={r.card}
                     qty={r.qty}
-                    allocations={allocationsFor(r.card)}
+                    allocations={allocationsFor(r.card, r.qty)}
                     pageNum={r.pageNum}
                     pricePending={isRefreshingPrices && !((r.card.purchasePrice ?? 0) > 0)}
                     onActivate={() => {
@@ -359,10 +379,8 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
                     menu={
                       <CardRowMenu
                         card={r.card}
-                        onEditCard={() => openEdit(r.card, !isGrouped)}
-                        onSplitCopy={
-                          isGrouped && r.qty >= 2 ? () => openEdit(r.card, true) : undefined
-                        }
+                        onEditCard={() => openEdit(r.card, r.qty === 1)}
+                        onSplitCopy={r.qty >= 2 ? () => openEdit(r.card, true) : undefined}
                         currentBinder={{
                           id: binder.def.id,
                           name: binder.def.name,
@@ -388,16 +406,13 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
           pageNumbers={flat.pageNumbers}
           totalPages={binder.totalPages}
           getStackAllocations={(i) => allocationsFor(flat.cards[i])}
-          getStackQty={(i) => {
-            const c = flat.cards[i];
-            return c ? (qtyByCopyId?.get(c.copyId) ?? 1) : 1;
-          }}
+          getStackQty={(i) => flat.qtys[i] ?? 1}
           getActions={(i) => coverActions(flat.cards[i])}
           onIndexChange={setPreviewIndex}
           onClose={() => setPreviewIndex(null)}
           onEdit={(c) => {
             setPreviewIndex(null);
-            openEdit(c, !isGrouped);
+            openEdit(c, qtyOf(c) === 1);
           }}
         />
       )}
@@ -438,7 +453,7 @@ export function BinderListView({ binder, viewToggle, qtyByCopyId, density = 'det
           onClose={() => setPagesStartIndex(null)}
           onEditCard={(c) => {
             setPagesStartIndex(null);
-            openEdit(c, !isGrouped);
+            openEdit(c, qtyOf(c) === 1);
           }}
         />
       )}

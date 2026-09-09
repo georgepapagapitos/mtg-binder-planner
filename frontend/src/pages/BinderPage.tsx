@@ -92,7 +92,12 @@ export function BinderPage() {
       /* ignore */
     }
   };
-  const [groupPrintings, setGroupPrintings] = useState(false);
+  // Page-grid only: collapsing copies before materializing changes the page
+  // count and every page number, which is the point in the grid (one pocket
+  // per printing) and a lie in the list, whose rows exist to say where a
+  // card physically sits. The list collapses identical copies itself.
+  const [groupPrintingsPref, setGroupPrintings] = useState(false);
+  const groupPrintings = view === 'pages' && groupPrintingsPref;
 
   // Debounce the value materialize() sees so each keystroke doesn't trigger a
   // full filter/sort/group pass over the whole collection. The input itself
@@ -393,14 +398,14 @@ export function BinderPage() {
                         // has actively turned card images off.
                         defaultValue: true,
                       },
+                      {
+                        key: 'group-printings',
+                        label: 'Group printings',
+                        value: groupPrintings,
+                        onChange: setGroupPrintings,
+                      },
                     ]
                   : []),
-                {
-                  key: 'group-printings',
-                  label: 'Group printings',
-                  value: groupPrintings,
-                  onChange: setGroupPrintings,
-                },
               ]}
             />
           }

@@ -20,6 +20,13 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { createPortal } from 'react-dom';
+// Editor-only stylesheets ship with this chunk, not the boot payload (E265).
+import '@/styles/deck-builder-editor.css';
+import '@/styles/deck-builder-test-hand.css';
+import '@/styles/deck-builder-combos-list.css';
+import '@/styles/deck-builder-row-qty.css';
+import '@/styles/deck-builder-import-dialog.css';
+import '@/styles/deck-builder-analysis-panel.css';
 import { useMenuKeyboard } from '../lib/use-menu-keyboard';
 import { computePopoverPlacement, getSafeViewport } from '../lib/popover-placement';
 import { haptics } from '../lib/haptics';

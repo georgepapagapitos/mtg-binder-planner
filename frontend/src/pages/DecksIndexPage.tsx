@@ -1,3 +1,5 @@
+// Shared with DeckNewPage / DeckEditorPage; ships with those chunks, not the boot payload (E265).
+import '@/styles/deck-builder-import-dialog.css';
 import {
   AlignJustify,
   CircleAlert,

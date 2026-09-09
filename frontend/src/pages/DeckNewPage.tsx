@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Zap } from 'lucide-react';
+// New-deck-only stylesheets ship with this chunk, not the boot payload (E265).
+import '@/styles/deck-builder-customizer.css';
+import '@/styles/deck-builder-import-dialog.css';
+import '@/styles/deck-builder-commander-profile.css';
 import { ImportDeckDialog } from '../components/deck/ImportDeckDialog';
 import { BackLink } from '../components/BackLink';
 import { useDeckBuilderStore } from '@/deck-builder/store';

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+// Shared with DeckNewPage; ships with the two chunks, not the boot payload (E265).
+import '@/styles/deck-builder-customizer.css';
+import '@/styles/deck-builder-commander-profile.css';
 import './BrewBuildPage.css';
 import { BackLink } from '../components/BackLink';
 import { useDeckBuilderStore } from '@/deck-builder/store';

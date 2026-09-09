@@ -3417,6 +3417,24 @@ hand-wrote its own cap and padding).
   (`deck-builder-responsive.css` `@media` overrides target some of those
   selectors) for no real benefit. Co-located `Component.css` remains the rule
   for _new_ per-component stylesheets only.
+- **Page-only families load with their page chunk, not in `main.tsx`** (E265,
+  2026-09-09 — render-blocking CSS 99 KB → 76 KB gzipped). The play table's
+  eight `play-*.css` sheets are imported by `PlayPage.tsx`; `deck-builder-editor`,
+  `-test-hand`, `-row-qty`, `-analysis-panel` by `DeckEditorPage.tsx`;
+  `-customizer` and `-commander-profile` by `DeckNewPage` + `BrewBuildPage`;
+  `-combos-list` by the editor + `CollectionCombosPage`; `-import-dialog` by the
+  decks index + new-deck + editor; `admin-scanner.css` by `CardScanner`,
+  `AdminPage` and `YouPage`. A sheet is page-local only when **every** chunk
+  that renders one of its classes imports it — `css-chunk-ownership.test.ts`
+  fails otherwise — and when nothing that stays global overrides its selectors
+  by order (a page chunk's sheet loads _after_ everything in `main.tsx`; that is
+  why `deck-builder-settings.css` stayed: `deck-builder-responsive.css` wins its
+  `.deck-builder-options` phone stack only by coming later). Rules a shared
+  component needs from such a sheet move to a global or co-located sheet
+  first (`OverflowMenu.css`, the nav game-dot in `responsive-nav.css`, the
+  records table in `social-shared.css`). Verify a move with screenshots
+  (`.claude/tools/audit-matrix.mjs` before/after, pixel-diffed), never by
+  reading. `frontend/scripts/check-boot-budget.mjs` holds the ratchet.
 - **Deck components use co-located CSS:** a component in
   `src/components/deck/*` imports its own `./X.css` (e.g.
   `DeckColorPanel.css`), not the central `deck-builder-*.css` files. Shared

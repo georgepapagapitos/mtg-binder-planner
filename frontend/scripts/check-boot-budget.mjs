@@ -5,16 +5,19 @@
 // it before the entry runs) and of the render-blocking stylesheet(s), and
 // fails when either exceeds its budget. Runs in CI after `npm run build`.
 //
-// Budgets are set a hair above the measured 2026-09-09 baseline (JS 396 KB,
-// CSS 170 KB gzipped, from https://spellcontrol.com) so growth is a decision,
-// not a drift. Raising one is fine — say why in the commit that raises it.
-// Lowering one when a split lands keeps the ratchet honest.
+// Budgets are set a hair above the measured baseline so growth is a decision,
+// not a drift: JS from the 2026-09-09 prod reading (396 KB); CSS from the
+// 2026-09-09 page-level split (E265 — the play table, editor-only, new-deck,
+// combos-list, import-dialog and scanner/admin sheets moved into their page
+// chunks: 99 KB → 76 KB gzipped at gzip -6 of dist). Raising one is fine —
+// say why in the commit that raises it. Lowering one when a split lands keeps
+// the ratchet honest.
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const BUDGET_KB = { js: 410, css: 175 };
+export const BUDGET_KB = { js: 410, css: 80 };
 
 const dist = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 // Vite emits multi-line <link> tags; a line-based scan misses them.

@@ -2471,3 +2471,75 @@ i.ss.set-symbol--mythic {
     transform: translate(-50%, -50%);
   }
 }
+
+/* ---------- List entries grid view (ListDetailView) ----------
+   Moved here from the scanner sheet, which now only loads with the scanner /
+   admin chunks (E265). The skeleton-pulse keyframes stay global: the deck
+   builder's GenerationModePicker animates with them too. */
+
+.list-entries-grid {
+  display: grid;
+
+  /* Zoom-driven min column width — ListDetailView sets both vars inline per
+     zoom step (lib/grid-zoom.ts ladders); the mobile ladder takes over
+     ≤1024px. min(…, 100%) keeps a big step from overflowing a narrow
+     container (it clamps to one full-width column instead). Same pattern as
+     .deck-card-grid / the collection grid. */
+  --card-min: var(--card-min-desktop, 150px);
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--card-min), 100%), 1fr));
+  /* Shared with the collection grid's JS column math — see --card-grid-gap. */
+  gap: var(--card-grid-gap);
+  padding-bottom: var(--space-4);
+}
+
+@media (max-width: 1024px) {
+  .list-entries-grid {
+    --card-min: var(--card-min-mobile, 110px);
+  }
+}
+
+/* Placeholder tile while entries resolve — the shared .collection-grid-item
+   geometry (aspect-ratio/radius) plus a pulse. */
+.list-entries-grid-cell--skeleton {
+  cursor: default;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Infinite loop: the global 0.001ms backstop would strobe it (~714Hz). Gate it. */
+@media (prefers-reduced-motion: reduce) {
+  .list-entries-grid-cell--skeleton {
+    animation: none;
+  }
+}
+
+/* ── Reduced motion: press-feedback buttons (UX-206) ─────────────────────────
+   The press still snaps to scale(0.97) — positional feedback, not motion —
+   but nothing eases. Explicit gate per STYLE_GUIDE (the global 0.001ms kill
+   is a backstop, not the mechanism). App-wide, so it lives in a global sheet
+   that comes after every base button rule (binder-hero, forms-banners,
+   search-controls, tabs, and this file) — it used to close admin-scanner.css,
+   which now loads only with the scanner / admin chunks (E265). */
+@media (prefers-reduced-motion: reduce) {
+  .pill-btn,
+  .btn,
+  .btn-link,
+  .btn-link-danger,
+  .btn-add-group,
+  .filter-popover-btn,
+  .sort-popover-btn,
+  .collection-toolbar-stats-btn,
+  .pagination-btn,
+  .color-filter-btn {
+    transition: none;
+  }
+}

@@ -1138,4 +1138,63 @@ describe('getCardsByNames arenaOnly batch post-process (E271)', () => {
     expect(result.get(name)?.id).toBe('batch-arena-print');
     expect(result.get(name)?.games).toContain('arena');
   });
+
+  it('re-resolves many non-Arena names in ONE chunked search and keeps the batch printing for a card with no Arena printing', async () => {
+    const onArena = 'Chunk Arena Card';
+    const paperOnly = 'Chunk Paper Only Card';
+    const batchPrinting = (name: string) =>
+      makeCard({
+        id: `batch-${name}`,
+        name,
+        layout: 'normal',
+        games: ['paper'],
+        prices: { usd: '0.25' },
+      });
+    const arenaPrint = makeCard({
+      id: 'chunk-arena-print',
+      name: onArena,
+      layout: 'normal',
+      games: ['paper', 'arena'],
+      prices: { usd: '1.00' },
+    });
+    const searches: string[] = [];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/cards/collection')) {
+          const body = JSON.parse(String(init?.body)) as { identifiers: Array<{ name: string }> };
+          return {
+            ok: true,
+            json: async () => ({
+              data: body.identifiers.map((id) => batchPrinting(id.name)),
+              not_found: [],
+            }),
+          };
+        }
+        if (url.includes('/cards/search') && url.includes('game%3Aarena')) {
+          searches.push(decodeURIComponent(url));
+          return { ok: true, json: async () => ({ data: [arenaPrint], has_more: false }) };
+        }
+        return { ok: false, status: 404, statusText: 'Not Found' };
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getCardsByNames([onArena, paperOnly], undefined, undefined, {
+      arenaOnly: true,
+    });
+
+    expect(searches).toHaveLength(1);
+    expect(searches[0]).toContain(`!"${onArena}" or !"${paperOnly}"`);
+    expect(result.get(onArena)?.id).toBe('chunk-arena-print');
+    expect(result.get(paperOnly)?.id).toBe(`batch-${paperOnly}`);
+
+    // Both answers are remembered: a second arenaOnly ask is a pure cache hit.
+    const again = await getCardsByNames([onArena, paperOnly], undefined, undefined, {
+      arenaOnly: true,
+    });
+    expect(searches).toHaveLength(1);
+    expect(again.get(onArena)?.id).toBe('chunk-arena-print');
+    expect(again.get(paperOnly)?.id).toBe(`batch-${paperOnly}`);
+  });
 });

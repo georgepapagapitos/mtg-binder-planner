@@ -614,6 +614,43 @@ async function fetchPlainAndRememberForArena(name: string): Promise<ScryfallCard
   return card;
 }
 
+/**
+ * Cheapest paper printing that's also on Arena, for many names at once (E271):
+ * one `game:arena (!"A" or !"B" …)` search per chunk of names, cheapest-first,
+ * so a ~600-card EDHREC pool costs ~25 requests. The per-name version of this
+ * pass took 650s for a single deck. A name with no Arena printing is simply
+ * absent from the result. Paging stops as soon as every name in the chunk has
+ * its first (cheapest) hit.
+ */
+async function fetchCheapestArenaPrintings(names: string[]): Promise<Map<string, ScryfallCard>> {
+  const found = new Map<string, ScryfallCard>();
+  const CHUNK = 25;
+  for (let i = 0; i < names.length; i += CHUNK) {
+    const chunk = names.slice(i, i + CHUNK);
+    const wanted = new Map(chunk.map((n) => [n.toLowerCase(), n]));
+    const q = `-is:digital game:arena (${chunk.map((n) => `!"${n}"`).join(' or ')})`;
+    for (let page = 1; wanted.size > 0 && page <= 5; page++) {
+      const response = await scryfallRequest(
+        `/cards/search?q=${encodeURIComponent(q)}&unique=prints&order=usd&dir=asc&page=${page}`
+      );
+      if (!response.ok) break;
+      const body = (await response.json()) as ScryfallSearchResponse;
+      for (const card of body.data) {
+        if (!isPlayableCard(card)) continue;
+        for (const key of [card.name, frontFaceName(card.name)]) {
+          const original = wanted.get(key.toLowerCase());
+          if (original) {
+            found.set(original, card);
+            wanted.delete(key.toLowerCase());
+          }
+        }
+      }
+      if (!body.has_more) break;
+    }
+  }
+  return found;
+}
+
 /** Split requested names into already-cached results and the names still to fetch. */
 function partitionCachedCards(
   names: string[],
@@ -818,28 +855,21 @@ async function liveGetCardsByNames(
   // Arena-only mode (E271): /cards/collection returns one printing per name
   // and doesn't accept game filters, so the batch above can hand back a
   // printing that isn't on Arena even though the card has one (Command Tower,
-  // basics, Impact Tremors, ...). Re-resolve just the names that came back
-  // non-Arena through the arena-preferred single-name search — this list is
-  // small in practice (most EDHREC staples ARE on Arena). Cache both outcomes
-  // under the composite `name|arena` key so a repeat call for the same names
-  // skips straight to the cache instead of re-running this pass.
+  // basics, Impact Tremors, ...). Re-resolve the names that came back
+  // non-Arena in chunked OR-searches, and remember the answer under the
+  // composite `name|arena` key either way — a card with no Arena printing
+  // keeps its batch printing and `notOnArena` rejects it downstream, exactly
+  // as before this flag existed.
   if (arenaOnly) {
     const nonArenaNames = uncachedNames.filter((name) => {
       const card = result.get(name);
       return card && !card.games?.includes('arena');
     });
-    const pass = nonArenaNames.slice(0, followupBudget);
-    if (pass.length < nonArenaNames.length) {
-      logger.debug(
-        `[Scryfall] Arena-only: only re-resolving ${pass.length}/${nonArenaNames.length} non-Arena printings (follow-up budget exhausted)`
-      );
-    }
-    for (const name of pass) {
-      const arenaCard = await fetchCardByNameThrottled(name, true);
-      if (arenaCard) {
-        cardCache.set(cacheKeyFor(name, preferredSet, true), arenaCard);
-        result.set(name, freshCopy(arenaCard));
-      }
+    const arenaCards = await fetchCheapestArenaPrintings(nonArenaNames);
+    for (const name of nonArenaNames) {
+      const arenaCard = arenaCards.get(name);
+      if (arenaCard) result.set(name, freshCopy(arenaCard));
+      cardCache.set(cacheKeyFor(name, preferredSet, true), arenaCard ?? result.get(name)!);
     }
     // Cards whose batch-resolved printing is already on Arena: cache under the
     // composite key too, so a later arenaOnly call for the same name is a

@@ -4,17 +4,19 @@ import {
   getOfflineDataStats,
   readManifest,
   readStandaloneCombosVersion,
-  replaceCombos,
   writeStandaloneCombosVersion,
 } from './db';
+import { importCombos } from './combos-import';
 
 vi.mock('./db', () => ({
   getOfflineDataStats: vi.fn(),
   readManifest: vi.fn(),
   readStandaloneCombosVersion: vi.fn(),
-  replaceCombos: vi.fn(),
   writeStandaloneCombosVersion: vi.fn(),
 }));
+// The streaming importer owns the /api/offline/combos fetch + IDB writes; here
+// we only care that ensure-combos calls it at the right moments.
+vi.mock('./combos-import', () => ({ importCombos: vi.fn() }));
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -46,16 +48,33 @@ beforeEach(() => {
 
 describe('ensureCombosCached', () => {
   it('downloads + stores the dataset when nothing is cached', async () => {
-    const combos = [{ id: 'c1' }];
-    const fetchSpy = routeFetch({
-      manifest: jsonResponse(manifest('v1')),
-      combos: jsonResponse(combos),
-    });
+    const fetchSpy = routeFetch({ manifest: jsonResponse(manifest('v1')) });
 
     expect(await ensureCombosCached()).toBe(true);
-    expect(replaceCombos).toHaveBeenCalledWith(combos);
+    expect(importCombos).toHaveBeenCalledTimes(1);
+    // The version stamp is what makes the rows "cached" — written only after
+    // the importer resolved, never before.
     expect(writeStandaloneCombosVersion).toHaveBeenCalledWith('v1');
-    expect(fetchSpy).toHaveBeenCalledTimes(2); // manifest + combos
+    expect(fetchSpy).toHaveBeenCalledTimes(1); // the manifest; the importer owns the bulk fetch
+  });
+
+  it('finishes an interrupted first download instead of serving unstamped rows', async () => {
+    // Rows present but no version stamp = a stream that died mid-way. The
+    // importer upserts by id, so re-running it completes the dataset.
+    vi.mocked(getOfflineDataStats).mockResolvedValue({ cardCount: 0, comboCount: 3 });
+    routeFetch({ manifest: jsonResponse(manifest('v1')) });
+
+    expect(await ensureCombosCached()).toBe(true);
+    expect(importCombos).toHaveBeenCalledTimes(1);
+    expect(writeStandaloneCombosVersion).toHaveBeenCalledWith('v1');
+  });
+
+  it('refuses unstamped rows when the server is unreachable', async () => {
+    vi.mocked(getOfflineDataStats).mockResolvedValue({ cardCount: 0, comboCount: 3 });
+    routeFetch({ manifest: new TypeError('offline') });
+
+    expect(await ensureCombosCached()).toBe(false); // partial dataset is not an answer
+    expect(importCombos).not.toHaveBeenCalled();
   });
 
   it('serves the cache without re-downloading when the version is unchanged', async () => {
@@ -64,17 +83,17 @@ describe('ensureCombosCached', () => {
     const fetchSpy = routeFetch({ manifest: jsonResponse(manifest('v1')) });
 
     expect(await ensureCombosCached()).toBe(true);
-    expect(replaceCombos).not.toHaveBeenCalled();
+    expect(importCombos).not.toHaveBeenCalled();
     expect(fetchSpy).toHaveBeenCalledTimes(1); // only the manifest
   });
 
   it('re-downloads when the dataset version moved', async () => {
     vi.mocked(getOfflineDataStats).mockResolvedValue({ cardCount: 0, comboCount: 3 });
     vi.mocked(readStandaloneCombosVersion).mockResolvedValue('v1');
-    routeFetch({ manifest: jsonResponse(manifest('v2')), combos: jsonResponse([{ id: 'c2' }]) });
+    routeFetch({ manifest: jsonResponse(manifest('v2')) });
 
     expect(await ensureCombosCached()).toBe(true);
-    expect(replaceCombos).toHaveBeenCalledWith([{ id: 'c2' }]);
+    expect(importCombos).toHaveBeenCalledTimes(1);
     expect(writeStandaloneCombosVersion).toHaveBeenCalledWith('v2');
   });
 
@@ -94,32 +113,34 @@ describe('ensureCombosCached', () => {
     routeFetch({ manifest: jsonResponse(manifest('v9')) });
 
     expect(await ensureCombosCached()).toBe(true);
-    expect(replaceCombos).not.toHaveBeenCalled(); // versions agree → no download
+    expect(importCombos).not.toHaveBeenCalled(); // versions agree → no download
   });
 
   it('returns false when nothing is cached and the manifest is unreachable', async () => {
     routeFetch({ manifest: new TypeError('offline') });
     expect(await ensureCombosCached()).toBe(false);
-    expect(replaceCombos).not.toHaveBeenCalled();
+    expect(importCombos).not.toHaveBeenCalled();
   });
 
   it('serves the stale cache when offline but combos are present', async () => {
     vi.mocked(getOfflineDataStats).mockResolvedValue({ cardCount: 0, comboCount: 3 });
+    vi.mocked(readStandaloneCombosVersion).mockResolvedValue('v1');
     routeFetch({ manifest: new TypeError('offline') });
     expect(await ensureCombosCached()).toBe(true);
-    expect(replaceCombos).not.toHaveBeenCalled();
+    expect(importCombos).not.toHaveBeenCalled();
   });
 
   it('keeps the stale cache when a refresh download fails', async () => {
     vi.mocked(getOfflineDataStats).mockResolvedValue({ cardCount: 0, comboCount: 3 });
     vi.mocked(readStandaloneCombosVersion).mockResolvedValue('v1');
-    routeFetch({
-      manifest: jsonResponse(manifest('v2')),
-      combos: jsonResponse({ error: 'x' }, 503),
-    });
+    routeFetch({ manifest: jsonResponse(manifest('v2')) });
+    vi.mocked(importCombos).mockRejectedValueOnce(
+      new Error("Couldn't download the combo data. Try again in a moment.")
+    );
 
     expect(await ensureCombosCached()).toBe(true); // stale served, not a hard failure
-    expect(replaceCombos).not.toHaveBeenCalled();
+    expect(importCombos).toHaveBeenCalledTimes(1);
+    expect(writeStandaloneCombosVersion).not.toHaveBeenCalled(); // v1 stamp stays
   });
 
   it('dedupes concurrent calls into a single run', async () => {
@@ -137,8 +158,8 @@ describe('ensureCombosCached', () => {
     routeFetch({ manifest: new TypeError('offline') });
     expect(await ensureCombosCached()).toBe(false);
 
-    routeFetch({ manifest: jsonResponse(manifest('v1')), combos: jsonResponse([{ id: 'c1' }]) });
+    routeFetch({ manifest: jsonResponse(manifest('v1')) });
     expect(await ensureCombosCached()).toBe(true);
-    expect(replaceCombos).toHaveBeenCalledWith([{ id: 'c1' }]);
+    expect(importCombos).toHaveBeenCalledTimes(1);
   });
 });

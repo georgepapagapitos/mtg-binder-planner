@@ -106,12 +106,36 @@ export async function replaceCombos(combos: OfflineCombo[]): Promise<void> {
     await tx.done;
   }
   for (let i = 0; i < combos.length; i += INSERT_BATCH) {
-    const slice = combos.slice(i, i + INSERT_BATCH);
+    await appendCombos(combos.slice(i, i + INSERT_BATCH));
+  }
+}
+
+/** Upsert a batch of combos by id (one transaction). Streaming import's write step. */
+export async function appendCombos(combos: OfflineCombo[]): Promise<void> {
+  if (combos.length === 0) return;
+  const db = await getDB();
+  const tx = db.transaction(STORE_COMBOS, 'readwrite');
+  const store = tx.objectStore(STORE_COMBOS);
+  for (const c of combos) store.put(c);
+  await tx.done;
+}
+
+/**
+ * Delete every combo whose id is not in `keep` — the streaming import's final
+ * step, so rows the dataset dropped upstream don't linger. Keys only; never
+ * reads the values.
+ */
+export async function pruneCombosNotIn(keep: ReadonlySet<string>): Promise<number> {
+  const db = await getDB();
+  const keys = (await db.getAllKeys(STORE_COMBOS)) as string[];
+  const stale = keys.filter((k) => !keep.has(k));
+  for (let i = 0; i < stale.length; i += INSERT_BATCH) {
     const tx = db.transaction(STORE_COMBOS, 'readwrite');
     const store = tx.objectStore(STORE_COMBOS);
-    for (const c of slice) store.put(c);
+    for (const k of stale.slice(i, i + INSERT_BATCH)) store.delete(k);
     await tx.done;
   }
+  return stale.length;
 }
 
 export async function getCardByOracleId(oracleId: string): Promise<SlimCard | null> {
@@ -163,21 +187,41 @@ export async function* iterateAllCards(): AsyncGenerator<SlimCard, void, unknown
  * `getAll` whose response serializes past its IPC cap (256 MiB − 10 MiB
  * overhead ≈ 246 MiB) with "The serialized value is too large" — and the
  * whole dataset (107k rows, 163 MB raw JSON) now serializes past it, so one
- * `getAll()` fails outright and every combo surface errored. 5000 rows is
- * roughly 8 MB a page: 20-ish round trips, nowhere near the cap.
+ * `getAll()` fails outright and every combo surface errored. 10 000 rows is
+ * roughly 15 MB a page (~30 MB of heap while a matcher scans it): 11 round
+ * trips for the whole store, nowhere near the cap. Measured 2026-09-09: 5000
+ * cost Firefox +1.1 s per warm match over the single read; this halves that.
  */
-const READ_BATCH = 5000;
+const READ_BATCH = 10_000;
+
+/**
+ * Yield the combo store in key-ordered pages. Consumers that scan the whole
+ * dataset (the matchers) hold one page at a time, so a match costs one page of
+ * heap rather than the whole dataset (measured 2026-09-09: 391 MB peak with
+ * everything materialized).
+ */
+export async function* iterateComboPages(): AsyncGenerator<OfflineCombo[], void, unknown> {
+  const db = await getDB();
+  const read = (after?: IDBKeyRange) =>
+    db.getAll(STORE_COMBOS, after, READ_BATCH) as Promise<OfflineCombo[]>;
+  let next = read();
+  for (;;) {
+    const page = await next;
+    if (page.length < READ_BATCH) {
+      if (page.length > 0) yield page;
+      return;
+    }
+    // Kick off the next read before handing this page to the consumer, so the
+    // IDB round trip overlaps the consumer's scan instead of serializing with it.
+    next = read(IDBKeyRange.lowerBound(page[page.length - 1].id, true));
+    yield page;
+  }
+}
 
 export async function getAllCombos(): Promise<OfflineCombo[]> {
-  const db = await getDB();
   const out: OfflineCombo[] = [];
-  let after: IDBKeyRange | undefined;
-  for (;;) {
-    const page = (await db.getAll(STORE_COMBOS, after, READ_BATCH)) as OfflineCombo[];
-    for (const c of page) out.push(c);
-    if (page.length < READ_BATCH) return out;
-    after = IDBKeyRange.lowerBound(page[page.length - 1].id, true);
-  }
+  for await (const page of iterateComboPages()) for (const c of page) out.push(c);
+  return out;
 }
 
 export async function readManifest(): Promise<OfflineManifest | null> {

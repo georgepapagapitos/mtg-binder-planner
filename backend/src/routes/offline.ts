@@ -97,20 +97,28 @@ offlineRouter.get('/oracle-cards', bulkLimiter, (req: Request, res: Response) =>
 offlineRouter.get('/combos', bulkLimiter, async (req: Request, res: Response) => {
   try {
     const bulk = await getCombosBulk();
-    const etag = `"${bulk.version}"`;
+    // NDJSON when asked for — the client streams it row by row and never holds
+    // the whole dataset in memory. Anything else (including cached app shells
+    // from before this existed) gets the legacy JSON array. Distinct ETags and
+    // `Vary: Accept` keep shared caches from handing one shape to the other.
+    const ndjson = (req.headers.accept ?? '').includes('application/x-ndjson');
+    const etag = ndjson ? `"${bulk.version}-ndjson"` : `"${bulk.version}"`;
     if (req.headers['if-none-match'] === etag) {
       res.status(304).end();
       return;
     }
     res.set({
       ETag: etag,
+      Vary: 'Accept',
       'Cache-Control': 'public, max-age=3600',
-      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Type': ndjson
+        ? 'application/x-ndjson; charset=utf-8'
+        : 'application/json; charset=utf-8',
       'Content-Encoding': 'gzip',
       'X-Offline-Version': bulk.version,
       'X-Offline-Combo-Count': String(bulk.comboCount),
     });
-    res.send(bulk.gzipped);
+    res.send(ndjson ? bulk.gzippedNdjson : bulk.gzipped);
   } catch (err) {
     logger.error('[offline] combos failed:', err);
     res.status(503).json({ error: 'Offline combos bulk not yet available.' });

@@ -1,5 +1,6 @@
-import { readManifest, replaceCombos, replaceOracleCards, writeManifest } from './db';
-import type { OfflineCombo, OfflineManifest, SlimCard } from './types';
+import { readManifest, replaceOracleCards, writeManifest } from './db';
+import { importCombos } from './combos-import';
+import type { OfflineManifest, SlimCard } from './types';
 import { apiUrl } from '../api-base';
 
 export type DownloadPhase =
@@ -198,19 +199,18 @@ export async function syncOfflineData(opts: {
       fraction: 0,
       detail: `0 / ${(server.combosByteSize / 1_000_000).toFixed(2)} MB`,
     });
-    const combos = await fetchJsonWithProgress<OfflineCombo[]>(
-      '/api/offline/combos',
-      server.combosByteSize,
-      (downloaded, total) => {
-        onProgress?.({
-          phase: 'downloading-combos',
-          fraction: total ? downloaded / total : null,
-          detail: `${(downloaded / 1_000_000).toFixed(2)} / ${total ? (total / 1_000_000).toFixed(2) : '?'} MB`,
-        });
-      }
-    );
-    onProgress?.({ phase: 'storing-combos', fraction: 0 });
-    await replaceCombos(combos);
+    // Streams NDJSON and stores rows as they arrive, so downloading and
+    // storing are one phase. `received` counts decoded bytes while the
+    // manifest's size is the gzipped transfer, so the fraction is a guide
+    // (clamped), not a measurement.
+    await importCombos((received) => {
+      const total = server.combosByteSize || null;
+      onProgress?.({
+        phase: 'downloading-combos',
+        fraction: total ? Math.min(1, received / total) : null,
+        detail: `${(received / 1_000_000).toFixed(2)} / ${total ? (total / 1_000_000).toFixed(2) : '?'} MB`,
+      });
+    });
   }
 
   await writeManifest(server);

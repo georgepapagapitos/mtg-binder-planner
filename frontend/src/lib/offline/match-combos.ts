@@ -1,5 +1,5 @@
 import type { ComboMatch, ComboMatchResponse, ComboSummary } from '@/types/combos';
-import { getAllCombos } from './db';
+import { iterateComboPages } from './db';
 import type { OfflineCombo } from './types';
 
 /**
@@ -13,7 +13,6 @@ export async function matchCombosLocal(opts: {
   deckOracleIds?: Iterable<string>;
   format?: string;
 }): Promise<Omit<ComboMatchResponse, 'source'>> {
-  const all = await getAllCombos();
   const owned = toSet(opts.ownedOracleIds);
   const inDeckSet = opts.deckOracleIds ? toSet(opts.deckOracleIds) : null;
 
@@ -21,16 +20,38 @@ export async function matchCombosLocal(opts: {
   const oneAway: ComboMatch[] = [];
   const almostInCollection: ComboMatch[] = [];
 
-  for (const combo of all) {
-    if (opts.format && combo.legalities[opts.format] !== 'legal') continue;
-    if (combo.cards.length === 0) continue;
+  for await (const page of iterateComboPages())
+    for (const combo of page) {
+      if (opts.format && combo.legalities[opts.format] !== 'legal') continue;
+      if (combo.cards.length === 0) continue;
 
-    const present: string[] = [];
-    const missing: string[] = [];
+      const present: string[] = [];
+      const missing: string[] = [];
 
-    if (inDeckSet) {
+      if (inDeckSet) {
+        for (const card of combo.cards) {
+          (inDeckSet.has(card.oracleId) ? present : missing).push(card.oracleId);
+        }
+        if (missing.length === 0) {
+          inDeck.push({
+            combo: toSummary(combo),
+            presentOracleIds: present,
+            missingOracleIds: [],
+          });
+          continue;
+        }
+        if (missing.length === 1) {
+          oneAway.push({
+            combo: toSummary(combo),
+            presentOracleIds: present,
+            missingOracleIds: missing,
+          });
+        }
+        continue;
+      }
+
       for (const card of combo.cards) {
-        (inDeckSet.has(card.oracleId) ? present : missing).push(card.oracleId);
+        (owned.has(card.oracleId) ? present : missing).push(card.oracleId);
       }
       if (missing.length === 0) {
         inDeck.push({
@@ -38,35 +59,14 @@ export async function matchCombosLocal(opts: {
           presentOracleIds: present,
           missingOracleIds: [],
         });
-        continue;
-      }
-      if (missing.length === 1) {
-        oneAway.push({
+      } else if (missing.length === 1) {
+        almostInCollection.push({
           combo: toSummary(combo),
           presentOracleIds: present,
           missingOracleIds: missing,
         });
       }
-      continue;
     }
-
-    for (const card of combo.cards) {
-      (owned.has(card.oracleId) ? present : missing).push(card.oracleId);
-    }
-    if (missing.length === 0) {
-      inDeck.push({
-        combo: toSummary(combo),
-        presentOracleIds: present,
-        missingOracleIds: [],
-      });
-    } else if (missing.length === 1) {
-      almostInCollection.push({
-        combo: toSummary(combo),
-        presentOracleIds: present,
-        missingOracleIds: missing,
-      });
-    }
-  }
 
   const byPopularity = (a: ComboMatch, b: ComboMatch) => b.combo.popularity - a.combo.popularity;
   inDeck.sort(byPopularity);
@@ -119,22 +119,22 @@ export async function searchCombosLocal(opts: {
   const needle = opts.query.trim().toLowerCase();
   if (!needle) return { matches: [], total: 0 };
 
-  const all = await getAllCombos();
   const owned = toSet(opts.ownedOracleIds);
   const hits: ComboMatch[] = [];
 
-  for (const combo of all) {
-    if (opts.format && combo.legalities[opts.format] !== 'legal') continue;
-    if (combo.cards.length === 0) continue;
-    if (!rawMatchesSearch(combo, needle)) continue;
+  for await (const page of iterateComboPages())
+    for (const combo of page) {
+      if (opts.format && combo.legalities[opts.format] !== 'legal') continue;
+      if (combo.cards.length === 0) continue;
+      if (!rawMatchesSearch(combo, needle)) continue;
 
-    const present: string[] = [];
-    const missing: string[] = [];
-    for (const card of combo.cards) {
-      (owned.has(card.oracleId) ? present : missing).push(card.oracleId);
+      const present: string[] = [];
+      const missing: string[] = [];
+      for (const card of combo.cards) {
+        (owned.has(card.oracleId) ? present : missing).push(card.oracleId);
+      }
+      hits.push({ combo: toSummary(combo), presentOracleIds: present, missingOracleIds: missing });
     }
-    hits.push({ combo: toSummary(combo), presentOracleIds: present, missingOracleIds: missing });
-  }
 
   hits.sort((a, b) => {
     const d = a.missingOracleIds.length - b.missingOracleIds.length;

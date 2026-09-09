@@ -95,6 +95,16 @@ describe('getCombosBulk', () => {
     expect(rows.map((r) => r.id).sort()).toEqual(['c-niche', 'c-popular']);
   });
 
+  it('ships the same rows as gzipped NDJSON, one combo per line', async () => {
+    const bulk = await getCombosBulk();
+    const text = gunzipSync(bulk.gzippedNdjson).toString('utf-8');
+    expect(text.endsWith('\n')).toBe(true);
+    const lines = text.trimEnd().split('\n');
+    const rows = lines.map((l) => JSON.parse(l) as OfflineCombo);
+    const array = JSON.parse(gunzipSync(bulk.gzipped).toString('utf-8')) as OfflineCombo[];
+    expect(rows).toEqual(array);
+  });
+
   it('orders cards within a combo by position', async () => {
     const bulk = await getCombosBulk();
     const rows = JSON.parse(gunzipSync(bulk.gzipped).toString('utf-8')) as OfflineCombo[];

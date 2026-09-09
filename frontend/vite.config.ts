@@ -83,7 +83,9 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3737',
+        // Parallel worktree sessions collide on :3737; point this Vite at a
+        // backend on another port with VITE_DEV_API_TARGET=http://localhost:3738.
+        target: process.env.VITE_DEV_API_TARGET ?? 'http://localhost:3737',
         changeOrigin: true,
       },
       '/edhrec-api': {

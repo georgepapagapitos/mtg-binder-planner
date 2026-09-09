@@ -3,10 +3,9 @@ import {
   getOfflineDataStats,
   readManifest,
   readStandaloneCombosVersion,
-  replaceCombos,
   writeStandaloneCombosVersion,
 } from './db';
-import type { OfflineCombo } from './types';
+import { importCombos } from './combos-import';
 
 /**
  * Ensure the global combo dataset is cached in the device-local offline DB so
@@ -56,20 +55,22 @@ export function ensureCombosCached(): Promise<boolean> {
 async function run(): Promise<boolean> {
   const { comboCount } = await getOfflineDataStats();
   const server = await fetchManifest();
+  // "Cached" means rows AND a version stamp. The import streams rows in and
+  // stamps the version only when the whole dataset arrived, so rows without a
+  // stamp are a download that died mid-stream — finish it, don't serve it.
+  const cached =
+    (await readStandaloneCombosVersion()) ?? (await readManifest())?.combosVersion ?? null;
 
-  if (comboCount > 0) {
+  if (comboCount > 0 && cached) {
     // Have combos already (combos-only cache or full offline mode). Refresh
     // only when we can see the server version AND it moved — and if that
-    // refresh fails, keep serving the (slightly stale) cache.
-    if (server) {
-      const cached =
-        (await readStandaloneCombosVersion()) ?? (await readManifest())?.combosVersion ?? null;
-      if (cached !== server.combosVersion) {
-        try {
-          await download(server.combosVersion);
-        } catch {
-          /* serve the stale cache */
-        }
+    // refresh fails, keep serving the (slightly stale) cache: the import
+    // upserts in place and prunes last, so the store is never emptied.
+    if (server && cached !== server.combosVersion) {
+      try {
+        await download(server.combosVersion);
+      } catch {
+        /* serve the stale cache */
       }
     }
     return true;
@@ -101,11 +102,6 @@ async function fetchManifest(): Promise<{ combosVersion: string } | null> {
 }
 
 async function download(version: string): Promise<void> {
-  const res = await fetch(apiUrl('/api/offline/combos'), {
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error("Couldn't download the combo data. Try again in a moment.");
-  const combos = (await res.json()) as OfflineCombo[];
-  await replaceCombos(combos);
+  await importCombos();
   await writeStandaloneCombosVersion(version);
 }

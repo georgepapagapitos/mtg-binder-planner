@@ -1,8 +1,11 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, it, expect } from 'vitest';
 import {
+  appendCombos,
   clearOfflineData,
   getAllCombos,
+  iterateComboPages,
+  pruneCombosNotIn,
   getCardByName,
   getCardByOracleId,
   getCardsByOracleIds,
@@ -119,9 +122,9 @@ describe('combos store', () => {
   });
 
   it('reads back every row across page boundaries, each exactly once', async () => {
-    // getAllCombos pages by key (READ_BATCH = 5000) so a single response can
-    // never hit Firefox's IPC cap; 10 007 rows spans three pages with a
-    // partial last one, and ids that don't sort the way they were inserted.
+    // getAllCombos pages by key (READ_BATCH = 10 000) so a single response can
+    // never hit Firefox's IPC cap; 10 007 rows spans two pages with a partial
+    // last one, and ids that don't sort the way they were inserted.
     const rows: OfflineCombo[] = Array.from({ length: 10_007 }, (_, i) => ({
       id: `c-${(i * 7919) % 10_007}`,
       identity: 'W',
@@ -139,6 +142,44 @@ describe('combos store', () => {
     const back = await getAllCombos();
     expect(back.length).toBe(rows.length);
     expect(new Set(back.map((c) => c.id)).size).toBe(rows.length);
+
+    // The matchers consume the same read as pages: two of them here, the
+    // last partial, in ascending key order with no row repeated.
+    const pages: number[] = [];
+    let last = '';
+    for await (const page of iterateComboPages()) {
+      pages.push(page.length);
+      expect(page[0].id > last).toBe(true);
+      last = page[page.length - 1].id;
+    }
+    expect(pages).toEqual([10_000, 7]);
+  });
+
+  it('appendCombos upserts by id and pruneCombosNotIn drops only the ids not kept', async () => {
+    const c = (id: string, popularity: number): OfflineCombo => ({
+      id,
+      identity: 'W',
+      produces: [],
+      prerequisites: null,
+      description: null,
+      manaNeeded: null,
+      popularity,
+      legalities: { commander: 'legal' },
+      cardCount: 1,
+      bracket: null,
+      cards: [{ oracleId: 'o1', cardName: 'Card', quantity: 1, position: 0 }],
+    });
+    await appendCombos([c('a', 1), c('b', 1)]);
+    await appendCombos([c('b', 2), c('c', 1)]); // b overwritten, c added, a untouched
+    expect((await getAllCombos()).map((x) => `${x.id}:${x.popularity}`).sort()).toEqual([
+      'a:1',
+      'b:2',
+      'c:1',
+    ]);
+
+    expect(await pruneCombosNotIn(new Set(['b', 'c']))).toBe(1);
+    expect((await getAllCombos()).map((x) => x.id).sort()).toEqual(['b', 'c']);
+    expect(await pruneCombosNotIn(new Set(['b', 'c']))).toBe(0); // idempotent
   });
 });
 

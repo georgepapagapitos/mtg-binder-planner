@@ -1,4 +1,5 @@
 import { handleResponse, fetchWithAbortTimeout } from '../fetch-utils';
+import { logger } from '../logger';
 import { ensureCombosCached, matchCombosLocal, searchCombosLocal } from '../offline';
 import type { ComboSearchResult } from '../offline';
 import type { ComboDetail, ComboMatchResponse } from '../../types/combos';
@@ -35,12 +36,21 @@ export async function matchCombos(req: MatchRequest): Promise<ComboMatchResponse
   // server endpoint when the dataset can't be cached (e.g. offline + empty
   // cache on first run) — for a logged-in user that still works.
   if (await ensureCombosCached()) {
-    const local = await matchCombosLocal({
-      ownedOracleIds: req.ownedOracleIds,
-      deckOracleIds: req.deckOracleIds,
-      format: req.format,
-    });
-    return { ...local, source: 'local' };
+    try {
+      const local = await matchCombosLocal({
+        ownedOracleIds: req.ownedOracleIds,
+        deckOracleIds: req.deckOracleIds,
+        format: req.format,
+      });
+      return { ...local, source: 'local' };
+    } catch (err) {
+      // A local matcher failure is a browser-storage failure (e.g. Firefox's
+      // IndexedDB response cap, a wedged database), and its message is a
+      // browser internal — never authored copy. "The dataset couldn't be
+      // used" is exactly the case the server fallback below exists for, so
+      // take it rather than surfacing the raw exception on the deck panel.
+      logger.warn('[combos] local matcher failed, falling back to the server', err);
+    }
   }
   // Fallback path — device-local cache couldn't be used. `/api/combos/match`
   // caps candidates at 2000 for memory safety (see MAX_CANDIDATE_COMBOS), so

@@ -76,6 +76,23 @@ describe('matchCombos', () => {
 });
 
 describe('matchCombos (client-side)', () => {
+  it('falls back to the server matcher when the local matcher throws', async () => {
+    // A browser-storage failure (Firefox's IndexedDB response cap, a wedged
+    // database) must not surface its raw message on the deck panel — it is the
+    // "dataset couldn't be used" case the capped server fallback exists for.
+    vi.mocked(ensureCombosCached).mockResolvedValue(true);
+    vi.mocked(matchCombosLocal).mockRejectedValue(
+      new Error('The serialized value is too large (size=262901152 bytes, max=257949696 bytes).')
+    );
+    const empty = { inDeck: [], oneAway: [], almostInCollection: [], almostInCollectionTotal: 0 };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(empty));
+
+    const result = await matchCombos({ ownedOracleIds: ['a'], format: 'commander' });
+
+    expect(result).toEqual({ ...empty, source: 'server' });
+    expect(fetchSpy).toHaveBeenCalledWith('/api/combos/match', expect.anything());
+  });
+
   it('matches locally against the cached dataset and never calls the server', async () => {
     vi.mocked(ensureCombosCached).mockResolvedValue(true);
     const local = { inDeck: [], oneAway: [], almostInCollection: [], almostInCollectionTotal: 0 };

@@ -11,7 +11,7 @@ import { offlineGetCardByName, offlineGetCardsByNames, offlineSearchCards } from
 import { offlineDataAvailable, useOfflineStore } from '@/store/offline';
 import { frontFaceName } from '@/lib/card-text';
 import { normalizeScryfallQuery } from '@/lib/normalize-search';
-import { scryfallFetch, scryfallRequest } from '@/lib/scryfall-fetch';
+import { scryfallFetch, scryfallRequest, scryfallErrorMessage } from '@/lib/scryfall-fetch';
 import { apiUrl } from '@/lib/api-base';
 import { persistCard, readCachedCards } from './cache';
 import { HARDCODED_GAME_CHANGERS as SHARED_GAME_CHANGERS } from '@spellcontrol/deck-metrics';
@@ -778,6 +778,73 @@ async function offlineUpgradeCardPrintings(): Promise<void> {
 }
 
 /**
+ * Shared detail-extraction for a 400/422 Scryfall response (invalid search
+ * syntax) — used by both the up-front filter validation and the batched
+ * upgrade-search's own defensive check below. Scryfall's error body carries a
+ * human `details` string; falls back to the generic status message when the
+ * body isn't JSON.
+ */
+async function scryfallInvalidQueryMessage(response: Response): Promise<string> {
+  let details = '';
+  try {
+    const body = (await response.json()) as { details?: string };
+    details = body.details ?? '';
+  } catch {
+    // Body wasn't JSON — fall back to the generic status message below.
+  }
+  return `Your Scryfall filter isn't valid: ${details || scryfallErrorMessage(response.status, response.statusText)}`;
+}
+
+/**
+ * Up-front syntax validation for a user's scryfallQuery filter — ONE plain,
+ * unbatched request, meant to run at the very start of generation before any
+ * pool work. LIVE-CONFIRMED the batched upgrade-search's own 400 check
+ * (liveUpgradeCardPrintings below) doesn't reliably surface: a live rerun hit
+ * a 429 cooldown on that request first, and post-retry the 400 branch never
+ * fired — that check only runs once real candidate cards exist to batch
+ * against, so a thin/queued/retried run can route around it. This request is
+ * independent of any card names or batching, so a syntax error can't hide
+ * behind either. The request is scoped to the deck's color identity and
+ * Commander legality, and the result's `total_cards` is a ceiling on the
+ * pool any fill can draw from: LIVE-CONFIRMED that `garbage((` is a VALID
+ * Scryfall query (a name search matching 7 cards), so a syntax check alone
+ * shipped a 99-card deck with 98 lands. A filter that matches fewer than
+ * MIN_FILTER_POOL usable cards (or none at all, a 404) therefore throws an
+ * actionable error too. No-op when the query is empty or the device is
+ * offline (a network hiccup here shouldn't block generation; the batched
+ * check above still applies).
+ */
+const MIN_FILTER_POOL = 40;
+export async function validateScryfallFilter(
+  query: string,
+  colorIdentity: string[] = []
+): Promise<void> {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  const scoped = `${trimmed} f:commander id<=${colorIdentity.length > 0 ? colorIdentity.join('') : 'C'}`;
+  let response: Response;
+  try {
+    response = await scryfallRequest(`/cards/search?q=${encodeURIComponent(scoped)}&page=1`);
+  } catch {
+    // Network/opaque failure — don't block generation on a validation-only
+    // request; a genuinely broken connection fails loudly elsewhere.
+    return;
+  }
+  if (response.status === 400 || response.status === 422) {
+    throw new Error(await scryfallInvalidQueryMessage(response));
+  }
+  const tooNarrow = (n: number) =>
+    new Error(
+      `Your Scryfall filter matches ${n === 0 ? 'no cards' : `only ${n} card${n === 1 ? '' : 's'}`} this deck can use. Loosen or clear it under Customize.`
+    );
+  if (response.status === 404) throw tooNarrow(0);
+  if (!response.ok) return;
+  const total = ((await response.json()) as { total_cards?: number }).total_cards ?? 0;
+  if (total < MIN_FILTER_POOL) throw tooNarrow(total);
+}
+
+/**
  * Upgrade card printings in a map to match non-set Scryfall filters (e.g. is:full-art, frame:extendedart).
  * Searches for matching printings in batches and replaces entries in-place.
  * Set-based filters (set:xxx) are stripped since those are handled by getCardsByNames.
@@ -836,11 +903,29 @@ async function liveUpgradeCardPrintings(
     const fullQuery = `(${nameQuery}) ${filters}`;
     const encodedQuery = encodeURIComponent(fullQuery);
 
+    let response: Response;
     try {
-      const response = await scryfallRequest(
+      response = await scryfallRequest(
         `/cards/search?q=${encodedQuery}&unique=prints&order=released&dir=desc`
       );
+    } catch {
+      // Network/opaque failure — skip this batch, cards keep their default printings.
+      continue;
+    }
 
+    // A malformed scryfallQuery (invalid search syntax) must fail the whole
+    // generation loudly. Treating a 400/422 the same as a 404 "no matching
+    // printings" used to skip it silently, and strict mode (both call sites in
+    // deckGenerator.ts pass strict=true) then removed every single card from
+    // the map — shipping a 98%-basic-lands deck with no explanation
+    // (LIVE-CONFIRMED). 404 stays the legitimate "no matches" case below. This
+    // is a second line of defense — validateScryfallFilter above is the
+    // primary, unbatched check run before any pool work.
+    if (response.status === 400 || response.status === 422) {
+      throw new Error(await scryfallInvalidQueryMessage(response));
+    }
+
+    try {
       if (response.ok) {
         const data = (await response.json()) as ScryfallSearchResponse;
         // Build a name -> first matching card map (most recent printing first due to order=released desc).

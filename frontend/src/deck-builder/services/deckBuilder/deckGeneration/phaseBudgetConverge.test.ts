@@ -524,13 +524,17 @@ describe('applyBudgetConvergence', () => {
   // Root-cause repro for the live-eval bug (krenko-budget50: 0 swaps on a $71
   // mono-red deck with a $50 budget, next to a false "no cheaper alternatives"
   // note). Once a deck is over budget, BudgetTracker.remainingBudget is
-  // negative — getEffectiveCap floors its dynamic cap at Math.max(0, ...),
-  // i.e. exactly $0, so gating on it flunks every candidate unconditionally.
-  // This phase must NOT read the tracker for gating.
+  // negative — getEffectiveCap USED TO floor its dynamic cap at
+  // Math.max(0, ...), i.e. exactly $0, so gating on it flunked every
+  // candidate unconditionally. budgetTracker.ts now falls back to the static
+  // cap (or uncapped) once the dynamic cap goes non-positive — see its own
+  // test file — but this phase must ALSO never read the tracker for gating,
+  // as defense in depth: an exhausted tracker (however it's exhausted) must
+  // never stop convergence from swapping cards.
   it('converges even when the BudgetTracker is exhausted/negative (krenko-shaped repro)', async () => {
     const state = makeState();
     const tracker = new BudgetTracker(-50, 5, 'USD'); // already deep in the red
-    expect(tracker.getEffectiveCap(null)).toBe(0); // confirms the trap is live
+    expect(tracker.getEffectiveCap(null)).toBeNull(); // no longer floors to $0
 
     const result = await applyBudgetConvergence(
       state,
@@ -801,5 +805,72 @@ describe('applyBudgetConvergence', () => {
     const spy = vi.fn(async () => null);
     await applyBudgetConvergence(state, baseCtx({ deckBudget: 1000, fetchBudgetPool: spy }));
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  // E128: ignoreOwnedBudget must make an owned card genuinely invisible to
+  // budget convergence — neither counted toward the total nor evicted.
+  describe('ignoreOwnedBudget ownership awareness (E128)', () => {
+    // collectionStrategy is 'partial' (not 'full'/'available') so ownedOnly
+    // stays false and findReplacement's candidate pool isn't ALSO restricted
+    // to owned-only — these tests isolate ignoreOwnedBudget's own effect.
+    function stateWithOwnedPricey(collectionNames: Set<string>): GenerationState {
+      const state = makeState();
+      state.context = { ...state.context, collectionNames };
+      state.cfg = { ...state.cfg, collectionStrategy: 'partial' };
+      return state;
+    }
+
+    it('excludes an ignore-owned-budget card from the deck total', async () => {
+      // Pricey Card ($30) is owned + ignored — total should be 15 + 2 = 17
+      // (plus the fixture's nominal $0.05 basic land), under the $20 budget
+      // with zero swaps needed.
+      const state = stateWithOwnedPricey(new Set(['Pricey Card']));
+      const result = await applyBudgetConvergence(
+        state,
+        baseCtx({ deckBudget: 20, ignoreOwnedBudget: true })
+      );
+      expect(result.applied).toBe(0);
+      expect(result.finalTotal).toBeCloseTo(17.05);
+      expect(state.usedNames.has('Pricey Card')).toBe(true);
+    });
+
+    it('never evicts an ignore-owned-budget card to make room, even when it would otherwise be the obvious cut', async () => {
+      // Without the fix Pricey Card ($30, highest price) would be the
+      // priciest-first eviction target; with ignoreOwnedBudget it's hard
+      // protected and Mid Card is cut instead to reach budget.
+      const state = stateWithOwnedPricey(new Set(['Pricey Card']));
+      const result = await applyBudgetConvergence(
+        state,
+        baseCtx({ deckBudget: 10, ignoreOwnedBudget: true })
+      );
+      expect(state.usedNames.has('Pricey Card')).toBe(true);
+      expect(result.finalTotal).toBeLessThanOrEqual(10);
+    });
+
+    it('still counts an owned card toward the total when ignoreOwnedBudget is off', async () => {
+      const state = stateWithOwnedPricey(new Set(['Pricey Card']));
+      const result = await applyBudgetConvergence(
+        state,
+        baseCtx({ deckBudget: 20, ignoreOwnedBudget: false })
+      );
+      expect(result.applied).toBeGreaterThanOrEqual(1);
+      expect(state.usedNames.has('Pricey Card')).toBe(false);
+    });
+  });
+
+  // A must-include with no resolvable price is the one way a non-exempt
+  // unpriced card reaches this pass (every other picker gates on price) —
+  // totalNow() has no real number for it and has to sum it as $0, so the
+  // residual note must say so rather than implying an exhaustive total.
+  it('flags an unpriced non-exempt card in the residual reason instead of silently summing it as $0', async () => {
+    const state = makeState();
+    state.categories.synergy.push(scryfallCard('Mystery Card', null));
+    state.usedNames.add('Mystery Card');
+    // No cheaper alternative exists under $2 (POOL's cheapest is Cheap Alt A
+    // at $2, not strictly cheaper than Cheap Card's $2) — forces a residual.
+    const result = await applyBudgetConvergence(state, baseCtx({ deckBudget: 1 }));
+    expect(result.residualReason).toBeDefined();
+    expect(result.residualReason).toContain('Mystery Card');
+    expect(result.residualReason).toContain('no price data');
   });
 });

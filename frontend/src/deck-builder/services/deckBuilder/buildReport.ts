@@ -8,6 +8,7 @@ import {
   type ThemeResult,
 } from '@/deck-builder/types';
 import { buildSynergyFingerprint, topMatchedTags } from './synergyFingerprint';
+import { getFrontFaceTypeLine } from '@/deck-builder/services/scryfall/client';
 import { isRoleExcess } from './deckAnalyzer';
 import { countProtectionPieces } from './commanderDeckAnalysis';
 import { ARCHETYPE_LABEL } from './strategyVocabulary';
@@ -139,13 +140,18 @@ export function assembleBuildReport(input: {
   // Archetype-aware land count auto-tune disclosure (undefined when the user
   // set land count explicitly, or the default 37 was already the right call).
   if (generated.landCountNote) report.landCountNote = generated.landCountNote;
+  if (generated.poolExhaustionNote) report.poolExhaustionNote = generated.poolExhaustionNote;
   if (generated.mustIncludeSkippedNote)
     report.mustIncludeSkippedNote = generated.mustIncludeSkippedNote;
+  if (generated.mustIncludeOverrideNote)
+    report.mustIncludeOverrideNote = generated.mustIncludeOverrideNote;
   if (generated.budgetNote) report.budgetNote = generated.budgetNote;
   if (generated.roleCapOverflowNote) report.roleCapOverflowNote = generated.roleCapOverflowNote;
   if (generated.priceSanityNote) report.priceSanityNote = generated.priceSanityNote;
   if (generated.bracketPriceDisclosureNote)
     report.bracketPriceDisclosureNote = generated.bracketPriceDisclosureNote;
+  if (generated.gameChangerBracketConflictNote)
+    report.gameChangerBracketConflictNote = generated.gameChangerBracketConflictNote;
   if (generated.wipeAsymmetryNote) report.wipeAsymmetryNote = generated.wipeAsymmetryNote;
   if (generated.qualifiedPayoffGateNote)
     report.qualifiedPayoffGateNote = generated.qualifiedPayoffGateNote;
@@ -213,7 +219,31 @@ export function assembleBuildReport(input: {
 
     // Requested owned-% target only applies in partial mode.
     if (collectionStrategy === 'partial') {
-      report.ownedPercentTarget = customization.collectionOwnedPercent;
+      const target = customization.collectionOwnedPercent;
+      report.ownedPercentTarget = target;
+
+      // "Why" disclosure: only when a thin owned pool (not a bug elsewhere)
+      // honestly explains a gap between what was asked and what shipped —
+      // fires only when the commander's candidate pool genuinely couldn't
+      // supply enough owned names to hit the requested count, never when
+      // more were actually available (that would be a bug, not a pool limit).
+      // Same basis as the eligible count (nonland pool names): the partial
+      // quota is a share of NONLAND cards, and counting owned lands here once
+      // produced "only 9 fit ... 11 were used" (LIVE, Lathril partial-100%).
+      const eligible = generated.partialOwnedEligibleCount;
+      const nonland = mainboard.filter(
+        (card) => !getFrontFaceTypeLine(card).toLowerCase().includes('land')
+      );
+      if (eligible != null && nonland.length > 0) {
+        const ownedCount = nonland.filter((card) => collectionNames.has(card.name)).length;
+        const ownedTargetCount = Math.round((nonland.length * target) / 100);
+        if (eligible < ownedTargetCount) {
+          report.ownedPercentGapNote =
+            `You asked for ${target}% owned cards, but only ${eligible} owned ` +
+            `card${eligible === 1 ? '' : 's'} fit this commander's pool. ${ownedCount} ` +
+            `${ownedCount === 1 ? 'was' : 'were'} used and the rest came from recommendations.`;
+        }
+      }
     }
   }
 
@@ -226,6 +256,7 @@ export function assembleBuildReport(input: {
   // Cards pulled from outside the collection to complete an owned-only build.
   if (generated.collectionRelaxedCount && generated.collectionRelaxedCount > 0) {
     report.collectionRelaxed = generated.collectionRelaxedCount;
+    report.collectionRelaxedNames = generated.collectionRelaxedNames;
   }
 
   // Owned cards substituted in for unowned staples ("Wanted X → used your Y").

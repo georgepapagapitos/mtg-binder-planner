@@ -186,8 +186,10 @@ export function BuildReportPanel({
     collectionStrategy,
     ownedPercentActual,
     ownedPercentTarget,
+    ownedPercentGapNote,
     basicsPadded,
     collectionRelaxed,
+    collectionRelaxedNames,
     collectionSubstitutions,
     synergyFills,
     roleGaps,
@@ -199,7 +201,9 @@ export function BuildReportPanel({
     generationNote,
     archetypeNote,
     landCountNote,
+    poolExhaustionNote,
     mustIncludeSkippedNote,
+    mustIncludeOverrideNote,
     brewDialNote,
     landSqueezeTrimNote,
     bracketPoolFallbackNote,
@@ -210,6 +214,7 @@ export function BuildReportPanel({
     roleDeficitNotes,
     priceSanityNote,
     bracketPriceDisclosureNote,
+    gameChangerBracketConflictNote,
     wipeAsymmetryNote,
     qualifiedPayoffGateNote,
     comboAuditBracketBlockNote,
@@ -330,11 +335,15 @@ export function BuildReportPanel({
 
       {landCountNote && <p className="build-report-line build-report-source">{landCountNote}</p>}
 
+      {poolExhaustionNote && <p className="build-report-flag">{poolExhaustionNote}</p>}
+
       {/* Combo builds already surface this note in the confirmation banner
           above — don't say it twice. */}
       {mustIncludeSkippedNote && !comboSeedContext && (
         <p className="build-report-flag">{mustIncludeSkippedNote}</p>
       )}
+
+      {mustIncludeOverrideNote && <p className="build-report-flag">{mustIncludeOverrideNote}</p>}
 
       {brewDialNote && <p className="build-report-line build-report-source">{brewDialNote}</p>}
 
@@ -416,6 +425,10 @@ export function BuildReportPanel({
         <p className="build-report-line build-report-source">{bracketPriceDisclosureNote}</p>
       )}
 
+      {gameChangerBracketConflictNote && (
+        <p className="build-report-line build-report-source">{gameChangerBracketConflictNote}</p>
+      )}
+
       {wipeAsymmetryNote && (
         <p className="build-report-line build-report-source">{wipeAsymmetryNote}</p>
       )}
@@ -475,10 +488,15 @@ export function BuildReportPanel({
         </p>
       )}
 
+      {ownedPercentGapNote && <p className="build-report-flag">{ownedPercentGapNote}</p>}
+
       {typeof collectionRelaxed === 'number' && collectionRelaxed > 0 && (
         <p className="build-report-flag">
           Your collection ran short. Added <strong>{collectionRelaxed}</strong> card
           {collectionRelaxed === 1 ? '' : 's'} from outside it to complete the deck.
+          {collectionRelaxedNames && collectionRelaxedNames.length > 0 && (
+            <span className="build-report-muted"> ({collectionRelaxedNames.join(', ')})</span>
+          )}
         </p>
       )}
 

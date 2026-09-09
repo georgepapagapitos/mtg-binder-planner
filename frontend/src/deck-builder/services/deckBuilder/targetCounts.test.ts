@@ -100,6 +100,35 @@ describe('calculateTargetCounts — fallback path (no EDHREC stats)', () => {
   });
 });
 
+// LIVE-CONFIRMED: the flat 32-land floor ignored deck size — a 60-card Brawl
+// build asking for 24 lands got clamped up to 32 (54% of a 59-card deck), and
+// a 40-card build asking for 16 got clamped to 32 of 39. The floor now scales
+// with deck size (proportional to Commander's own 32-of-99), while the 99
+// format above keeps the exact literal 32.
+describe('calculateTargetCounts — land-count floor scales with deck size', () => {
+  it('respects a below-32 land count for a 60-card format instead of flooring to 32', () => {
+    const { composition } = calculateTargetCounts(
+      makeCustomization({ deckFormat: 60, landCount: 24 })
+    );
+    expect(composition.lands).toBe(24);
+  });
+
+  it('respects a below-32 land count for a 40-card format instead of flooring to 32', () => {
+    const { composition } = calculateTargetCounts(
+      makeCustomization({ deckFormat: 40, landCount: 16 })
+    );
+    expect(composition.lands).toBe(16);
+  });
+
+  it('still floors an absurdly low land count proportionally for a 60-card format', () => {
+    const { composition } = calculateTargetCounts(
+      makeCustomization({ deckFormat: 60, landCount: 1 })
+    );
+    // round(59 * 32 / 99) = 19
+    expect(composition.lands).toBe(19);
+  });
+});
+
 describe('calculateTargetCounts — EDHREC stats path', () => {
   const stats: EDHRECCommanderStats = {
     avgPrice: 200,

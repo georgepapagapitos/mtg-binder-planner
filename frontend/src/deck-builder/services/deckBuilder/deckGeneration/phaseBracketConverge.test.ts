@@ -233,6 +233,30 @@ describe('applyBracketConvergence', () => {
     expect(deckSize(state)).toBe(before);
   });
 
+  // E-arena-leak: pickFiller sourced straight from the EDHREC pool with no
+  // rarity/CMC/Arena gate — a capped build could swap in an over-cap filler.
+  it('never swaps in a DOWN filler that exceeds the user rarity cap', () => {
+    const state = makeState();
+    state.cfg.targetBracket = 2;
+    state.cfg.maxRarity = 'common';
+    const map = new Map<string, ScryfallCard>([
+      ['Safe Filler A', scryfallCard('Safe Filler A', { rarity: 'rare' })],
+      ['Safe Filler B', scryfallCard('Safe Filler B', { rarity: 'rare' })],
+      ['Safe Filler C', scryfallCard('Safe Filler C', { rarity: 'common' })],
+    ]);
+
+    const result = applyBracketConvergence(state, {
+      scryfallCardMap: map,
+      detectedCombos: undefined,
+      mustIncludeNames: new Set(),
+    });
+
+    expect(result.applied).toBeGreaterThanOrEqual(1);
+    expect(state.usedNames.has('Safe Filler A')).toBe(false);
+    expect(state.usedNames.has('Safe Filler B')).toBe(false);
+    expect(state.usedNames.has('Safe Filler C')).toBe(true);
+  });
+
   it('breaks an incidental 2-card combo to converge a target-2 deck', () => {
     const state = makeState();
     state.cfg.targetBracket = 2;
@@ -374,6 +398,69 @@ describe('applyBracketConvergence', () => {
     expect(state.usedNames.has('Pool GC')).toBe(true);
     // ...and the deck stayed exactly its size (1-for-1 swap, 100-card legality).
     expect(deckSize(state)).toBe(before);
+  });
+
+  // E-arena-leak: the UP push had ZERO rarity/CMC/Arena checks on the
+  // incoming card — a capped build could seat an over-cap Game Changer.
+  it('never swaps in an UP incoming card that exceeds the user rarity cap', () => {
+    const state = underTargetState();
+    state.cfg.maxRarity = 'rare';
+    state.edhrecData = {
+      cardlists: { allNonLand: [edhrecCard('Pool GC', 95), ...FILLER_POOL] },
+    } as unknown as GenerationState['edhrecData'];
+    const map = fillerScryfallMap();
+    map.set('Pool GC', scryfallCard('Pool GC', { rarity: 'mythic' }));
+
+    const result = applyBracketConvergence(state, {
+      scryfallCardMap: map,
+      detectedCombos: undefined,
+      mustIncludeNames: new Set(),
+    });
+
+    expect(result.applied).toBe(0);
+    expect(state.usedNames.has('Pool GC')).toBe(false);
+  });
+
+  // Coordinator ask: the UP push seats Game Changers by design, but that must
+  // still respect maxGameChangers / the running gameChangerCount like every
+  // other pick path, or gameChangerLimit: 'none' + a high target bracket
+  // silently seats unlimited GCs.
+  it('respects the maxGameChangers cap on the UP push', () => {
+    const state = underTargetState();
+    state.cfg.maxGameChangers = 0; // user's GC limit already exhausted
+    state.edhrecData = {
+      cardlists: { allNonLand: [edhrecCard('Pool GC', 95), ...FILLER_POOL] },
+    } as unknown as GenerationState['edhrecData'];
+    const map = fillerScryfallMap();
+    map.set('Pool GC', scryfallCard('Pool GC'));
+
+    const result = applyBracketConvergence(state, {
+      scryfallCardMap: map,
+      detectedCombos: undefined,
+      mustIncludeNames: new Set(),
+    });
+
+    expect(result.applied).toBe(0);
+    expect(state.usedNames.has('Pool GC')).toBe(false);
+    expect(state.gameChangerCount.value).toBe(0);
+  });
+
+  it('increments the shared gameChangerCount when the UP push seats a Game Changer', () => {
+    const state = underTargetState();
+    state.edhrecData = {
+      cardlists: { allNonLand: [edhrecCard('Pool GC', 95), ...FILLER_POOL] },
+    } as unknown as GenerationState['edhrecData'];
+    const map = fillerScryfallMap();
+    map.set('Pool GC', scryfallCard('Pool GC'));
+
+    const result = applyBracketConvergence(state, {
+      scryfallCardMap: map,
+      detectedCombos: undefined,
+      mustIncludeNames: new Set(),
+    });
+
+    expect(result.applied).toBeGreaterThanOrEqual(1);
+    expect(state.gameChangerCount.value).toBe(1);
   });
 
   it('never treats a protection-class card as a pickCut candidate (E87-new Slice A, UP direction)', () => {

@@ -250,6 +250,57 @@ describe('comboIntegrityAuditPhase', () => {
     expect(result.detectedCombos).toBe(detectedCombos);
   });
 
+  // E-arena-leak: combo candidates come from the EDHREC combo dataset, not
+  // cardPicking.ts's pre-filtered pool — the user's rarity/CMC/Arena caps
+  // need an explicit gate here too, or a capped build can swap in an
+  // over-cap piece. Tiny Leaders' CMC cap is a FORMAT rule, not a soft
+  // preference — a combo piece gets no exemption from it.
+  it('skips an enabler that exceeds the user rarity/CMC/Arena caps and applies no swap', () => {
+    const cases: [keyof GenerationState['cfg'], unknown, Partial<ScryfallCard>][] = [
+      ['maxRarity', 'common', { rarity: 'rare' }],
+      ['maxCmc', 3, { cmc: 4 }],
+      ['arenaOnly', true, { games: ['paper'] }],
+    ];
+    for (const [capKey, capValue, cardOverrides] of cases) {
+      const state = makeState();
+      (state.cfg as unknown as Record<string, unknown>)[capKey] = capValue;
+      const filler = scryfallCard('Filler');
+      const pieceA = scryfallCard('PieceA');
+      const pieceB = scryfallCard('PieceB');
+      const enabler = scryfallCard('Enabler', cardOverrides);
+      state.categories.creatures = [pieceA, pieceB, filler];
+      state.usedNames = new Set(['PieceA', 'PieceB', 'Filler']);
+      state.edhrecData = {
+        cardlists: {
+          allNonLand: [
+            edhrecCard('Filler', 1),
+            edhrecCard('PieceA', 50),
+            edhrecCard('PieceB', 50),
+            edhrecCard('Enabler', 80),
+          ],
+        },
+      } as unknown as GenerationState['edhrecData'];
+      const detectedCombos = [
+        combo('c1', ['PieceA', 'Enabler'], ['Enabler']),
+        combo('c2', ['PieceB', 'Enabler'], ['Enabler']),
+      ];
+
+      const result = comboIntegrityAuditPhase(state, {
+        detectedCombos,
+        scryfallCardMap: new Map([['Enabler', enabler]]),
+        budgetTracker: null,
+        bracketGuard: undefined,
+      });
+
+      expect(state.categories.creatures.map((c) => c.name).sort()).toEqual([
+        'Filler',
+        'PieceA',
+        'PieceB',
+      ]);
+      expect(result.repairs).toEqual([]);
+    }
+  });
+
   it('E119: keeps currentRoleCounts in sync on audit swaps (increment on add, decrement on remove)', () => {
     const state = makeState();
     const filler = scryfallCard('Filler');

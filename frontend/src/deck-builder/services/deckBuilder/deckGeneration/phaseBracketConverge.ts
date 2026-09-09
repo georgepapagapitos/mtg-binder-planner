@@ -15,6 +15,8 @@ import {
   notInCollection,
   exceedsMaxPrice,
   isOwnedBudgetExempt,
+  violatesUserCaps,
+  userCapsWithoutPrice,
 } from '../deckFilters';
 import {
   calculateCardPriority,
@@ -262,6 +264,12 @@ export function applyBracketConvergence(
     if (card.name.includes(' // ')) state.usedNames.delete(frontFaceName(card.name));
     const role = getCardRole(card.name);
     if (role && state.currentRoleCounts[role] > 0) state.currentRoleCounts[role]--;
+    // DOWN can cut a Game Changer (that's the whole point of lowering the
+    // estimator's hard floor) — keep the shared counter in sync so the UP
+    // loop's cap check below, and the final report, aren't stale.
+    if (state.gameChangerNames.has(card.name) && state.gameChangerCount.value > 0) {
+      state.gameChangerCount.value--;
+    }
     // Veto the name (mirrors phaseCoherenceRepair's E87 removeCard) so a
     // later mutating phase — budget convergence, role-surplus rebalance, lift
     // picks — can't re-pick a card this pass just cut for a reason that still
@@ -278,6 +286,13 @@ export function applyBracketConvergence(
     state.usedNames.add(card.name);
     if (card.name.includes(' // ')) state.usedNames.add(frontFaceName(card.name));
     if (role) state.currentRoleCounts[role] = (state.currentRoleCounts[role] ?? 0) + 1;
+    // The UP loop's incoming power card can be a Game Changer by design —
+    // stamp + count it like every other pick path (cardPicking.ts's tryPick)
+    // so the cap check below and the final report both stay accurate.
+    if (state.gameChangerNames.has(card.name)) {
+      card.isGameChanger = true;
+      state.gameChangerCount.value++;
+    }
     // Every add here is a real deck addition (both the DOWN filler and the UP
     // incoming power card) — deduct so budget convergence (which runs right
     // after this phase) sees the live spend, not a stale pre-swap total (E79).
@@ -307,6 +322,16 @@ export function applyBracketConvergence(
       scryfallCardMap.has(c.name) &&
       !isPowerSignal(c.name, state.gameChangerNames) &&
       (!ctx.cardAllowed || ctx.cardAllowed(scryfallCardMap.get(c.name)!)) &&
+      // Filler is sourced straight from the EDHREC pool, not cardPicking.ts's
+      // pre-filtered candidates — needs its own rarity/CMC/Arena/legality
+      // gate or a capped build can swap in an over-cap card (E-arena-leak).
+      // Price is excluded — withinBudget below already checks the live
+      // budget-tracker effective cap.
+      !violatesUserCaps(
+        scryfallCardMap.get(c.name)!,
+        userCapsWithoutPrice(state.cfg),
+        collectionNames
+      ) &&
       (!ownedOnly || !notInCollection(c.name, collectionNames)) &&
       withinBudget(c.name, scryfallCardMap.get(c.name)!);
 
@@ -468,7 +493,21 @@ export function applyBracketConvergence(
       const incoming = scryfallCardMap.get(inName);
       if (!incoming) continue; // no Scryfall data fetched → can't materialize the card
       if (ownedOnly && notInCollection(inName, collectionNames)) continue;
+      // Same pool-sourced gate as pickFiller above — the UP push had ZERO
+      // rarity/CMC/Arena/legality checks (E-arena-leak); price is excluded,
+      // checked next via the live budget-tracker effective cap.
+      if (violatesUserCaps(incoming, userCapsWithoutPrice(state.cfg), collectionNames)) continue;
       if (!withinBudget(inName, incoming)) continue; // pushing UP can't itself blow the budget
+      // The estimator's whole UP lever is seating Game Changers — but that
+      // must still respect the user's maxGameChangers cap (and the shared
+      // running count every other pick path enforces), or `gameChangerLimit:
+      // 'none'` + a high target bracket can silently seat unlimited GCs.
+      if (
+        state.gameChangerNames.has(inName) &&
+        state.gameChangerCount.value >= state.cfg.maxGameChangers
+      ) {
+        continue;
+      }
       const cut = pickCut();
       if (!cut) break; // nothing safe to cut — can't add without overshooting 100
 

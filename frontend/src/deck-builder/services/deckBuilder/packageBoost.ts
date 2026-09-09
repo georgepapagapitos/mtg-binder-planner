@@ -25,6 +25,7 @@ import type { ScryfallCard } from '@/deck-builder/types';
 import { classifyCard, type CardSynergy } from '@/deck-builder/services/synergy/classify';
 import type { AxisKey } from '@/deck-builder/services/synergy/axes';
 import { typeLineProducerAxes } from './synergyDependency';
+import { violatesUserCaps, type UserCapsConfig } from './deckFilters';
 
 /** Ceiling for the per-card package boost. */
 export const PACKAGE_BOOST_MAX = 30;
@@ -170,6 +171,28 @@ export const LIFT_PICK_BOOST_MAX = 30;
  * Krenko's Sling-Gang Lieutenant at ~20242) saturate the 30 cap.
  */
 export const LIFT_PICK_BOOST_SCALE = 0.0075;
+
+/**
+ * E-arena-leak: computeLiftPickBoosts below is a pure, cap-agnostic scorer —
+ * this narrows its candidate list to ones that don't already violate a user
+ * hard cap (rarity/CMC/Arena/format legality/price), so an over-cap candidate
+ * never receives the "Cluster-lift pick" priority boost at all. Every hard
+ * gate still applies unconditionally at the real pick site (cardPicking.ts);
+ * this closes the same class of leak one step earlier, at the boost itself
+ * (LIVE-CONFIRMED: Sol Ring/Brightstone Ritual/Goblin War Strike under
+ * arenaOnly, all labeled "Cluster-lift pick" in cardProvenance).
+ */
+export function filterLiftEligible(
+  candidateNames: readonly string[],
+  cardMap: ReadonlyMap<string, ScryfallCard>,
+  caps: UserCapsConfig,
+  collectionNames?: Set<string>
+): string[] {
+  return candidateNames.filter((name) => {
+    const card = cardMap.get(name);
+    return !!card && !violatesUserCaps(card, caps, collectionNames);
+  });
+}
 
 /**
  * Pure, testable re-rank step: caller supplies the candidate pool and a

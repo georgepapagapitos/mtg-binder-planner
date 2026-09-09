@@ -47,6 +47,19 @@ describe('BudgetTracker.getEffectiveCap', () => {
     t.deductCard(makeCard({ prices: { usd: '10.00' } }));
     expect(t.getEffectiveCap(7)).toBe(7);
   });
+
+  it('falls back to the static max (not $0) once must-includes already blew the budget', () => {
+    vi.spyOn(console, 'debug').mockImplementation(() => {});
+    // 30-card budget deck, must-includes alone cost more than the budget —
+    // remainingBudget goes negative and stays negative for every later pick.
+    const t = new BudgetTracker(30, 40);
+    t.deductMustIncludes([makeCard({ prices: { usd: '80.00' } })]);
+    expect(t.remainingBudget).toBeLessThan(0);
+    // A Math.max(0, ...) floor would clamp this to exactly $0, banning every
+    // remaining priced card for the rest of generation.
+    expect(t.getEffectiveCap(5)).toBe(5);
+    expect(t.getEffectiveCap(null)).toBeNull();
+  });
 });
 
 describe('BudgetTracker deductions', () => {

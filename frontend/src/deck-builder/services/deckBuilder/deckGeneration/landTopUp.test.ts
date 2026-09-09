@@ -14,6 +14,7 @@ vi.mock('@/deck-builder/services/tagger/client', () => ({
 vi.mock('@/deck-builder/services/scryfall/client', () => ({
   getCachedCard: (name: string) => basic(name),
   getCardByName: async (name: string) => basic(name),
+  getFrontFaceTypeLine: (c: ScryfallCard) => c.type_line || '',
 }));
 
 import { runLandDeficitTopUp, runLastResortLandFill, type LandTopUpContext } from './landTopUp';
@@ -55,6 +56,10 @@ function card(name: string): ScryfallCard {
   } as ScryfallCard;
 }
 
+function nonbasicLand(name: string): ScryfallCard {
+  return { ...card(name), type_line: 'Legendary Land' };
+}
+
 function emptyCategories(): Record<DeckCategory, ScryfallCard[]> {
   return {
     lands: [],
@@ -89,6 +94,55 @@ describe('runLastResortLandFill', () => {
     const ctx: LandTopUpContext = { colorIdentity: ['G'], categories: emptyCategories() };
     expect(await runLastResortLandFill(ctx, 99, 99)).toBe(0);
     expect(ctx.categories.lands).toHaveLength(0);
+  });
+});
+
+// Item D: an upstream land-generation duplicate (observed: Sokenzan, Crucible
+// of Defiance 2x on a land-heavy deck) must be collapsed by the padding
+// passes, since they're the last code to touch categories.lands. Basics
+// stay duplicable (Commander's singleton rule doesn't apply to them).
+describe('nonbasic land dedupe (item D)', () => {
+  it('runLandDeficitTopUp collapses a duplicate nonbasic before computing the deficit', async () => {
+    const categories = emptyCategories();
+    categories.lands = [
+      nonbasicLand('Sokenzan, Crucible of Defiance'),
+      nonbasicLand('Sokenzan, Crucible of Defiance'),
+      ...Array.from({ length: 33 }, (_, i) => card(`Land${i}`)),
+    ];
+    const ctx: LandTopUpContext = { colorIdentity: ['R'], categories };
+    // 35 unique lands after dedupe (34 - 1 duplicate = 34) → 1 basic added.
+    await runLandDeficitTopUp(ctx, 35);
+    const sokenzanCount = ctx.categories.lands.filter(
+      (c) => c.name === 'Sokenzan, Crucible of Defiance'
+    ).length;
+    expect(sokenzanCount).toBe(1);
+    expect(ctx.categories.lands).toHaveLength(35);
+  });
+
+  it('runLastResortLandFill collapses a duplicate nonbasic and corrects the shortage math', async () => {
+    const categories = emptyCategories();
+    categories.lands = [
+      nonbasicLand('Sokenzan, Crucible of Defiance'),
+      nonbasicLand('Sokenzan, Crucible of Defiance'),
+    ];
+    const ctx: LandTopUpContext = { colorIdentity: ['R'], categories };
+    // 2 nominal cards, but only 1 is genuinely distinct after dedupe — the
+    // real shortage against a 3-card target is 2, not 1.
+    const added = await runLastResortLandFill(ctx, 3, 2);
+    expect(added).toBe(2);
+    const sokenzanCount = ctx.categories.lands.filter(
+      (c) => c.name === 'Sokenzan, Crucible of Defiance'
+    ).length;
+    expect(sokenzanCount).toBe(1);
+    expect(ctx.categories.lands).toHaveLength(3);
+  });
+
+  it('never collapses duplicate basics', async () => {
+    const categories = emptyCategories();
+    categories.lands = [basic('Mountain'), basic('Mountain'), basic('Mountain')];
+    const ctx: LandTopUpContext = { colorIdentity: ['R'], categories };
+    await runLandDeficitTopUp(ctx, 3);
+    expect(ctx.categories.lands).toHaveLength(3);
   });
 });
 

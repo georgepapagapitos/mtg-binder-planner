@@ -28,6 +28,8 @@ import {
   searchCards,
   searchTokenArt,
   commanderSearchIdentity,
+  upgradeCardPrintings,
+  validateScryfallFilter,
 } from './client';
 import { resetScryfallRateLimit } from '@/lib/scryfall-fetch';
 
@@ -813,5 +815,134 @@ describe('429 storm amplification', () => {
     // Each caller still gets its own copy — deck-generation flags must not leak
     // between two callers that happened to share the request.
     expect(a).not.toBe(b);
+  });
+});
+
+// An invalid scryfallQuery (bad search syntax) must fail generation loudly,
+// not get silently treated like "no matching printings" — that used to strip
+// every card from the map in strict mode and ship a nearly-all-basic-lands
+// deck with no explanation (LIVE-CONFIRMED).
+describe('upgradeCardPrintings', () => {
+  beforeEach(() => {
+    gate.offline = false;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws with Scryfall's own message on a 400 (invalid search syntax)", async () => {
+    const cards = new Map([['Sol Ring', makeCard({ name: 'Sol Ring' })]]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({
+          object: 'error',
+          status: 400,
+          details: "Invalid syntax near 'garbage(('.",
+        }),
+      })
+    );
+
+    await expect(upgradeCardPrintings(cards, 'garbage((', true)).rejects.toThrow(
+      /Your Scryfall filter isn't valid: Invalid syntax near/
+    );
+  });
+
+  it('still treats a 404 as "no matching printings" (strict mode drops the card, no throw)', async () => {
+    const cards = new Map([['Sol Ring', makeCard({ name: 'Sol Ring' })]]);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
+    );
+
+    await expect(upgradeCardPrintings(cards, 'is:full-art', true)).resolves.toBeUndefined();
+    expect(cards.has('Sol Ring')).toBe(false);
+  });
+});
+
+// Primary, unbatched check — meant to run at the very start of generation
+// before any pool work. LIVE-CONFIRMED the batched upgradeCardPrintings check
+// above didn't reliably surface a 400 in a live rerun (queued behind a 429
+// retry), so this runs independent of any card names or batching.
+describe('validateScryfallFilter', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws with Scryfall's own message on a 400 (invalid search syntax)", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({ object: 'error', status: 400, details: "Invalid syntax near '(('." }),
+      })
+    );
+
+    await expect(validateScryfallFilter('garbage((')).rejects.toThrow(
+      /Your Scryfall filter isn't valid: Invalid syntax near/
+    );
+  });
+
+  it('throws an actionable error on a 404 (the filter matches nothing this deck can use)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
+    );
+
+    await expect(validateScryfallFilter('t:nonexistenttype', ['R'])).rejects.toThrow(
+      /matches no cards this deck can use/
+    );
+  });
+
+  it('throws when the identity-scoped pool is too small to build from (a VALID but over-narrow query)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ object: 'list', total_cards: 7, has_more: false, data: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    // `garbage((` is a legitimate Scryfall name search (LIVE: 7 cards), not a
+    // syntax error, so only the pool-size ceiling can catch it.
+    await expect(validateScryfallFilter('garbage((', ['R'])).rejects.toThrow(
+      /matches only 7 cards this deck can use/
+    );
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(decodeURIComponent(url)).toContain('garbage(( f:commander id<=R');
+  });
+
+  it('resolves when the scoped pool is large enough', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ object: 'list', total_cards: 512, has_more: true, data: [] }),
+      })
+    );
+
+    await expect(
+      validateScryfallFilter('year<=2012', ['W', 'U', 'B', 'G'])
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not throw on a network failure — a validation-only request never blocks generation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('NetworkError')));
+
+    await expect(validateScryfallFilter('t:creature')).resolves.toBeUndefined();
+  });
+
+  it('is a no-op for an empty query (never calls fetch)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await validateScryfallFilter('   ');
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

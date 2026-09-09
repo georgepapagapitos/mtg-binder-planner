@@ -20,6 +20,7 @@ import {
   getCardPrice,
   getFrontFaceTypeLine,
   upgradeCardPrintings,
+  validateScryfallFilter,
   isMdfcLand,
   isChannelLand,
   setForceLiveSearch,
@@ -67,6 +68,9 @@ import {
   notOnArena,
   exceedsCmcCap,
   notPauperCommanderLegal,
+  notLegalForFormat,
+  violatesUserCaps,
+  userCapsWithoutPrice,
 } from './deckFilters';
 import {
   calculateTargetCounts,
@@ -100,6 +104,7 @@ import { isUnsupportedSynergyPayoff } from './synergyDependency';
 import {
   computePackageBoosts,
   computeLiftPickBoosts,
+  filterLiftEligible,
   computeUntapVisibilityBoosts,
   computeBlinkVisibilityBoosts,
   computeExileVisibilityBoosts,
@@ -302,13 +307,21 @@ export function buildLandCountNote(params: {
   finalAvgCmc: number;
   nonBasicLandCount?: number;
   effectiveNonBasicLandCount?: number;
+  /** True when the resolved/final delta is pool exhaustion (see
+   *  buildPoolExhaustionNote), not a legitimate downstream adjustment —
+   *  suppresses the "Delivered X after post-tune deck adjustments" clause so
+   *  this note doesn't misattribute the cause (LIVE-CONFIRMED: an invalid
+   *  Scryfall filter shipped "Auto-tuned to 36 lands … Delivered 98 after
+   *  post-tune deck adjustments" — buildPoolExhaustionNote is the honest
+   *  explanation instead). */
+  deliveredByPoolExhaustion?: boolean;
 }): string {
   const label = ARCHETYPE_LABEL[params.archetype];
   const archetypeText = params.isLowConfidence
     ? "for this deck's profile"
     : `for ${/^[AEIOU]/i.test(label) ? 'an' : 'a'} ${label} deck`;
   const deliveredClause =
-    params.finalLandCount !== params.resolvedLandCount
+    params.finalLandCount !== params.resolvedLandCount && !params.deliveredByPoolExhaustion
       ? ` Delivered ${params.finalLandCount} after post-tune deck adjustments.`
       : '';
   const nonBasicClause =
@@ -318,6 +331,76 @@ export function buildLandCountNote(params: {
       ? ` Nonbasic land budget raised to ${params.effectiveNonBasicLandCount} to match the higher land count.`
       : '';
   return `Auto-tuned to ${params.resolvedLandCount} lands ${archetypeText} (${params.edhrecRampCount} ramp slots, avg CMC ${params.finalAvgCmc.toFixed(1)}).${deliveredClause}${nonBasicClause} Set an explicit count under Customize to override.`;
+}
+
+/**
+ * Disclosure for the OTHER way the delivered land count can differ from what
+ * the user typed — not the archetype auto-tune (buildLandCountNote above),
+ * but targetCounts.ts's own sane-bounds clamp (a below-floor request raised
+ * to the deck-size-scaled minimum, or an absurd request capped to
+ * deckCards-1). LIVE-CONFIRMED: `landCount: 25` shipped 33 lands with no note
+ * at all — only the auto-tune branch composed one. Undefined when the plan
+ * matches what was typed (the common case).
+ *
+ * `plannedLandCount` and `finalLandCount` are kept separate on purpose — a
+ * live rerun caught the clamp note itself misreporting the floor (a 32-floor
+ * request said "needs at least 33", where 33 was a LATER +1 land-generation
+ * adjustment, not the clamp): `plannedLandCount` is targetCounts.ts's own
+ * clamped target (the real floor/ceiling this note explains), `finalLandCount`
+ * is what generation actually delivered afterward — named only when it goes
+ * on to differ from the plan too.
+ */
+export function buildLandCountClampNote(
+  requestedLandCount: number,
+  plannedLandCount: number,
+  finalLandCount: number
+): string | undefined {
+  if (requestedLandCount === plannedLandCount) return undefined;
+  const clause =
+    plannedLandCount > requestedLandCount
+      ? `needs at least ${plannedLandCount}`
+      : `only has room for ${plannedLandCount}`;
+  const deliveredClause =
+    finalLandCount !== plannedLandCount ? ` Delivered ${finalLandCount}.` : '';
+  return `You set land count to ${requestedLandCount}, but this deck size ${clause}.${deliveredClause}`;
+}
+
+// A land-count delta this small is routine land-generation rounding (color-
+// balance splits, MDFC handling), not pool exhaustion — see
+// buildPoolExhaustionNote.
+export const POOL_EXHAUSTION_LAND_THRESHOLD = 3;
+
+/**
+ * Root-cause-honest disclosure for pool exhaustion (LIVE-CONFIRMED three
+ * ways: an invalid Scryfall filter, a thin owned-only pool, and a plain
+ * budget/price/rarity/arena/bracket squeeze with neither of those set). When
+ * the nonland pool runs dry, the shortfall gets absorbed into extra basic
+ * lands by whichever fill/reconcile phase happens to still be running — not
+ * only `runLastResortLandFill`'s own `basicLandFillCount`, which under-counts
+ * it when an earlier phase (e.g. the land-squeeze reconcile) already
+ * absorbed the gap into the land count before the last-resort fill ever
+ * ran. Comparing the FINAL delivered land count against `targets.lands` (the
+ * pre-generation plan — fixed once by calculateTargetCounts and never
+ * mutated afterward) catches the excess regardless of which phase produced
+ * it. Undefined when the excess is at/under POOL_EXHAUSTION_LAND_THRESHOLD
+ * (routine rounding, not exhaustion).
+ */
+export function buildPoolExhaustionNote(params: {
+  plannedLandCount: number;
+  finalLandCount: number;
+  finalNonLandCount: number;
+  hasScryfallQuery: boolean;
+  hasCollectionNames: boolean;
+}): string | undefined {
+  const excess = params.finalLandCount - params.plannedLandCount;
+  if (excess <= POOL_EXHAUSTION_LAND_THRESHOLD) return undefined;
+  const cause = params.hasCollectionNames
+    ? 'your collection'
+    : params.hasScryfallQuery
+      ? 'your Scryfall filter'
+      : 'your budget, price, rarity, or bracket settings';
+  const spellWord = params.finalNonLandCount === 1 ? 'spell' : 'spells';
+  return `The card pool ran out after ${params.finalNonLandCount} ${spellWord}. ${excess} slot${excess === 1 ? '' : 's'} got filled with basic lands because ${cause} left too few cards to choose from.`;
 }
 
 /**
@@ -562,6 +645,26 @@ export function buildBracketPriceDisclosureNote(params: {
 }
 
 /**
+ * Settings-conflict disclosure: bracketGuard.ts's own ceiling table caps Game
+ * Changers at 0 for bracket <=2, 3 for bracket 3, and Infinity (no cap at all)
+ * for bracket 4 or 5 — so a bracket-4/5 ask implies the deck can use as many
+ * Game Changers as it wants. A finite `gameChangerLimit` (including 'none')
+ * still silently caps the deck below that allowance. Same "settings vs
+ * outcome" shape as buildBracketPriceDisclosureNote (pure, no dependency on
+ * final deck state). Undefined off bracket 4/5, or when the limit is already
+ * unlimited.
+ */
+export function buildGameChangerBracketConflictNote(
+  targetBracket: TargetBracket | undefined,
+  maxGameChangers: number
+): string | undefined {
+  if (targetBracket !== 4 && targetBracket !== 5) return undefined;
+  if (maxGameChangers === Infinity) return undefined;
+  const limitText = maxGameChangers === 0 ? 'zero' : `${maxGameChangers}`;
+  return `Bracket ${targetBracket} allows unlimited Game Changers, but your Game Changer limit caps this deck at ${limitText}. Raise the limit under Customize to use the bracket's full allowance.`;
+}
+
+/**
  * Disclosure for the E109 board-centric wipe-asymmetry treatment — mirrors
  * the buildPriceSanityNote idiom (one terse note, not per-card spam).
  * Undefined when the deck's plan wasn't board-centric (isBoardCentricPlan),
@@ -698,6 +801,15 @@ export function reconcileLandSqueezeDisclosure(
  * it didn't need (this previously misfired on an exactly-37 resolve, which
  * took zero slots of its own, and could even go negative for a
  * land-count-lowering tune).
+ *
+ * `finalLandCount` must be the squeeze's own intended target
+ * (`resolvedLandCount`), NOT whatever `categories.lands.length` ends up as
+ * after later phases run — a downstream pool-exhaustion pad (see
+ * buildPoolExhaustionNote) can inflate the deck's actual land count well
+ * past what this squeeze ever asked for, and reporting that inflated number
+ * here misattributes the exhaustion pad to this deliberate raise
+ * (LIVE-CONFIRMED: "Raising lands to 98 cost 2 spell slots" when the squeeze
+ * itself only ever targeted ~38).
  */
 export function buildLandSqueezeTrimNote(
   cutNames: readonly string[],
@@ -1008,6 +1120,12 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // constraint to this after the pool is built, so the strict printing upgrade
   // and Scryfall fallback fills enforce exactly the pool's effective filter.
   let scryfallQuery = state.cfg.scryfallQuery;
+  // Up-front, unbatched syntax + pool-size check — before any pool work — so
+  // an invalid or over-narrow filter fails loudly instead of silently starving
+  // every downstream fill into a basics pile (LIVE-CONFIRMED: the batched
+  // upgrade-search's own check doesn't reliably surface it, and `garbage((` is
+  // a valid Scryfall name search; see validateScryfallFilter's doc).
+  await validateScryfallFilter(scryfallQuery, state.context.colorIdentity);
   const markUsed = (name: string) => stMarkUsed(state, name);
   const markBanned = (name: string) => stMarkBanned(state, name);
   const addMustInclude = (name: string, source: 'user' | 'deck' | 'combo') =>
@@ -1208,6 +1326,16 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // picks are excluded: their skips are by design (owned-only / PDH legality).
   const skippedMustIncludes: { name: string; reason: string }[] = [];
   let mustIncludeSkippedNote: string | undefined;
+  // Explicit must-includes seated OVER the game-changer limit or max card
+  // price — must-includes are forced (never dropped for these two reasons),
+  // but seating one silently past a limit the user set is its own gap
+  // (LIVE-CONFIRMED: a $0.25 maxCardPrice with a must-include over that price
+  // shipped with no word it happened). Separate from skippedMustIncludes
+  // (those cards never made the deck) so the combo-seed "fully assembled"
+  // banner in BuildReportPanel, which keys off mustIncludeSkippedNote, is
+  // never told a seated card was dropped.
+  const overriddenMustIncludes: { name: string; reason: string }[] = [];
+  let mustIncludeOverrideNote: string | undefined;
 
   // Process must-include cards FIRST — they get priority over all other selections
   // Track where each must-include came from (first source wins)
@@ -1242,6 +1370,15 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     }
   }
 
+  // A must-include that's also on the ban list silently no-ops inside
+  // addMustInclude (deckGeneration/state.ts) — route it through the same
+  // skip-note channel as every other dropped forced pick (LIVE-CONFIRMED:
+  // Lathril + "Elvish Archdruid" in both lists shipped neither the card nor
+  // any note).
+  for (const name of state.mustIncludeBanConflicts) {
+    skippedMustIncludes.push({ name, reason: 'also on your ban list' });
+  }
+
   if (mustIncludeNames.length > 0) {
     onProgress?.('Adding your picks…', 3);
     logger.debug(
@@ -1273,6 +1410,11 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       if (source === 'user' || source === 'deck') skippedMustIncludes.push({ name, reason });
     };
     let addedCount = 0;
+    // Local tally of game-changer must-includes seated so far THIS loop — the
+    // shared gameChangerCount isn't bumped until the cross-reference pass
+    // below runs over every category, so it can't tell "is the limit already
+    // met" while we're still seating must-includes.
+    let seatedGameChangerCount = 0;
 
     for (const name of mustIncludeNames) {
       const card = mustIncludeMap.get(name) ?? mustIncludeByNormalized.get(normalizeName(name));
@@ -1347,6 +1489,40 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         continue;
       }
 
+      // Only an explicit USER/deck pick is truly forced — never dropped for
+      // the game-changer limit or max card price, but disclosed when it
+      // overrides either (LIVE-CONFIRMED: a $0.25 maxCardPrice let one ship
+      // over price with no word it happened). An AUTO-sourced must-include
+      // (combo completion) is a candidate like any other pick and must
+      // respect the same caps everything else does — same policy as the
+      // rarity/CMC/Arena skips above, which already don't distinguish source.
+      const isUserSource =
+        mustIncludeSources.get(name) === 'user' || mustIncludeSources.get(name) === 'deck';
+      const isGameChanger = state.gameChangerNames.has(card.name);
+      const overGameChangerLimit = isGameChanger && seatedGameChangerCount >= maxGameChangers;
+      const overMaxPrice = exceedsMaxPrice(card, maxCardPrice, currency);
+
+      if (!isUserSource && (overGameChangerLimit || overMaxPrice)) {
+        logger.debug(
+          `[DeckGen] Must-include combo card "${name}" skipped (${
+            overGameChangerLimit ? 'over the Game Changer limit' : 'over max card price'
+          })`
+        );
+        continue;
+      }
+
+      const overrideReasons: string[] = [];
+      if (isGameChanger) {
+        if (overGameChangerLimit) overrideReasons.push('kept despite your Game Changer limit');
+        seatedGameChangerCount++;
+      }
+      if (overMaxPrice) {
+        overrideReasons.push('kept despite your max card price');
+      }
+      if (overrideReasons.length > 0) {
+        overriddenMustIncludes.push({ name: card.name, reason: overrideReasons.join(', ') });
+      }
+
       markUsed(card.name);
       card.isMustInclude = true;
       card.mustIncludeSource = mustIncludeSources.get(name) ?? 'user';
@@ -1412,6 +1588,19 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     }.`;
     const perCard = skippedMustIncludes.map((s) => `${s.name}: ${s.reason}.`).join(' ');
     mustIncludeSkippedNote = `${headline} ${perCard}`;
+  }
+
+  // Disclosure: an explicit must-include seated OVER the game-changer limit
+  // or max card price (forced picks are never dropped for either). Kept
+  // separate from mustIncludeSkippedNote so BuildReportPanel's combo-seed
+  // "fully assembled" banner, which keys off that field being empty, is never
+  // told a seated card was dropped.
+  if (overriddenMustIncludes.length > 0) {
+    const headline = `Kept ${overriddenMustIncludes.length} must-include ${
+      overriddenMustIncludes.length === 1 ? 'card' : 'cards'
+    } over your limits.`;
+    const perCard = overriddenMustIncludes.map((o) => `${o.name}: ${o.reason}.`).join(' ');
+    mustIncludeOverrideNote = `${headline} ${perCard}`;
   }
 
   // Emergent combo-completion disclosure baseline: snapshot combo
@@ -1796,12 +1985,13 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   ];
   const dependencyCommanderCount = partnerCommander ? 2 : 1;
   // The `cardAllowed` gate threaded through every pick path (type passes,
-  // Scryfall fills, converge/rebalance swap-ins). For PDH it ALSO enforces the
-  // 99s legality — EDHREC/lift-derived candidates aren't pre-scoped to the
-  // f:paupercommander pool the way the Scryfall searches are.
-  const isPdhBuild = state.cfg.mtgFormat === 'paupercommander';
+  // Scryfall fills, converge/rebalance swap-ins). Format-keyed legality check
+  // (commander/PDH/brawl) — EDHREC/lift-derived candidates aren't pre-scoped
+  // to the format-legal pool the way the Scryfall searches are, so every
+  // phase reusing this gate (coherence repair, flagship seating, bracket/
+  // budget convergence, role-surplus rebalance) gets the check for free.
   const isCardAllowedBySynergyDependencies = (card: ScryfallCard) =>
-    (!isPdhBuild || !notPauperCommanderLegal(card)) &&
+    !notLegalForFormat(card, state.cfg.mtgFormat) &&
     !isUnsupportedSynergyPayoff(card, dependencySupportCards(), dependencyCommanderCount);
 
   // EDHREC lift pools (E71 slice 2): fetch intent-anchored seeds once, before
@@ -1889,7 +2079,10 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       collectionStrategy,
       ignoreOwnedRarity,
       budgetTracker,
-      ignoreOwnedBudget
+      ignoreOwnedBudget,
+      maxCmc,
+      arenaOnly,
+      state.cfg.mtgFormat
     );
 
     for (const { card, copies } of multiCopyResults) {
@@ -2308,11 +2501,16 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         investment
       );
       applyBoost(pkg, 'Synergy package pick');
-      const lift = computeLiftPickBoosts(
+      // E-arena-leak: see filterLiftEligible's doc (packageBoost.ts) — a
+      // lift-boosted candidate must never receive priority it can't legally
+      // keep under the user's hard caps.
+      const liftEligibleNames = filterLiftEligible(
         pool.map((c) => c.name),
-        liftScoreOf,
-        2 * state.cfg.brewLevel
+        cardMap,
+        state.cfg,
+        context.collectionNames
       );
+      const lift = computeLiftPickBoosts(liftEligibleNames, liftScoreOf, 2 * state.cfg.brewLevel);
       applyBoost(lift, 'Cluster-lift pick');
       const untap = computeUntapVisibilityBoosts(
         pool.map((c) => c.name),
@@ -2368,6 +2566,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       currency,
       gameChangerNames: state.gameChangerNames,
       arenaOnly,
+      mtgFormat: state.cfg.mtgFormat,
       strictCurve,
       collectionStrategy,
       collectionOwnedPercent,
@@ -2436,7 +2635,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         ignoreOwnedRarity,
         isCardAllowedBySynergyDependencies,
         liftScoreOf,
-        fillGatesWithRoleCap()
+        fillGatesWithRoleCap(),
+        state.cfg.mtgFormat
       );
       categories.creatures.push(...moreCreatures);
       logger.debug(`[DeckGen] FALLBACK: Got ${moreCreatures.length} creatures from Scryfall`);
@@ -2609,7 +2809,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         undefined,
         context.collectionBasicPrintings,
         fillGates,
-        manaPhilosophy
+        manaPhilosophy,
+        state.cfg.mtgFormat
       )),
     ];
 
@@ -2673,7 +2874,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       ignoreOwnedRarity,
       isCardAllowedBySynergyDependencies,
       liftScoreOf,
-      fillGates
+      fillGates,
+      state.cfg.mtgFormat
     );
 
     onProgress?.('Drawing cards…', 30);
@@ -2696,7 +2898,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       ignoreOwnedRarity,
       isCardAllowedBySynergyDependencies,
       liftScoreOf,
-      fillGates
+      fillGates,
+      state.cfg.mtgFormat
     );
 
     onProgress?.('Sharpening removal…', 40);
@@ -2719,7 +2922,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       ignoreOwnedRarity,
       isCardAllowedBySynergyDependencies,
       liftScoreOf,
-      fillGates
+      fillGates,
+      state.cfg.mtgFormat
     );
 
     onProgress?.('Preparing board wipes…', 50);
@@ -2742,7 +2946,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       ignoreOwnedRarity,
       isCardAllowedBySynergyDependencies,
       liftScoreOf,
-      fillGates
+      fillGates,
+      state.cfg.mtgFormat
     );
 
     // Use typeTargets for remaining slots to get a balanced type distribution.
@@ -2762,6 +2967,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       collectionNames: context.collectionNames,
       currency,
       arenaOnly,
+      mtgFormat: state.cfg.mtgFormat,
       collectionStrategy,
       ignoreOwnedBudget,
       ignoreOwnedRarity,
@@ -2902,7 +3108,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         undefined,
         context.collectionBasicPrintings,
         fillGates,
-        manaPhilosophy
+        manaPhilosophy,
+        state.cfg.mtgFormat
       )),
     ];
   }
@@ -3020,6 +3227,11 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // "Wanted X → used your Y" rows for owned cards substituted in to complete an
   // owned-only deck (the smart relaxation below). Surfaced in the build report.
   const substitutionRows: SubstituteRow[] = [];
+  // Partial mode only: total distinct owned names found in this commander's
+  // candidate pool (seated or not) — the honest denominator for the "only N
+  // owned cards fit this pool" build-report disclosure (see the partial-mode
+  // owned-quota reconciliation below). Undefined outside partial mode.
+  let partialOwnedEligibleCount: number | undefined;
 
   // If we have too few cards, fill shortage — budget is best-effort here,
   // deck size and structure are non-negotiable
@@ -3034,14 +3246,20 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     // (5x the budget average) so we don't allow $84 cards in a $25 deck,
     // but still allow more flexibility than the strict budget tracker.
     // Falls back to the user's static maxCardPrice if no budget is set.
+    //
+    // maxCardPrice, when the user set one, is always a ceiling — never
+    // relaxed past it. The old Math.max(relaxed, maxCardPrice) could RAISE
+    // the cap above an explicit maxCardPrice (LIVE-CONFIRMED: a $0.25 cap
+    // with a $15 deck budget shipped 30+ cards over $0.25, undisclosed).
+    const relaxedShortageCap =
+      ((deckBudget ?? 0) /
+        Math.max(1, nonLandSlotsTotal + (customization.nonBasicLandCount ?? 15))) *
+      5;
     const shortagePriceCap =
       deckBudget !== null
-        ? Math.max(
-            (deckBudget /
-              Math.max(1, nonLandSlotsTotal + (customization.nonBasicLandCount ?? 15))) *
-              5,
-            maxCardPrice ?? 0
-          )
+        ? maxCardPrice !== null
+          ? Math.min(relaxedShortageCap, maxCardPrice)
+          : relaxedShortageCap
         : maxCardPrice;
     if (budgetTracker) {
       logger.debug(
@@ -3118,10 +3336,13 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         )
           continue;
         if (exceedsMaxPrice(scryfallCard, shortagePriceCap, currency)) continue;
-        if (!isOwnedRarityExempt(edhrecCard.name, context.collectionNames, ignoreOwnedRarity)) {
-          if (exceedsMaxRarity(scryfallCard, maxRarity)) continue;
-        }
-        if (exceedsCmcCap(scryfallCard, maxCmc)) continue;
+        // Rarity / CMC / Arena / format legality via the shared gate (price is
+        // the relaxed shortage cap above). LIVE-CONFIRMED this fill was the
+        // last arenaOnly leak: it checked rarity and CMC inline but never Arena.
+        if (
+          violatesUserCaps(scryfallCard, userCapsWithoutPrice(state.cfg), context.collectionNames)
+        )
+          continue;
 
         // Prioritize cards that fill type deficits — bind type targets here too
         // (previously only did this when the user set explicit type
@@ -3176,10 +3397,10 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
           )
             continue;
           if (exceedsMaxPrice(scryfallCard, shortagePriceCap, currency)) continue;
-          if (!isOwnedRarityExempt(edhrecCard.name, context.collectionNames, ignoreOwnedRarity)) {
-            if (exceedsMaxRarity(scryfallCard, maxRarity)) continue;
-          }
-          if (exceedsCmcCap(scryfallCard, maxCmc)) continue;
+          if (
+            violatesUserCaps(scryfallCard, userCapsWithoutPrice(state.cfg), context.collectionNames)
+          )
+            continue;
 
           if (isOverRoleCap(scryfallCard, roleTargets, currentRoleCounts)) {
             if (!capSkippedNames.has(edhrecCard.name)) {
@@ -3319,7 +3540,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
           ignoreOwnedRarity,
           isCardAllowedBySynergyDependencies,
           liftScoreOf,
-          fillGatesWithRoleCap()
+          fillGatesWithRoleCap(),
+          state.cfg.mtgFormat
         );
         if (type === 'creature') categories.creatures.push(...cards);
         else if (type === 'instant') categorizeCards(cards, categories);
@@ -3354,7 +3576,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
           ignoreOwnedRarity,
           isCardAllowedBySynergyDependencies,
           liftScoreOf,
-          fillGatesWithRoleCap()
+          fillGatesWithRoleCap(),
+          state.cfg.mtgFormat
         );
         categorizeCards(moreCards, categories);
         filled += moreCards.length;
@@ -3482,7 +3705,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
           ignoreOwnedRarity,
           isCardAllowedBySynergyDependencies,
           liftScoreOf,
-          fillGates
+          fillGates,
+          state.cfg.mtgFormat
         );
         for (const c of ownedFill) addOwnedCard(c);
         if (ownedFill.length > 0) {
@@ -3514,7 +3738,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
           ignoreOwnedRarity,
           isCardAllowedBySynergyDependencies,
           liftScoreOf,
-          fillGates
+          fillGates,
+          state.cfg.mtgFormat
         );
         for (const c of relaxedCards) {
           if (addOwnedCard(c) && notInCollection(c.name, context.collectionNames)) {
@@ -3556,6 +3781,126 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     // If STILL short, add basic lands as absolute last resort
     currentCount = countAllCards();
     basicLandFillCount = await runLastResortLandFill(landTopUpCtx, targetDeckSize, currentCount);
+  }
+
+  // ── Partial-mode owned-quota reconciliation ──
+  // Each per-type EDHREC pass (cardPicking.ts's pickFromPrefetchedWithCurve)
+  // already tries to hit collectionOwnedPercent WITHIN its own type slot, but
+  // a slot's fixed target count caps how many owned cards of THAT type can
+  // seat there — an owned collection skewed toward one type (e.g. mostly
+  // creatures) can leave eligible owned cards from OTHER types on the table
+  // even though the collection had plenty overall (LIVE-CONFIRMED: Lathril
+  // partial-100% had 12 owned cards in its candidate pool but shipped only 5;
+  // Krenko partial-50% had 22 owned but shipped 18). Deliberately OUTSIDE the
+  // "if (currentCount < targetDeckSize)" shortage block above — the per-type
+  // picks usually already fill the deck to size, so this must run regardless;
+  // it's about OWNERSHIP composition, not deck size. Swap the weakest unowned
+  // filler for a still-eligible, not-yet-seated owned card until the
+  // requested share is met or no more eligible owned candidates / swappable
+  // unowned cards remain. Never touches lands (pickFromPrefetched's own
+  // partial-mode phase handles those separately) or the deck's size — a
+  // straight 1-for-1 swap.
+  if (collectionStrategy === 'partial' && context.collectionNames && state.edhrecData) {
+    const collectionNames = context.collectionNames;
+    const nonLandCats = (Object.keys(categories) as DeckCategory[]).filter(
+      (cat) => cat !== 'lands'
+    );
+    const nonLandNow = (): ScryfallCard[] => nonLandCats.flatMap((cat) => categories[cat]);
+    const ownedCountIn = (cards: ScryfallCard[]): number =>
+      cards.filter((c) => collectionNames.has(c.name)).length;
+    const nonLandTotal = nonLandNow().length;
+    const ownedWanted = Math.min(
+      nonLandTotal,
+      Math.round((nonLandTotal * collectionOwnedPercent) / 100)
+    );
+    let deficit = ownedWanted - ownedCountIn(nonLandNow());
+
+    // Every owned name this commander's pool actually offers (seated or
+    // not) — the honest "only N owned cards fit this pool" denominator,
+    // computed regardless of whether a swap ends up needed.
+    const eligibleOwned = state.edhrecData.cardlists.allNonLand.filter((ec) =>
+      collectionNames.has(ec.name)
+    );
+    partialOwnedEligibleCount = new Set(eligibleOwned.map((ec) => ec.name)).size;
+
+    if (deficit > 0) {
+      const inclusionByName = new Map<string, number>();
+      for (const ec of state.edhrecData.cardlists.allNonLand) {
+        inclusionByName.set(ec.name, ec.inclusion);
+      }
+      // Most-wanted (highest EDHREC inclusion) unseated owned candidates first.
+      const candidates = eligibleOwned
+        .filter((ec) => !usedNames.has(ec.name) && !bannedCards.has(ec.name))
+        .sort((a, b) => b.inclusion - a.inclusion);
+
+      for (const ec of candidates) {
+        if (deficit <= 0) break;
+        const card = scryfallCardMap.get(ec.name);
+        if (!card || usedNames.has(card.name)) continue;
+        if (!fitsColorIdentity(card, colorIdentity)) continue;
+        if (!isCardAllowedBySynergyDependencies(card)) continue;
+        if (notLegalForFormat(card, state.cfg.mtgFormat)) continue;
+        const ownedExempt = isOwnedBudgetExempt(card.name, collectionNames, ignoreOwnedBudget);
+        // The static cap, not the shortage block's relaxed one (out of scope
+        // here — this is a composition swap, not a size-shortage backfill).
+        if (!ownedExempt && exceedsMaxPrice(card, maxCardPrice, currency)) continue;
+        if (
+          !isOwnedRarityExempt(card.name, collectionNames, ignoreOwnedRarity) &&
+          exceedsMaxRarity(card, maxRarity)
+        )
+          continue;
+        if (exceedsCmcCap(card, maxCmc)) continue;
+        if (notOnArena(card, arenaOnly)) continue;
+
+        // Evict the weakest swappable unowned card — same functional role
+        // first (role-neutral swap, mirrors phaseBudgetConverge's same-role
+        // tier), any unowned card otherwise. Never a must-include.
+        const swappable = nonLandNow().filter(
+          (c) => !collectionNames.has(c.name) && !c.isMustInclude
+        );
+        if (swappable.length === 0) break; // nothing left to swap for
+        const wantedRole = validateCardRole(card);
+        const sameRole = wantedRole
+          ? swappable.filter((c) => validateCardRole(c) === wantedRole)
+          : [];
+        const evictPool = sameRole.length > 0 ? sameRole : swappable;
+        evictPool.sort(
+          (a, b) => (inclusionByName.get(a.name) ?? -1) - (inclusionByName.get(b.name) ?? -1)
+        );
+        // Role cap only guards a role-CROSSING swap (same-role is net-zero).
+        const evicted = evictPool.find(
+          (c) =>
+            validateCardRole(c) === wantedRole ||
+            !isOverRoleCap(card, roleTargets, currentRoleCounts)
+        );
+        if (!evicted) continue;
+
+        // Remove the evicted unowned card (mirrors phaseBudgetConverge's removeCard).
+        for (const cat of nonLandCats) {
+          const idx = categories[cat].indexOf(evicted);
+          if (idx !== -1) {
+            categories[cat].splice(idx, 1);
+            break;
+          }
+        }
+        usedNames.delete(evicted.name);
+        if (evicted.name.includes(' // ')) usedNames.delete(frontFaceName(evicted.name));
+        const evictedRole = validateCardRole(evicted);
+        if (evictedRole && currentRoleCounts[evictedRole] > 0) currentRoleCounts[evictedRole]--;
+        const evictedCmc = Math.min(Math.floor(evicted.cmc), 7);
+        if (currentCurveCounts[evictedCmc] > 0) currentCurveCounts[evictedCmc]--;
+
+        // Seat the owned card in its place.
+        stampRoleSubtypes(card);
+        routeCardByType(card, categories);
+        usedNames.add(card.name);
+        if (card.name.includes(' // ')) usedNames.add(frontFaceName(card.name));
+        bumpRoleCapCount(card, roleTargets, currentRoleCounts, roleCapOverflowCounts, false);
+        const cardCmc = Math.min(Math.floor(card.cmc), 7);
+        currentCurveCounts[cardCmc] = (currentCurveCounts[cardCmc] ?? 0) + 1;
+        deficit--;
+      }
+    }
   }
 
   // Final verification - log warning if still wrong
@@ -4087,6 +4432,19 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     `[DeckGen] Bracket estimation: ${bracketEstimation.bracket} (${bracketEstimation.label}), soft score: ${bracketEstimation.softScore}`
   );
 
+  // Pool-exhaustion disclosure (see buildPoolExhaustionNote's doc): compare
+  // the FINAL land count against the pre-generation PLAN (targets.lands,
+  // fixed once and never mutated) rather than trusting any one fill phase's
+  // own count — catches the excess regardless of which phase absorbed the
+  // shortfall into extra lands.
+  const poolExhaustionNote = buildPoolExhaustionNote({
+    plannedLandCount: targets.lands,
+    finalLandCount: categories.lands.length,
+    finalNonLandCount: nonLandCards.length,
+    hasScryfallQuery: !!scryfallQuery,
+    hasCollectionNames: !!context.collectionNames,
+  });
+
   // landCountNote, composed HERE (not at auto-tune decision time) from the
   // same final `categories`/`stats` everything else above now single-sources:
   // the decision to note at all was made early (before any card was picked),
@@ -4103,7 +4461,14 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       finalAvgCmc: stats.averageCmc,
       nonBasicLandCount: customization.nonBasicLandCount,
       effectiveNonBasicLandCount,
+      deliveredByPoolExhaustion: !!poolExhaustionNote,
     });
+  } else {
+    landCountNote = buildLandCountClampNote(
+      customization.landCount,
+      targets.lands,
+      categories.lands.length
+    );
   }
 
   // Budget honesty: recompute the real final total over the FINAL deck (post
@@ -4139,6 +4504,14 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     currency,
   });
 
+  // Settings-conflict disclosure: bracket 4/5 implies unlimited Game
+  // Changers, but a finite gameChangerLimit still caps the deck below that.
+  // Undefined off bracket 4/5, or when the limit is already unlimited.
+  const gameChangerBracketConflictNote = buildGameChangerBracketConflictNote(
+    targetBracket,
+    maxGameChangers
+  );
+
   // Surfaced relaxation count = relaxed cards that SURVIVED the combo audit /
   // fixup passes above (they can evict cards added to categories.synergy), so
   // the report never overstates what actually came from outside the collection.
@@ -4147,9 +4520,10 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       .flat()
       .map((c) => c.name)
   );
-  if (relaxedNames.size > 0) {
-    for (const n of relaxedNames) if (finalNames.has(n)) collectionRelaxedCount += 1;
-  }
+  // The actual names behind the count — a bare number doesn't tell the user
+  // WHICH cards came from outside their collection.
+  const collectionRelaxedNamesList = [...relaxedNames].filter((n) => finalNames.has(n));
+  collectionRelaxedCount = collectionRelaxedNamesList.length;
   // Keep only substitutions whose owned card survived the audit/fixup passes.
   const survivingSubstitutions = substitutionRows.filter((r) => finalNames.has(r.usedName));
 
@@ -4243,7 +4617,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   const landSqueezeTrimNote = buildLandSqueezeTrimNote(
     finalLandSqueezeCut,
     finalWildcardsKept,
-    categories.lands.length
+    resolvedLandCount
   );
 
   // Per-card pick provenance (S2 — "why is this here") — see
@@ -4325,7 +4699,10 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         ? basicLandFillCount
         : undefined,
     collectionRelaxedCount: collectionRelaxedCount > 0 ? collectionRelaxedCount : undefined,
+    collectionRelaxedNames:
+      collectionRelaxedNamesList.length > 0 ? collectionRelaxedNamesList : undefined,
     collectionSubstitutions: survivingSubstitutions.length > 0 ? survivingSubstitutions : undefined,
+    partialOwnedEligibleCount,
     typeTargets,
     composition: targets,
     dataSource: state.dataSource,
@@ -4337,12 +4714,15 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     generationModeDetail: altPool?.detail,
     generationRelaxedNote: altPool?.relaxedNote,
     landCountNote,
+    poolExhaustionNote,
     mustIncludeSkippedNote,
+    mustIncludeOverrideNote,
     budgetNote,
     roleCapOverflowNote,
     roleDeficitNotes,
     priceSanityNote,
     bracketPriceDisclosureNote,
+    gameChangerBracketConflictNote,
     wipeAsymmetryNote,
     qualifiedPayoffGateNote,
     comboAuditBracketBlockNote,

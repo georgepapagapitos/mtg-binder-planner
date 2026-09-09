@@ -241,9 +241,27 @@ export async function applyBudgetConvergence(
       .filter(([cat]) => cat !== 'lands')
       .flatMap(([, cards]) => cards);
 
+  // E128: an owned card the user asked to ignore-for-budget must not count
+  // toward the total at all — otherwise "ignoreOwnedBudget" is decorative:
+  // the deck can still read as over budget purely from cards the user
+  // already owns, and convergence below (see isHardProtected) would then
+  // have a real incentive to evict them.
+  const isBudgetExempt = (card: ScryfallCard): boolean =>
+    isOwnedBudgetExempt(card.name, state.context.collectionNames, ctx.ignoreOwnedBudget);
+
+  // Cards with no resolvable price that also aren't budget-exempt — the ONLY
+  // way one of these can be seated is a must-include (the sole picker that
+  // never gates on price). totalNow() below has to treat them as $0 for lack
+  // of a real number, which is optimistic, not conservative, unlike pick-time
+  // exceedsMaxPrice (which treats a missing price as OVER any cap). Tracked
+  // so the residual note can say so rather than implying an exhaustive total.
+  const unpricedNonExempt = (): ScryfallCard[] =>
+    nonLands().filter((c) => !isBudgetExempt(c) && !getCardPrice(c, ctx.currency));
+
   const totalNow = (): number => {
     let sum = 0;
     for (const card of Object.values(state.categories).flat()) {
+      if (isBudgetExempt(card)) continue;
       const p = getCardPrice(card, ctx.currency);
       if (p) sum += parseFloat(p) || 0;
     }
@@ -329,13 +347,19 @@ export async function applyBudgetConvergence(
     isAltWinCard(card) && nonLands().filter((c) => isAltWinCard(c)).length <= 1;
 
   // HARD protections — never cut, no matter how far over budget the deck is.
+  // E128: a card the user told us to ignore-for-budget is budget-invisible by
+  // definition — cutting it "to fit the budget" contradicts the setting it
+  // was seated under (isBudgetExempt, same predicate totalNow() excludes it
+  // with, so a card can never be simultaneously invisible to the total and
+  // an eviction candidate for that same total).
   const isHardProtected = (card: ScryfallCard): boolean =>
     commanderNames.includes(card.name) ||
     !!card.isMustInclude ||
     ctx.mustIncludeNames.has(card.name.toLowerCase()) ||
     completeComboNames.has(card.name) ||
     completeComboNames.has(frontFaceName(card.name)) ||
-    isLastAltWinCard(card);
+    isLastAltWinCard(card) ||
+    isBudgetExempt(card);
 
   // SOFT protections — cut only once every fully-unprotected candidate is
   // exhausted (stage 2, below). Returns the human label to disclose in the
@@ -638,10 +662,23 @@ export async function applyBudgetConvergence(
     const p = parsePrice(getCardPrice(c, ctx.currency));
     return p != null && p > 0;
   });
-  const residualReason =
+  const baseResidualReason =
     remainingUnprotectedPriced.length === 0
       ? 'every remaining card is a must-include, combo piece, or otherwise protected, with no cheaper equivalent'
       : 'no cheaper legal alternative could be found for the remaining cards';
+  // Flag rather than silently understate: a must-include with no price data
+  // is summed as $0 above (totalNow has no real number to use), so the
+  // reported total is a floor, not the true total, whenever this fires.
+  const unpriced = unpricedNonExempt();
+  const unpricedNames = unpriced
+    .slice(0, 3)
+    .map((c) => c.name)
+    .join(', ');
+  const unpricedTail = unpriced.length > 3 ? `, and ${unpriced.length - 3} more` : '';
+  const residualReason =
+    unpriced.length > 0
+      ? `${baseResidualReason}; ${unpriced.length} card${unpriced.length === 1 ? '' : 's'} with no price data (${unpricedNames}${unpricedTail}) ${unpriced.length === 1 ? "isn't" : "aren't"} reflected in the total above`
+      : baseResidualReason;
 
   return { applied, finalTotal, repairs, residualReason };
 }

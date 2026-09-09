@@ -9,7 +9,7 @@ import {
 import { getFrontFaceTypeLine } from '@/deck-builder/services/scryfall/client';
 import type { GenerationState } from './state';
 import { stampRoleSubtypes, routeCardByType } from '../categorize';
-import { constrainsToCollection, notInCollection } from '../deckFilters';
+import { constrainsToCollection, notInCollection, violatesUserCaps } from '../deckFilters';
 import { calculateCardPriority } from '../cardPicking';
 import { STAPLE_ROCK_NAMES } from './phaseStapleManaRocks';
 import { ROLE_LABEL } from './phaseRoleSurplusRebalance';
@@ -126,7 +126,14 @@ export function postGenFixupPhase(
   const ownedOnly = constrainsToCollection(collectionStrategy);
   const isOwnedCandidate = (name: string) => !ownedOnly || !notInCollection(name, collectionNames);
 
-  // Helper: find best EDHREC candidate for a role that's already fetched
+  // Helper: find best EDHREC candidate for a role that's already fetched.
+  // E-arena-leak: this pass had NO price/rarity/CMC/Arena/legality gate at
+  // all (LIVE-CONFIRMED: Massacre Wurm/Farewell/Blasphemous Act/Goblin
+  // Warchief/Skirk Prospector shipping past an explicit maxCardPrice, and
+  // Ninja of the Deep Hours/Ingenious Infiltrator shipping past tinyLeaders'
+  // CMC cap — a role-deficit swap-in was never vetted by cardPicking.ts's
+  // pool filter or any other checked path). Unlike combo completion, this
+  // is never a combo piece — the user's caps always win here.
   function findRoleCandidate(role: RoleKey): ScryfallCard | null {
     const candidates = state
       .edhrecData!.cardlists.allNonLand.filter(
@@ -135,7 +142,8 @@ export function postGenFixupPhase(
           !bannedCards.has(c.name) &&
           getCardRole(c.name) === role &&
           scryfallCardMap.has(c.name) &&
-          isOwnedCandidate(c.name)
+          isOwnedCandidate(c.name) &&
+          !violatesUserCaps(scryfallCardMap.get(c.name)!, state.cfg, collectionNames)
       )
       .sort((a, b) => calculateCardPriority(b) - calculateCardPriority(a));
     return candidates.length > 0 ? scryfallCardMap.get(candidates[0].name)! : null;
@@ -209,7 +217,9 @@ export function postGenFixupPhase(
                   !bannedCards.has(c.name) &&
                   scryfallCardMap.has(c.name) &&
                   isOwnedCandidate(c.name) &&
-                  (scryfallCardMap.get(c.name)!.cmc ?? 0) === targetCmc
+                  (scryfallCardMap.get(c.name)!.cmc ?? 0) === targetCmc &&
+                  // E-arena-leak: same missing gate as findRoleCandidate above.
+                  !violatesUserCaps(scryfallCardMap.get(c.name)!, state.cfg, collectionNames)
               )
               .sort((a, b) => calculateCardPriority(b) - calculateCardPriority(a));
             if (candidates.length > 0) {

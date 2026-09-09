@@ -107,6 +107,12 @@ export interface GenerationState {
   gameChangerCount: { value: number };
   mustIncludeNames: string[];
   mustIncludeSources: Map<string, 'user' | 'deck' | 'combo'>;
+  /** User/deck must-includes addMustInclude silently no-opped because the same
+   *  name is also on the ban list — surfaced by the caller (deckGenerator.ts)
+   *  through the same skip-note channel as every other dropped forced pick, so
+   *  a must-include+ban conflict never vanishes without explanation. Combo-
+   *  sourced picks aren't pushed here (their skips are by design). */
+  mustIncludeBanConflicts: string[];
   saltIndex: Map<string, number>;
   /** EDHREC card-page lift pools fetched so far this generation, keyed by
    *  seed name — shared across every re-rank/tie-break insertion point (see
@@ -188,7 +194,10 @@ export function createState(context: GenerationContext): GenerationState {
     comboCountSetting: customization.comboCount ?? 0,
     selectedThemesWithSlugs:
       context.selectedThemes?.filter((t) => t.isSelected && t.source === 'edhrec' && t.slug) || [],
-    brewLevel: customization.brewLevel ?? 0.5,
+    // Clamped to [0,1]: cardPicking.ts's calculateCardPriority multiplier goes
+    // negative past 1.5, inverting the staples<->brew dial instead of just
+    // maxing it out.
+    brewLevel: Math.min(1, Math.max(0, customization.brewLevel ?? 0.5)),
   };
 
   return {
@@ -215,6 +224,7 @@ export function createState(context: GenerationContext): GenerationState {
     gameChangerCount: { value: 0 },
     mustIncludeNames: [],
     mustIncludeSources: new Map<string, 'user' | 'deck' | 'combo'>(),
+    mustIncludeBanConflicts: [],
     saltIndex: new Map<string, number>(),
     liftSeedPools: new Map<string, LiftEntry[]>(),
     liftSeedsTried: new Set<string>(),
@@ -270,11 +280,16 @@ export function addMustInclude(
   name: string,
   source: 'user' | 'deck' | 'combo'
 ): void {
-  if (
-    !state.bannedCards.has(name) &&
-    !state.usedNames.has(name) &&
-    !state.mustIncludeNames.includes(name)
-  ) {
+  if (state.bannedCards.has(name)) {
+    // A user/deck pick that's also banned used to just vanish (LIVE-CONFIRMED:
+    // Lathril + "Elvish Archdruid" in both lists shipped neither the card nor
+    // any note) — record it so the caller can route it through the same
+    // skip-note channel as every other dropped forced pick. Combo-sourced
+    // picks stay silent (their skips are by design).
+    if (source === 'user' || source === 'deck') state.mustIncludeBanConflicts.push(name);
+    return;
+  }
+  if (!state.usedNames.has(name) && !state.mustIncludeNames.includes(name)) {
     state.mustIncludeNames.push(name);
     state.mustIncludeSources.set(name, source);
   }

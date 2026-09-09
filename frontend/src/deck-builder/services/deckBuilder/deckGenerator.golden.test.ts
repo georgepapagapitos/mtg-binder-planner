@@ -611,7 +611,15 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
         href: null,
       },
     ]);
-    const ON_COLOR: ScryfallCard = mkSC('On-Color Enabler', 'Enchantment', 5); // color_identity ['G']
+    // A land is never injected into the type pools (deckGenerator.ts's combo
+    // injection explicitly skips land type lines) and isn't in the EDHREC
+    // land pool fixture either — so unlike a nonland combo piece (whose huge
+    // combo-priority boost would auto-pick it during normal Enchantment
+    // picking), this is reachable ONLY via the Combo Integrity Audit's own
+    // by-name resolution. (Previously used tinyLeaders' cmc<=3 cap for the
+    // same purpose — no longer viable since combo completion is no longer
+    // CMC-exempt: Tiny Leaders is a FORMAT rule, not a soft preference.)
+    const ON_COLOR: ScryfallCard = mkSC('On-Color Enabler', 'Land', 5); // color_identity ['G']
     const mockedFetch = vi.mocked(getCardsByNames);
     const realFetch = mockedFetch.getMockImplementation()!;
     mockedFetch.mockImplementation(async (names: string[], ...rest) => {
@@ -621,13 +629,7 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
     });
     try {
       const ctx = baseContext();
-      // tinyLeaders caps normal picking at cmc<=3 (state.ts: maxCmc = 3) —
-      // the enabler's cmc:5 is rejected there (exceedsCmcCap, unconditional,
-      // no high-synergy bypass), so it can ONLY enter via the Combo
-      // Integrity Audit, which doesn't gate on cmc. Without this, the
-      // enabler's huge combo-priority boost gets it auto-picked during
-      // normal Enchantment picking and the audit never needs to fire.
-      ctx.customization = customization({ comboCount: 3, tinyLeaders: true });
+      ctx.customization = customization({ comboCount: 3 });
       const deck = await generateDeck(ctx);
       const names = Object.values(deck.categories)
         .flat()
@@ -681,7 +683,9 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
         href: null,
       },
     ]);
-    const ON_COLOR2: ScryfallCard = mkSC('On-Color Enabler 2', 'Enchantment', 5); // color_identity ['G']
+    // Land device (see "discloses a legal combo-audit swap" above) — reachable
+    // only via the audit's by-name resolution, never the normal type pools.
+    const ON_COLOR2: ScryfallCard = mkSC('On-Color Enabler 2', 'Land', 5); // color_identity ['G']
     const mockedFetch = vi.mocked(getCardsByNames);
     const realFetch = mockedFetch.getMockImplementation()!;
     mockedFetch.mockImplementation(async (names: string[], ...rest) => {
@@ -692,9 +696,7 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
     vi.mocked(isProtectionPiece).mockReturnValue(true);
     try {
       const ctx = baseContext();
-      // tinyLeaders caps cmc<=3 so the enabler (cmc:5) can ONLY enter via the
-      // audit, matching the "discloses a legal combo-audit swap" test above.
-      ctx.customization = customization({ comboCount: 3, tinyLeaders: true });
+      ctx.customization = customization({ comboCount: 3 });
       const deck = await generateDeck(ctx);
       const names = Object.values(deck.categories)
         .flat()
@@ -746,7 +748,9 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
         href: null,
       },
     ]);
-    const ON_COLOR3: ScryfallCard = mkSC('On-Color Enabler 3', 'Enchantment', 5); // color_identity ['G']
+    // Land device (see "discloses a legal combo-audit swap" above) — reachable
+    // only via the audit's by-name resolution, never the normal type pools.
+    const ON_COLOR3: ScryfallCard = mkSC('On-Color Enabler 3', 'Land', 5); // color_identity ['G']
     const mockedFetch = vi.mocked(getCardsByNames);
     const realFetch = mockedFetch.getMockImplementation()!;
     mockedFetch.mockImplementation(async (names: string[], ...rest) => {
@@ -757,7 +761,7 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
     vi.mocked(isFreeInteraction).mockReturnValue(true);
     try {
       const ctx = baseContext();
-      ctx.customization = customization({ comboCount: 3, tinyLeaders: true });
+      ctx.customization = customization({ comboCount: 3 });
       const deck = await generateDeck(ctx);
       const names = Object.values(deck.categories)
         .flat()
@@ -812,7 +816,7 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
         href: null,
       },
     ]);
-    const GC_ENABLER: ScryfallCard = mkSC('Bracket-Gated Enabler', 'Enchantment', 5); // color_identity ['G']
+    const GC_ENABLER: ScryfallCard = mkSC('Bracket-Gated Enabler', 'Land', 5); // color_identity ['G'] — land device, see On-Color Enabler above
     const mockedFetch = vi.mocked(getCardsByNames);
     const realFetch = mockedFetch.getMockImplementation()!;
     mockedFetch.mockImplementation(async (names: string[], ...rest) => {
@@ -823,12 +827,9 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
     vi.mocked(getGameChangerNames).mockResolvedValueOnce(new Set(['Bracket-Gated Enabler']));
     try {
       const ctx = baseContext();
-      // tinyLeaders forces the enabler to be reachable ONLY via the audit
-      // (same reasoning as the on-color-enabler test above); targetBracket:2
-      // is the bracket the live defect hit.
+      // targetBracket:2 is the bracket the live defect hit.
       ctx.customization = customization({
         comboCount: 3,
-        tinyLeaders: true,
         targetBracket: 2,
       });
       const deck = await generateDeck(ctx);
@@ -884,7 +885,7 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
         href: null,
       },
     ]);
-    const GC_ENABLER: ScryfallCard = mkSC('Bracket-Gated Enabler', 'Enchantment', 5); // color_identity ['G']
+    const GC_ENABLER: ScryfallCard = mkSC('Bracket-Gated Enabler', 'Land', 5); // color_identity ['G'] — land device, see On-Color Enabler above
     const mockedFetch = vi.mocked(getCardsByNames);
     const realFetch = mockedFetch.getMockImplementation()!;
     mockedFetch.mockImplementation(async (names: string[], ...rest) => {
@@ -897,7 +898,6 @@ describe('generateDeck — Combo Integrity Audit color-identity gate (defect A1/
       const ctx = baseContext();
       ctx.customization = customization({
         comboCount: 3,
-        tinyLeaders: true,
         targetBracket: 4,
       });
       const deck = await generateDeck(ctx);
@@ -986,6 +986,39 @@ describe('generateDeck — collection relaxation (T43 PR-3)', () => {
       mocked.mockResolvedValue({ data: [] } as unknown as Awaited<ReturnType<typeof searchCards>>);
       clearGenerationCache();
     }
+  });
+
+  it('partial mode: leftover owned cards a single type slot has no room for get swapped into OTHER type slots (E128 residual)', async () => {
+    // Own EVERY instant in the pool (15) but nothing else, asking for 100%
+    // owned in 'partial' mode. The instant type slot itself only has room for
+    // 8 of those 15 (this fixture's balanced 99-card composition) — a card
+    // routed by its OWN type (routeCardByType) can only ever land back in the
+    // instant-shaped slot, so this proves the reconciliation actually seated
+    // MORE owned instants than that slot alone could ever hold — LIVE-
+    // CONFIRMED (Lathril/Krenko) that the leftover owned cards were being
+    // left on the table instead of backfilled once their own type slot filled.
+    const ctx = baseContext();
+    ctx.customization = customization({
+      collectionMode: true,
+      collectionStrategy: 'partial',
+      collectionOwnedPercent: 100,
+    });
+    const ownedInstants = Array.from({ length: 15 }, (_, i) => `Instant_${i + 1}`);
+    (ctx as { collectionNames?: Set<string> }).collectionNames = new Set([
+      'Test Commander',
+      ...ownedInstants,
+    ]);
+    clearGenerationCache();
+    const deck = await generateDeck(ctx);
+    const nonLandCards = Object.entries(deck.categories)
+      .filter(([cat]) => cat !== 'lands')
+      .flatMap(([, cards]) => cards);
+    const ownedNonLandCount = nonLandCards.filter((c) => ownedInstants.includes(c.name)).length;
+    // This fixture's instant-type target is 8 (see the sibling "STRESS" tests'
+    // debug logs) — more than that shipping proves the reconciliation pulled
+    // leftover owned instants in past their own type slot's cap.
+    expect(ownedNonLandCount).toBeGreaterThan(8);
+    clearGenerationCache();
   });
 });
 

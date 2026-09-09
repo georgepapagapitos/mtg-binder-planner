@@ -169,6 +169,73 @@ describe('assembleBuildReport', () => {
     expect(full.ownedPercentTarget).toBeUndefined();
   });
 
+  it('explains a thin owned pool when partial mode falls well short of the requested %', () => {
+    // 10-card mainboard, only 1 owned; asked for 100% but the pool only had 3
+    // eligible owned names to begin with — a real pool limit, not a bug.
+    const mainboard = Array.from({ length: 10 }, (_, i) => makeCard(`Card ${i + 1}`));
+    const report = assembleBuildReport({
+      generated: makeGenerated({
+        builtFromCollection: true,
+        categories: categories({ creatures: mainboard }),
+        partialOwnedEligibleCount: 3,
+      }),
+      customization: makeCustomization({
+        collectionMode: true,
+        collectionStrategy: 'partial',
+        collectionOwnedPercent: 100,
+      }),
+      collectionNames: new Set(['Card 1']),
+    });
+
+    expect(report.ownedPercentGapNote).toBe(
+      "You asked for 100% owned cards, but only 3 owned cards fit this commander's pool. 1 was used and the rest came from recommendations."
+    );
+  });
+
+  it('counts only NONLAND owned cards in the gap note (same basis as the eligible count)', () => {
+    // Two owned basics must not inflate "N were used" past the nonland
+    // eligible denominator (LIVE: "only 9 fit ... 11 were used").
+    const mainboard = Array.from({ length: 10 }, (_, i) => makeCard(`Card ${i + 1}`));
+    const lands = [
+      { ...makeCard('Forest'), type_line: 'Basic Land — Forest' },
+      { ...makeCard('Swamp'), type_line: 'Basic Land — Swamp' },
+    ];
+    const report = assembleBuildReport({
+      generated: makeGenerated({
+        builtFromCollection: true,
+        categories: categories({ creatures: mainboard, lands }),
+        partialOwnedEligibleCount: 3,
+      }),
+      customization: makeCustomization({
+        collectionMode: true,
+        collectionStrategy: 'partial',
+        collectionOwnedPercent: 100,
+      }),
+      collectionNames: new Set(['Card 1', 'Forest', 'Swamp']),
+    });
+
+    expect(report.ownedPercentGapNote).toContain('1 was used');
+  });
+
+  it('omits the gap note when the pool had enough eligible owned cards (a real bug would look different)', () => {
+    const mainboard = Array.from({ length: 10 }, (_, i) => makeCard(`Card ${i + 1}`));
+    const report = assembleBuildReport({
+      generated: makeGenerated({
+        builtFromCollection: true,
+        categories: categories({ creatures: mainboard }),
+        partialOwnedEligibleCount: 10, // plenty — a shortfall here isn't a pool limit
+      }),
+      customization: makeCustomization({
+        collectionMode: true,
+        collectionStrategy: 'partial',
+        collectionOwnedPercent: 100,
+      }),
+      collectionNames: new Set(['Card 1']),
+    });
+
+    expect(report.ownedPercentGapNote).toBeUndefined();
+  });
+
   it('sums basicsPadded from collection + filter shortfall', () => {
     const report = assembleBuildReport({
       generated: makeGenerated({ collectionShortfall: 3, filterShortfall: 2 }),
@@ -197,6 +264,19 @@ describe('assembleBuildReport', () => {
     });
 
     expect(report.collectionRelaxed).toBe(4);
+  });
+
+  it('surfaces collectionRelaxedNames alongside the count (names, not just a boolean/number)', () => {
+    const report = assembleBuildReport({
+      generated: makeGenerated({
+        collectionRelaxedCount: 2,
+        collectionRelaxedNames: ['Skullclamp', 'The One Ring'],
+      }),
+      customization: makeCustomization(),
+      collectionNames: new Set(),
+    });
+
+    expect(report.collectionRelaxedNames).toEqual(['Skullclamp', 'The One Ring']);
   });
 
   it('omits collectionRelaxed when no relaxation happened', () => {

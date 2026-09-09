@@ -41,11 +41,14 @@ vi.mock('@/deck-builder/services/tagger/client', () => ({
 
 import {
   buildLandCountNote,
+  buildLandCountClampNote,
+  buildPoolExhaustionNote,
   buildOverBudgetNote,
   buildRoleCapOverflowNote,
   buildPriceSanityNote,
   countFinalPriceSanityPicks,
   buildBracketPriceDisclosureNote,
+  buildGameChangerBracketConflictNote,
   buildWipeAsymmetryNote,
   countFinalWipeAsymmetry,
   buildComboAuditBracketBlockNote,
@@ -198,6 +201,130 @@ describe('buildLandCountNote', () => {
       finalAvgCmc: 3.2,
     });
     expect(note).not.toContain('nonbasic land budget');
+  });
+
+  // LIVE-CONFIRMED: an invalid Scryfall filter shipped "Auto-tuned to 36
+  // lands … Delivered 98 after post-tune deck adjustments" — misattributing
+  // pool exhaustion to a legitimate downstream tune adjustment.
+  it('suppresses the delivered clause when the delta is pool exhaustion', () => {
+    const note = buildLandCountNote({
+      resolvedLandCount: 36,
+      finalLandCount: 98,
+      archetype: Archetype.GOODSTUFF,
+      isLowConfidence: false,
+      edhrecRampCount: 8,
+      finalAvgCmc: 3.4,
+      deliveredByPoolExhaustion: true,
+    });
+    expect(note).toContain('Auto-tuned to 36 lands');
+    expect(note).not.toContain('Delivered');
+    expect(note).not.toContain('post-tune deck adjustments');
+  });
+});
+
+describe('buildLandCountClampNote', () => {
+  it('discloses when targetCounts.ts clamped a below-floor request upward', () => {
+    // LIVE-CONFIRMED: `landCount: 25` shipped 33 lands with zero disclosure —
+    // only the archetype auto-tune branch composed a note.
+    const note = buildLandCountClampNote(25, 32, 32);
+    expect(note).toContain('You set land count to 25');
+    expect(note).toContain('needs at least 32');
+    expect(note).not.toContain('Delivered');
+  });
+
+  // A live rerun caught the clamp note itself misreporting the floor: a
+  // 32-floor request said "needs at least 33", where 33 was a LATER +1
+  // land-generation adjustment, not the clamp. The plan (32) and the
+  // delivered count (33) must be named separately.
+  it('names the plan and a later delivered-count drift separately', () => {
+    const note = buildLandCountClampNote(25, 32, 33);
+    expect(note).toContain('needs at least 32');
+    expect(note).toContain('Delivered 33');
+    expect(note).not.toContain('needs at least 33');
+  });
+
+  it('discloses when an absurd request got capped down to deckCards-1', () => {
+    const note = buildLandCountClampNote(999, 98, 98);
+    expect(note).toContain('only has room for 98');
+  });
+
+  it('is undefined when the plan matches what was typed', () => {
+    expect(buildLandCountClampNote(37, 37, 37)).toBeUndefined();
+  });
+});
+
+describe('buildPoolExhaustionNote', () => {
+  it('is undefined when the excess is within routine land-generation rounding', () => {
+    expect(
+      buildPoolExhaustionNote({
+        plannedLandCount: 37,
+        finalLandCount: 38,
+        finalNonLandCount: 61,
+        hasScryfallQuery: false,
+        hasCollectionNames: false,
+      })
+    ).toBeUndefined();
+  });
+
+  it('names your Scryfall filter as the cause when one is set', () => {
+    // LIVE-CONFIRMED: a valid-but-narrow query shipped a nearly-all-basics
+    // deck labeled only as an auto-tune raise.
+    const note = buildPoolExhaustionNote({
+      plannedLandCount: 37,
+      finalLandCount: 98,
+      finalNonLandCount: 1,
+      hasScryfallQuery: true,
+      hasCollectionNames: false,
+    });
+    expect(note).toContain('The card pool ran out after 1 spell.');
+    expect(note).toContain('61 slots');
+    expect(note).toContain('your Scryfall filter');
+  });
+
+  it('names your collection as the cause when a collection is set, even with a filter also set', () => {
+    const note = buildPoolExhaustionNote({
+      plannedLandCount: 37,
+      finalLandCount: 49,
+      finalNonLandCount: 50,
+      hasScryfallQuery: true,
+      hasCollectionNames: true,
+    });
+    expect(note).toContain('your collection');
+    expect(note).not.toContain('your Scryfall filter');
+  });
+
+  it('names your other settings when neither a filter nor a collection is set', () => {
+    // LIVE-CONFIRMED: a plain budget+price+rarity+arena+bracket squeeze with
+    // neither set padded ~55% basics with zero disclosure.
+    const note = buildPoolExhaustionNote({
+      plannedLandCount: 37,
+      finalLandCount: 90,
+      finalNonLandCount: 8,
+      hasScryfallQuery: false,
+      hasCollectionNames: false,
+    });
+    expect(note).toContain('your budget, price, rarity, or bracket settings');
+  });
+});
+
+describe('buildGameChangerBracketConflictNote', () => {
+  it('discloses when bracket 4 (unlimited GC ceiling) meets a finite limit', () => {
+    const note = buildGameChangerBracketConflictNote(4, 2);
+    expect(note).toContain('Bracket 4 allows unlimited Game Changers');
+    expect(note).toContain('caps this deck at 2');
+  });
+
+  it("says 'zero' for a gameChangerLimit of none", () => {
+    const note = buildGameChangerBracketConflictNote(5, 0);
+    expect(note).toContain('caps this deck at zero');
+  });
+
+  it('is undefined below bracket 4', () => {
+    expect(buildGameChangerBracketConflictNote(3, 0)).toBeUndefined();
+  });
+
+  it('is undefined when the limit is already unlimited', () => {
+    expect(buildGameChangerBracketConflictNote(5, Infinity)).toBeUndefined();
   });
 });
 

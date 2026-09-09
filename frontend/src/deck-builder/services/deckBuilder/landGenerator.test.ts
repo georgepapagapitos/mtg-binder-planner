@@ -187,6 +187,69 @@ describe('generateLands', () => {
     expect(gatesOpen.gameChangerCount.value).toBe(1);
   });
 
+  // E-arena-leak: nonbasic utility/storage lands (e.g. Dreadship Reef) come
+  // straight from the EDHREC per-commander cardlist — LIVE-CONFIRMED shipping
+  // under arenaOnly with games: ['paper', 'mtgo']. The higher-inclusion
+  // off-Arena land must be skipped in favor of the on-Arena one.
+  it('skips a nonbasic land not available on Arena under arenaOnly', async () => {
+    const offArena = sc({
+      name: 'Dreadship Reef',
+      type_line: 'Land',
+      cmc: 0,
+      games: ['paper', 'mtgo'],
+    });
+    const onArena = sc({
+      name: 'Reliquary Tower',
+      type_line: 'Land',
+      cmc: 0,
+      games: ['paper', 'arena'],
+    });
+    const edhrecLands = [
+      {
+        name: 'Dreadship Reef',
+        sanitized: 'dreadship-reef',
+        primary_type: 'Land',
+        inclusion: 80,
+        num_decks: 1000,
+      },
+      {
+        name: 'Reliquary Tower',
+        sanitized: 'reliquary-tower',
+        primary_type: 'Land',
+        inclusion: 40,
+        num_decks: 1000,
+      },
+    ];
+    vi.mocked(getCardsByNames).mockResolvedValueOnce(
+      new Map([
+        ['Dreadship Reef', offArena],
+        ['Reliquary Tower', onArena],
+      ])
+    );
+    const lands = await generateLands(
+      edhrecLands,
+      ['W'],
+      1,
+      new Set(),
+      0,
+      99,
+      [],
+      undefined,
+      new Set(),
+      null,
+      null,
+      null,
+      null,
+      undefined,
+      undefined,
+      'USD',
+      true // arenaOnly
+    );
+    const names = lands.map((c) => c.name);
+    expect(names).not.toContain('Dreadship Reef');
+    expect(names).toContain('Reliquary Tower');
+  });
+
   it('boosts lands covering the deck’s weighted color demand over off-color utility', async () => {
     // Equal inclusion; the colorless utility land is listed FIRST (wins any tie).
     const wLand = sc({ name: 'Rustvale Bridge', type_line: 'Land', produced_mana: ['W'] });
@@ -330,6 +393,48 @@ describe('generateLands', () => {
     expect(names.filter((n) => n === 'Plains')).toHaveLength(3);
     expect(names.filter((n) => n === 'Island')).toHaveLength(2);
     expect(names).toContain('Command Tower');
+  });
+
+  // E-arena-leak: Command Tower is auto-added with NO legality check at all —
+  // LIVE-CONFIRMED a brawl (60-card) build could ship a not-legal-in-brawl
+  // named staple. mtgFormat must thread through to this pick.
+  it('skips Command Tower when it is not legal in the active format', async () => {
+    vi.mocked(getCardByName).mockImplementationOnce(async (name: string) => ({
+      ...card(name),
+      legalities: { commander: 'legal', brawl: 'not_legal' },
+    }));
+    const lands = await generateLands(
+      [],
+      ['W', 'U'],
+      2,
+      new Set(),
+      0,
+      99,
+      [],
+      undefined,
+      new Set(),
+      null,
+      null,
+      null,
+      null,
+      undefined,
+      undefined,
+      'USD',
+      false,
+      '',
+      undefined,
+      'full',
+      100,
+      false,
+      false,
+      'balanced',
+      undefined,
+      undefined,
+      undefined,
+      null,
+      'brawl'
+    );
+    expect(lands.map((c) => c.name)).not.toContain('Command Tower');
   });
 
   it('splits basics across owned printings by available count (largest group first)', async () => {

@@ -12,6 +12,9 @@ import {
   constrainsToCollection,
   exceedsMaxPrice,
   exceedsMaxRarity,
+  exceedsCmcCap,
+  notOnArena,
+  notLegalForFormat,
   isOwnedBudgetExempt,
   isOwnedRarityExempt,
   notInCollection,
@@ -51,7 +54,10 @@ export async function resolveMultiCopyCards(
   collectionStrategy: CollectionStrategy = 'full',
   ignoreOwnedRarity: boolean = false,
   budgetTracker: BudgetTracker | null = null,
-  ignoreOwnedBudget: boolean = false
+  ignoreOwnedBudget: boolean = false,
+  maxCmc: number | null = null,
+  arenaOnly: boolean = false,
+  mtgFormat?: string
 ): Promise<MultiCopyResult[]> {
   // Step 1: Fetch the set of all multi-copy cards from Scryfall (cached after first call)
   const multiCopyCards = await fetchMultiCopyCardNames();
@@ -149,6 +155,23 @@ export async function resolveMultiCopyCards(
           logger.debug(`[DeckGen] "${cardName}" exceeds max rarity, skipping multi-copy`);
           continue;
         }
+      }
+      // Multi-copy cards are resolved by name straight off Scryfall, outside
+      // cardPicking.ts's pre-filtered pool — same CMC/Arena/format-legality
+      // gate every other pick path enforces (E-arena-leak).
+      if (exceedsCmcCap(card, maxCmc)) {
+        logger.debug(`[DeckGen] "${cardName}" exceeds CMC cap, skipping multi-copy`);
+        continue;
+      }
+      if (notOnArena(card, arenaOnly)) {
+        logger.debug(`[DeckGen] "${cardName}" not on Arena, skipping multi-copy`);
+        continue;
+      }
+      if (notLegalForFormat(card, mtgFormat)) {
+        logger.debug(
+          `[DeckGen] "${cardName}" not legal in ${mtgFormat ?? 'commander'}, skipping multi-copy`
+        );
+        continue;
       }
 
       // Step 8: Create the copies. They share card.id (and printing) so the

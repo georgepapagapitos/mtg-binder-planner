@@ -544,11 +544,22 @@ export interface BuildReport {
    *  default (e.g. tribal/dork-dense decks running fewer). Undefined when the
    *  user set land count explicitly, or no adjustment applied. */
   landCountNote?: string;
+  /** Disclosure when the card pool ran dry (an invalid/narrow Scryfall
+   *  filter, a thin owned-only collection, or a plain budget/price/rarity/
+   *  arena/bracket squeeze) and the shortfall got padded with extra basic
+   *  lands — names the cause and how many slots it cost. Undefined when the
+   *  final land count is within a few of the pre-generation plan. */
+  poolExhaustionNote?: string;
   /** Disclosure when an explicit (user/deck) must-include couldn't be seated —
    *  off-color, over the rarity/CMC cap, not on Arena, or unresolvable. Names
    *  each dropped pick with its reason so a forced card never vanishes
    *  silently. Undefined when every explicit pick was included. */
   mustIncludeSkippedNote?: string;
+  /** Disclosure when an explicit must-include was seated OVER the game-changer
+   *  limit or max card price (forced picks are never dropped for either, but
+   *  seating one past a cap the user set is never silent). Undefined when no
+   *  seated must-include broke either cap. */
+  mustIncludeOverrideNote?: string;
   /** Disclosure when a combo-completion candidate (Combo Integrity Audit /
    *  combo floor) was skipped because it would exceed the deck budget.
    *  Undefined when no budget is set or nothing was skipped. */
@@ -576,6 +587,11 @@ export interface BuildReport {
    *  Note-only; the total is unchanged. Undefined off the casual end, when a
    *  budget is set, or below the disclosure threshold. */
   bracketPriceDisclosureNote?: string;
+  /** Disclosure when a bracket-4/5 ask (bracketGuard's own ceiling for both
+   *  is unlimited Game Changers) is paired with a finite gameChangerLimit
+   *  that still caps the deck below that allowance. Undefined off bracket
+   *  4/5, or when the limit is already unlimited. */
+  gameChangerBracketConflictNote?: string;
   /** Disclosure when the deck's plan was board-centric (E109 — go-wide
    *  archetype, or a creature-heavy type target) and the wipe-asymmetry
    *  treatment actually did something: trimmed the board wipe target,
@@ -638,11 +654,19 @@ export interface BuildReport {
   ownedPercentActual?: number;
   /** Requested owned-% target (partial mode only). */
   ownedPercentTarget?: number;
+  /** Why the delivered owned share (ownedPercentActual) falls meaningfully
+   *  short of ownedPercentTarget — set only when a thin owned pool (not a
+   *  bug) is the honest reason, e.g. "You asked for 100% owned cards, but
+   *  only 12 owned cards fit this commander's pool." Partial mode only. */
+  ownedPercentGapNote?: string;
   /** Basic lands added as last-resort filler (collection + filter shortfall). */
   basicsPadded?: number;
   /** Cards added from outside the collection to complete an owned-only build
    *  (the collection was exhausted before the deck was full). */
   collectionRelaxed?: number;
+  /** The actual names behind `collectionRelaxed` — a count alone doesn't tell
+   *  the user WHICH cards came from outside their collection. */
+  collectionRelaxedNames?: string[];
   /** "Wanted X → used your Y" substitutions: closest owned cards swapped in for
    *  unowned staples to keep an owned-only deck inside the collection. */
   collectionSubstitutions?: SubstituteRow[];
@@ -758,9 +782,18 @@ export interface GeneratedDeck {
   /** Cards pulled from OUTSIDE the collection to complete an owned-constrained
    *  deck when the owned pool was exhausted — relaxation before basic padding. */
   collectionRelaxedCount?: number;
+  /** The actual names behind collectionRelaxedCount (survived to the final
+   *  deck) — see BuildReport's field of the same name. */
+  collectionRelaxedNames?: string[];
   /** "Wanted X → used your Y" substitutions: owned cards swapped in for unowned
    *  EDHREC staples to complete an owned-only deck from the collection. */
   collectionSubstitutions?: SubstituteRow[];
+  /** Partial mode only: the total distinct owned card names present in this
+   *  commander's candidate pool (seated in the deck or not) — the honest
+   *  denominator for "only N owned cards fit this pool" when the delivered
+   *  owned share falls short of collectionOwnedPercent. Undefined outside
+   *  partial mode. */
+  partialOwnedEligibleCount?: number;
   detectedCombos?: DetectedCombo[];
   typeTargets?: Record<string, number>;
   /** Target counts per DeckCategory bucket, computed unconditionally (unlike
@@ -791,11 +824,14 @@ export interface GeneratedDeck {
   generationModeDetail?: string; // Mode-specific descriptor (art motif slug, or "year<=YYYY")
   generationRelaxedNote?: string; // e.g. historical mode eased its year ceiling to find a pool
   landCountNote?: string; // e.g. archetype-aware auto land count nudged the 37-land default
+  poolExhaustionNote?: string; // e.g. an invalid filter / thin collection / other caps ran the pool dry and basics padded the gap
   mustIncludeSkippedNote?: string; // e.g. a forced pick was off-color / over a cap / not on Arena and couldn't be seated
+  mustIncludeOverrideNote?: string; // e.g. a forced pick was seated over the game-changer limit or max card price
   budgetNote?: string; // e.g. a combo upgrade was skipped to honor the budget cap
   roleCapOverflowNote?: string; // e.g. N cards kept over their role target to finish the deck (thin type pool)
   priceSanityNote?: string; // e.g. N cheaper near-equivalents preferred over premium picks (E80)
   bracketPriceDisclosureNote?: string; // e.g. casual-bracket ask + no budget still shipped a high total — bracket caps power, not price (E110)
+  gameChangerBracketConflictNote?: string; // e.g. bracket 4/5 allows unlimited Game Changers but a finite limit still caps the deck
   wipeAsymmetryNote?: string; // e.g. board-centric plan trimmed the wipe target and/or preferred one-sided wipes (E109)
   qualifiedPayoffGateNote?: string; // e.g. N qualified ETB/death payoffs seated anyway — nothing else cleared every gate (E111)
   comboAuditBracketBlockNote?: string; // e.g. N combo-audit swaps skipped to stay within the target bracket (E104)

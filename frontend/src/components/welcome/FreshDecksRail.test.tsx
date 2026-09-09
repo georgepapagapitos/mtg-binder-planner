@@ -95,8 +95,9 @@ describe('FreshDecksRail', () => {
     });
 
     const { container } = renderRail();
-    await waitFor(() => expect(mockListDiscoverDecks).toHaveBeenCalled());
-    expect(container.firstChild).toBeNull();
+    // "Called" is not "settled": the skeleton section is on screen until the
+    // resolved page lands, so wait for the null itself (E272).
+    await waitFor(() => expect(container.firstChild).toBeNull());
   });
 
   it('renders nothing when zero decks return', async () => {

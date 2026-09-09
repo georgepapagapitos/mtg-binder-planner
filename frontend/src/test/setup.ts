@@ -11,6 +11,32 @@
  * It also closes the structural hole behind E207 — see the fetch guard below.
  */
 
+import { afterEach } from 'vitest';
+
+/**
+ * E272 (slice 2) — let IndexedDB work settle before a test is torn down.
+ *
+ * fake-indexeddb completes every request on a `setImmediate` macrotask hop
+ * (IndexedDB semantics need the transaction to go inactive between event-loop
+ * turns), and the app's mount-time IDB reads (use-rarity-corrections'
+ * manifest probe, sync.ts's queue-depth refresh, value-history snapshots)
+ * outrun a synchronous RTL test by construction: the test ends, the chain is
+ * still pending, and `--detectAsyncLeaks` reports ~100 promise leaks across
+ * the DeckDisplay/DeckAnalysis families alone (measured 2026-09-09: 247
+ * leaks, 224 of them promises, one source for ~100 of them). Draining a few
+ * hops after each test lets those chains finish inside the test's own
+ * lifetime — no per-file fake timers, no product change.
+ *
+ * `setImmediate` is captured here, before any test installs fake timers, so
+ * a file that leaves `vi.useFakeTimers()` on can't turn this into a hang.
+ */
+const realSetImmediate = globalThis.setImmediate;
+afterEach(async () => {
+  // ponytail: 8 hops covers open -> get/count -> close chains; raise if the
+  // leak count climbs back.
+  for (let i = 0; i < 8; i++) await new Promise<void>((r) => realSetImmediate(r));
+});
+
 if (typeof globalThis.localStorage === 'undefined') {
   const store = new Map<string, string>();
   const memoryStorage: Storage = {

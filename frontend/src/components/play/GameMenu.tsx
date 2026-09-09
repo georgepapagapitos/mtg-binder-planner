@@ -27,7 +27,6 @@ export function GameMenu({
   onRematch,
   onUndo,
   undoLabel,
-  onShare,
 }: {
   game: GameState;
   canControlAll: boolean;
@@ -39,8 +38,6 @@ export function GameMenu({
   onRematch?: () => void;
   onUndo: () => void;
   undoLabel: string | null;
-  /** Opens the ShareDialog for this (finished, online) game's recap. */
-  onShare: () => void;
 }) {
   const isFinished = game.status === 'finished';
   const hapticsEnabled = usePlayStore((s) => s.hapticsEnabled);
@@ -130,15 +127,6 @@ export function GameMenu({
                           }}
                         >
                           Rematch · same players
-                        </button>
-                      )}
-                      {game.mode === 'online' && (
-                        <button
-                          type="button"
-                          className="game-menu-btn is-wide"
-                          onClick={() => onShare()}
-                        >
-                          Share recap
                         </button>
                       )}
                       {/* Not "Close": the sheet's ✕ already owns that accessible

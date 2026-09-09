@@ -321,7 +321,7 @@ function fullAnalysis(): DeckAnalysisResult {
 }
 
 describe('buildEngineInventory (T112 part 2)', () => {
-  it('counts sources and payoffs by name from card text, sorted, and skips thin axes', () => {
+  it('counts sources and payoffs by name from card text, sorted, invested axes only', () => {
     const cards = [
       {
         name: 'Mr. House, President and CEO',
@@ -352,8 +352,17 @@ describe('buildEngineInventory (T112 part 2)', () => {
       'Brazen Dwarf',
       'Mr. House, President and CEO',
     ]);
-    // A lone token maker is not an engine worth telling the model about.
+    // A lone token maker is not an engine worth telling the model about — and
+    // neither is a half-empty axis (sources with no payoff, or the reverse).
     expect(engines.find((e) => e.label.startsWith('Tokens'))).toBeUndefined();
+    const halfEmpty = buildEngineInventory([
+      { name: 'A', oracle_text: 'Roll a d20.' },
+      { name: 'B', oracle_text: 'Roll a d20.' },
+      { name: 'C', oracle_text: 'Roll a d20.' },
+      { name: 'D', oracle_text: 'Roll a d20.' },
+      { name: 'E', oracle_text: 'Roll a d20.' },
+    ]);
+    expect(halfEmpty).toEqual([]);
     // Only when cards are passed does the payload carry it.
     expect(toAiAnalysis(fullAnalysis()).engines).toBeUndefined();
     expect(toAiAnalysis(fullAnalysis(), undefined, cards).engines).toEqual(engines);

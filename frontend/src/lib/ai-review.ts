@@ -73,17 +73,26 @@ export interface AiAnalysisPayload {
   engines?: { label: string; sources: string[]; payoffs: string[] }[];
 }
 
-/** Axes below this many cards are noise, not an engine the reader would recognise. */
-const ENGINE_MIN_TOTAL = 3;
 const ENGINE_MAX_AXES = 6;
 const ENGINE_MAX_NAMES = 15;
 
-/** The engine inventory for the AI payload — see `AiAnalysisPayload.engines`. */
+/**
+ * The engine inventory for the AI payload — see `AiAnalysisPayload.engines`.
+ *
+ * Only axes the deck is INVESTED in (deckSynergy's own bar: enough cards AND
+ * both halves present). Measured live, the model picks the most lopsided line
+ * it is shown as the weakness, and a half-empty axis is classifier noise more
+ * often than a finding — "Lifegain: 8 sources · 0 payoffs" on a Mr. House
+ * deck was Blood Artist and Zulaport Cutthroat's incidental "you gain 1 life",
+ * and both prompt arms wrote a dead-lifegain-engine review off it.
+ */
 export function buildEngineInventory(cards: CardLike[]): AiAnalysisPayload['engines'] {
   const names = (rows: { name: string }[]) =>
     [...new Set(rows.map((r) => r.name))].sort().slice(0, ENGINE_MAX_NAMES);
-  return analyzeDeckSynergy(cards)
-    .axes.filter((a) => a.total >= ENGINE_MIN_TOTAL)
+  const synergy = analyzeDeckSynergy(cards);
+  const invested = new Set(synergy.invested);
+  return synergy.axes
+    .filter((a) => invested.has(a.axis))
     .slice(0, ENGINE_MAX_AXES)
     .map((a) => ({ label: a.label, sources: names(a.producers), payoffs: names(a.payoffs) }));
 }

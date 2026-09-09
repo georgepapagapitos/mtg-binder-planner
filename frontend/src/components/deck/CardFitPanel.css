@@ -17,13 +17,36 @@
   color: var(--text-secondary);
 }
 
-/* Engine / curve / role / color read-out — a compact label→value list. */
+/* Desktop: the shell's 480px default is a phone column; this is a working
+   dialog (verdict rows + ranked cut rows) and follows the dense-dialog ruling
+   (STYLE_GUIDE § Overlays) at DeckSizePrompt's width — its closest sibling.
+   Two-class form outweighs the shell's ≥1024 rule regardless of import order. */
+@media (min-width: 1024px) {
+  .card-picker-sheet.card-fit-panel {
+    width: min(42rem, calc(100vw - 4rem));
+    max-height: min(52rem, 85vh);
+  }
+}
+
+/* Header and footer are chrome; the signals are a short fixed read-out. The
+   cut list below is the ONLY shrinker, so none of these get squeezed by a
+   long ranked-cut list. */
+.card-fit-panel .card-picker-header,
+.card-fit-panel .card-picker-footer,
+.card-fit-signals {
+  flex-shrink: 0;
+}
+
+/* Engine / curve / role / color read-out — a compact label→value list. Body
+   sections carry the header's --space-4 gutter themselves: the shell has no
+   horizontal padding on desktop (safe-area only on mobile), so without it the
+   rows sit flush against the sheet edge. */
 .card-fit-signals {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  margin: var(--space-2) 0;
-  padding: 0;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-2);
+  padding: 0 var(--space-4);
   list-style: none;
 }
 
@@ -66,6 +89,7 @@
 
 .card-fit-cuts {
   margin-top: var(--space-1);
+  padding: 0 var(--space-4);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -81,9 +105,9 @@
 .card-fit-cuts-list {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: var(--space-2);
   margin: 0;
-  padding: 0 0 var(--space-1);
+  padding: 0 0 var(--space-3);
   list-style: none;
   overflow-y: auto;
 }

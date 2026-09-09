@@ -1390,7 +1390,8 @@ calc(100vw - 4rem)) }`) — the two-class form outweighs the shell rule
   regardless of import order, same cascade rule as the Home bento overrides.
   Swept fleet-wide 2026-08-19; the current widths, for consistency when
   adding a sibling: Add cards 900 · Test hand 1180 · CardGroup 960 ·
-  NewArrivals / PullList 720 · ConflictPanel 720 · DeckSizePrompt 42rem ·
+  NewArrivals / PullList 720 · ConflictPanel 720 · DeckSizePrompt /
+  CardFitPanel 42rem ·
   BuildReport / BetweenYourDecks / DeckTokens 640 · BuyList / DeckPrimer
   ≈560. A new overlay whose body is rows, a diff, images, or anything you
   _work in_ picks from this table — it does not ship on the 480px default.

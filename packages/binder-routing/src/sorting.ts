@@ -357,7 +357,7 @@ export function collectorNumberKey(n: string): string {
   const key = n.toLowerCase().replace(/\d+/g, (d) => d.padStart(6, '0'));
   // Plain numbers (with or without a variant suffix) first; anything carrying
   // a set prefix ("2XM-114", "A-123") after them, in its own natural order.
-  return /^\d+[^-]*$/.test(n) ? key : `~${key}`;
+  return /^\d/.test(n) && !n.includes('-') ? key : `~${key}`;
 }
 
 export function cardSortValue(

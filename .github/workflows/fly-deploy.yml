@@ -19,6 +19,10 @@ concurrency:
   group: fly-deploy
   cancel-in-progress: false
 
+# Checkout only; the deploy itself authenticates with FLY_API_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   # A gated-off deploy is INVISIBLE: when CI fails on main, `deploy` below is
   # simply skipped and the whole run reports `completed skipped`, which reads

@@ -26,41 +26,59 @@ export default defineConfig({
     // without this the suite makes live network calls — slow, offline-hostile,
     // and a source of unhandled NetworkError noise on teardown. No test should
     // ever need a remote stylesheet's contents.
+    //
+    // Disabling the load is not enough on its own: happy-dom then reports each
+    // skipped <link> as a `DOMException [NotSupportedError]: Failed to load
+    // external stylesheet` via console.error — 19 lines per full run, every
+    // one of them a worker->main RPC landing near teardown. That volume is
+    // exactly the `EnvironmentTeardownError: Closing rpc while
+    // "onUserConsoleLog" was pending` trigger described under `silent` below,
+    // and it reddened two runs in the first hour on vitest 5 (#1805's PR run
+    // and main at 06800848) after 0 in the 30 main runs before. Treat the
+    // disabled load as a success so the element fires `load`, not `error`,
+    // and nothing is logged.
     environmentOptions: {
-      happyDOM: { settings: { disableCSSFileLoading: true } },
+      happyDOM: {
+        settings: {
+          disableCSSFileLoading: true,
+          handleDisabledFileLoadingAsSuccess: true,
+        },
+      },
     },
     globals: true,
-    // Suppress console output from PASSING tests — this is the fix for the
-    // long-running teardown flake, and it is structural rather than a mask.
+    // Do not intercept console output. This is the structural fix for the
+    // teardown flake that has reddened main CI on and off since 2026-07-16
+    // (a red main CI skips the Fly deploy):
     //
-    // Every console.* call in a test is one worker->main RPC
-    // (`onUserConsoleLog`). If any such RPC is still in flight when the worker
-    // environment tears down, vitest raises
-    // `EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was
-    // pending` as an unhandled rejection — which fails the job even though
-    // every test passed. That has reddened main CI repeatedly since 2026-07-16,
-    // and a red main CI silently skips the Fly deploy.
+    //   EnvironmentTeardownError: [vitest-worker]: Closing rpc while
+    //   "onUserConsoleLog" was pending
     //
-    // Earlier fixes all assumed a *late* logger (async work outliving its test)
-    // and stubbed network leaves file by file. Instrumentation disproved that:
-    // a full local run reproduced the failure with **zero** post-`afterAll`
-    // console writes, in a file nobody had touched
-    // (CardListTable.viewpopover.test.tsx). The trigger is console *volume*
-    // near teardown, not lateness — this suite emits hundreds of expected
-    // error-path lines (`[store] refreshPrices failed`, `[sync] push failed`,
-    // `[EDHREC] …`) that no test asserts on and no human reads.
+    // With interception on, vitest's console spy batches every console.* call
+    // per task and flushes the batch on a microtask as a worker->main RPC. A
+    // flush still in flight when the worker tears down is that error — an
+    // unhandled rejection that exits 1 with every test green, attributed to
+    // whichever file's worker happened to be closing (vitest-dev/vitest#11153).
     //
-    // 'passed-only' keeps the diagnostics that matter: a FAILING test still
-    // prints its console output in full. It does not touch vitest's
-    // unhandled-error detection, so a genuine unhandled rejection still fails
-    // the run.
+    // The previous fix here, `silent: 'passed-only'`, never touched that path:
+    // the filter runs in the main-process reporter, after the RPC has already
+    // been sent, so it reduced log VOLUME on screen and RPC volume not at all.
+    // It held by luck. vitest 5 widened the window — two red runs in the first
+    // hour (#1805's PR run, main at 06800848), then two errors in one local
+    // run with 9122 passing tests.
     //
-    // LIVE_GEN is exempt, mirroring the fetch guard in src/test/setup.ts. The
-    // deck-gen ship gate reads its authoritative results from files
-    // (`summary.json`), so it would survive either way — but the panel also
-    // logs per-deck progress, and a silently empty panel already reads as a
-    // clean pass (see the LIVE_GEN harness notes). Keep that output visible.
-    silent: process.env.LIVE_GEN ? false : 'passed-only',
+    // The maintainer's diagnosis on #11153 is the real root cause: test code
+    // still running after its test ended. `vitest run --detectAsyncLeaks`
+    // reports 416 leaking timeouts across ~40 files here (component timers and
+    // debounces outliving their tests). Fixing those is its own program (board
+    // E272); until then, no spy means no RPC and no race, by construction.
+    //
+    // Cost: console output goes straight to the worker's stdout, unfiltered —
+    // the suite's hundreds of expected error-path lines (`[store] refreshPrices
+    // failed`, `[sync] push failed`, `[EDHREC] …`) now appear in the CI log for
+    // passing tests too. Nothing is lost: a failing test's assertion output is
+    // unaffected, every console line is still printed, and LIVE_GEN's per-deck
+    // progress stays visible without a special case.
+    disableConsoleIntercept: true,
     // Vitest's defaults (5s per test, 10s per hook) are sized for an idle
     // machine. Several tests here are genuinely compute-heavy — the
     // substitute-weight eval and the commander-deck tagger analysis each burn
@@ -76,11 +94,10 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     coverage: {
       provider: 'v8',
-      // `all: true` counts files in `include` even when no test imports
-      // them — so the gate reflects real logic coverage, not just
-      // test-touched files. Required for the per-directory floors below
-      // to be honest.
-      all: true,
+      // Every file matched by `include` is measured, imported by a test or
+      // not, so the per-directory floors below reflect real logic coverage
+      // rather than only test-touched files. (That is the built-in behavior
+      // since vitest 4; the old `all: true` knob it replaced is gone.)
       include: [
         'src/lib/**/*.{ts,tsx}',
         'src/store/**/*.{ts,tsx}',

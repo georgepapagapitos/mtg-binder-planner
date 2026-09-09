@@ -22,7 +22,17 @@ function installRafFake() {
   vi.stubGlobal('cancelAnimationFrame', (id: number) => {
     rafCallbacks.delete(id);
   });
-  vi.stubGlobal('performance', { now: () => currentTime });
+  // React's dev build profiles renders through the User Timing API whenever
+  // `console.timeStamp` is a function (true for the real Node console, which
+  // is what the suite runs against with console interception off) and calls
+  // `performance.measure` / `getEntriesByType` on every render. A stub with
+  // only `now` makes react-dom throw `Cannot read properties of undefined
+  // (reading 'bind')` before the hook ever runs, so give it inert versions.
+  vi.stubGlobal('performance', {
+    now: () => currentTime,
+    measure: () => {},
+    getEntriesByType: () => [],
+  });
 }
 
 function advanceTime(ms: number) {

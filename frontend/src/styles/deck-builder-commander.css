@@ -12,11 +12,17 @@
    input above it never moves no matter how many results come back. Long
    lists grow inline with the page instead of scrolling inside this panel;
    the per-list "Show more" expanders keep the initial height short. Hosts
-   results, a status line, or EDHREC suggestions. */
+   results, a status line, or EDHREC suggestions.
+   Deliberately unboxed: the result-grid tiles carry their own border + fill,
+   so framing them again put a box inside a box. The partner picker keeps the
+   frame (below) because its rows are borderless. */
 .commander-search-panel {
   margin-top: var(--space-3);
   max-height: none;
   overflow: visible;
+}
+
+.partner-panel {
   background: var(--surface-raised);
   border: 0.5px solid var(--border-strong);
   border-radius: var(--radius);
@@ -489,10 +495,10 @@
 }
 
 /* ── Top-commanders suggestion section ──────────────────────────────── */
-/* Lives inside .commander-search-panel — no top margin; the panel's own
-   padding does the spacing. */
+/* Lives inside the (unboxed) .commander-search-panel — no padding, so its
+   grid lines up with the by-name results grid. */
 .commander-suggestions {
-  padding: 0.85rem var(--space-3);
+  padding: 0;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -520,7 +526,7 @@
 }
 
 .commander-playstyle-browse {
-  padding: 0.85rem var(--space-3);
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;

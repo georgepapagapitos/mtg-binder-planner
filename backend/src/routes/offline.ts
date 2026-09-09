@@ -140,16 +140,21 @@ offlineRouter.get('/combos-version', async (_req: Request, res: Response) => {
  * Admin-only manual refresh of the oracle bulk. The combos bulk follows the
  * existing nightly combo ingest, so no manual trigger is exposed here.
  */
-offlineRouter.post('/admin/refresh-oracle', requireAdmin, async (_req: Request, res: Response) => {
-  try {
-    const bulk = await refreshOracleBulk();
-    res.json({
-      version: bulk.version,
-      cardCount: bulk.cardCount,
-      gzippedBytes: bulk.gzippedBytes,
-    });
-  } catch (err) {
-    logger.error('[offline] manual refresh failed:', err);
-    res.status(502).json({ error: 'Refresh failed.' });
+offlineRouter.post(
+  '/admin/refresh-oracle',
+  requireAdmin,
+  bulkLimiter,
+  async (_req: Request, res: Response) => {
+    try {
+      const bulk = await refreshOracleBulk();
+      res.json({
+        version: bulk.version,
+        cardCount: bulk.cardCount,
+        gzippedBytes: bulk.gzippedBytes,
+      });
+    } catch (err) {
+      logger.error('[offline] manual refresh failed:', err);
+      res.status(502).json({ error: 'Refresh failed.' });
+    }
   }
-});
+);

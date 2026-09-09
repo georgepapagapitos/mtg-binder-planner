@@ -241,12 +241,17 @@ aggregatesRouter.get('/trending', aggregatesLimiter, async (_req: Request, res: 
   });
 });
 
-aggregatesRouter.post('/admin/refresh', requireAdmin, async (_req: Request, res: Response) => {
-  try {
-    const result = await runRollup();
-    res.json(result);
-  } catch (err) {
-    logger.error('[aggregates] admin refresh failed:', err);
-    res.status(500).json({ error: `Refresh failed: ${errorMessage(err)}` });
+aggregatesRouter.post(
+  '/admin/refresh',
+  requireAdmin,
+  aggregatesLimiter,
+  async (_req: Request, res: Response) => {
+    try {
+      const result = await runRollup();
+      res.json(result);
+    } catch (err) {
+      logger.error('[aggregates] admin refresh failed:', err);
+      res.status(500).json({ error: `Refresh failed: ${errorMessage(err)}` });
+    }
   }
-});
+);

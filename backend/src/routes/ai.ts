@@ -91,6 +91,7 @@ export const DEFAULT_DAILY_LIMIT = 10;
 
 const reviewLimiter = testAwareLimiter({ windowMs: 60_000, max: 10 });
 const optInLimiter = testAwareLimiter({ windowMs: 60_000, max: 20 });
+const aiReadLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
 
 /**
  * Feature flag: while the AI features are experimental they are admin-only,
@@ -139,7 +140,7 @@ async function usedToday(userId: string): Promise<number> {
 // opt-in state, today's usage, and the effective daily limit.
 // (404 from the router guard = the feature is unavailable entirely.)
 // ────────────────────────────────────────────────
-aiRouter.get('/status', requireAuth, async (req: Request, res: Response) => {
+aiRouter.get('/status', requireAuth, aiReadLimiter, async (req: Request, res: Response) => {
   const user = await loadAiUser(req.user!.id);
   const used = user.ai_opt_in ? await usedToday(req.user!.id) : 0;
   res.json({
@@ -154,7 +155,7 @@ aiRouter.get('/status', requireAuth, async (req: Request, res: Response) => {
 // A DB read of the user's own generated content: free, spends no quota, and
 // never touches the model. Rows written before deck_id existed aren't listed.
 // ────────────────────────────────────────────────
-aiRouter.get('/history', requireAuth, async (req: Request, res: Response) => {
+aiRouter.get('/history', requireAuth, aiReadLimiter, async (req: Request, res: Response) => {
   const deckId = req.query.deckId;
   if (typeof deckId !== 'string' || !deckId || deckId.length > 200) {
     return res.status(400).json({ error: 'deckId is required.' });
@@ -894,7 +895,7 @@ type RulesLine = { delta: string } | { done: RulesDone } | { error: string };
 // A DB read of their own generated content: free, spends no quota, never
 // touches the model. Citations are re-hydrated per row (see hydrateCitations).
 // ────────────────────────────────────────────────
-aiRouter.get('/rules-history', requireAuth, async (req: Request, res: Response) => {
+aiRouter.get('/rules-history', requireAuth, aiReadLimiter, async (req: Request, res: Response) => {
   const rows = await getPool().query<{
     id: string;
     question: string | null;

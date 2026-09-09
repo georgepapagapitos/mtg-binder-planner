@@ -18,6 +18,7 @@ export const combosRouter: Router = Router();
 // loop it (varying inputs to dodge the LRU cache) and 502 everyone. Disabled
 // under test so the suite can fire many matches without tripping it.
 const matchLimiter = testAwareLimiter({ windowMs: 60_000, max: 30 });
+const detailLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
 
 const MAX_OWNED_IDS = 10_000;
 const MAX_DECK_IDS = 500;
@@ -267,7 +268,7 @@ combosRouter.post('/match', matchLimiter, requireAuth, async (req: Request, res:
   res.json(result);
 });
 
-combosRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
+combosRouter.get('/:id', requireAuth, detailLimiter, async (req: Request, res: Response) => {
   const id = req.params.id;
   if (typeof id !== 'string' || id.length === 0) {
     return res.status(400).json({ error: 'id is required.' });
@@ -304,13 +305,18 @@ combosRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
   });
 });
 
-combosRouter.post('/admin/refresh', requireAdmin, async (_req: Request, res: Response) => {
-  try {
-    const result = await ingestCombos(streamSpellbookVariants());
-    res.json(result);
-  } catch (err) {
-    logger.error('[combos] admin refresh failed:', err);
-    const message = errorMessage(err);
-    res.status(500).json({ error: `Refresh failed: ${message}` });
+combosRouter.post(
+  '/admin/refresh',
+  requireAdmin,
+  matchLimiter,
+  async (_req: Request, res: Response) => {
+    try {
+      const result = await ingestCombos(streamSpellbookVariants());
+      res.json(result);
+    } catch (err) {
+      logger.error('[combos] admin refresh failed:', err);
+      const message = errorMessage(err);
+      res.status(500).json({ error: `Refresh failed: ${message}` });
+    }
   }
-});
+);

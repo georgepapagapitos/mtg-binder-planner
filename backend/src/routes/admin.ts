@@ -1,12 +1,16 @@
 import { Router, type Request, type Response } from 'express';
 import { eq } from 'drizzle-orm';
 import { requireAdmin } from '../auth';
+import { testAwareLimiter } from '../route-utils';
 import { getDb, getPool } from '../db';
 import { users } from '../db/schema';
 import { invalidateDeckPublicationCache, invalidatePublicUserCache } from '../publications/cache';
 import { invalidateShareContext } from '../shares/context';
 
 export const adminRouter: Router = Router();
+
+// Admin-only, low-volume: one shared bucket mirrors the 60/min read limiters elsewhere.
+const adminLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
 
 /**
  * GET /api/admin/users
@@ -21,7 +25,7 @@ export const adminRouter: Router = Router();
  * Raw (day, name, path, count) rows from the first-party beacon for the last
  * N days (default 30, max 365). The admin page aggregates client-side.
  */
-adminRouter.get('/events', requireAdmin, async (req: Request, res: Response) => {
+adminRouter.get('/events', requireAdmin, adminLimiter, async (req: Request, res: Response) => {
   const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
   const { rows } = await getPool().query<{
     day: string;
@@ -36,7 +40,7 @@ adminRouter.get('/events', requireAdmin, async (req: Request, res: Response) => 
   res.json({ events: rows });
 });
 
-adminRouter.get('/users', requireAdmin, async (_req: Request, res: Response) => {
+adminRouter.get('/users', requireAdmin, adminLimiter, async (_req: Request, res: Response) => {
   const { rows } = await getPool().query<{
     id: string;
     username: string;
@@ -105,23 +109,28 @@ adminRouter.get('/users', requireAdmin, async (_req: Request, res: Response) => 
  * Guards against an admin deleting themselves (would lock them out of the
  * admin panel and likely orphan the only admin seat).
  */
-adminRouter.delete('/users/:id', requireAdmin, async (req: Request, res: Response) => {
-  const id = req.params.id;
-  if (typeof id !== 'string' || id.length === 0) {
-    return res.status(400).json({ error: 'Missing user id.' });
+adminRouter.delete(
+  '/users/:id',
+  requireAdmin,
+  adminLimiter,
+  async (req: Request, res: Response) => {
+    const id = req.params.id;
+    if (typeof id !== 'string' || id.length === 0) {
+      return res.status(400).json({ error: 'Missing user id.' });
+    }
+    if (id === req.user!.id) {
+      return res
+        .status(400)
+        .json({ error: 'You cannot delete your own account from the admin panel.' });
+    }
+    const db = getDb();
+    const deleted = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id });
+    if (deleted.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    res.json({ ok: true });
   }
-  if (id === req.user!.id) {
-    return res
-      .status(400)
-      .json({ error: 'You cannot delete your own account from the admin panel.' });
-  }
-  const db = getDb();
-  const deleted = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id });
-  if (deleted.length === 0) {
-    return res.status(404).json({ error: 'User not found.' });
-  }
-  res.json({ ok: true });
-});
+);
 
 /**
  * POST /api/admin/users/:id/clear-profile
@@ -130,28 +139,33 @@ adminRouter.delete('/users/:id', requireAdmin, async (req: Request, res: Respons
  * self-target guard — unlike account deletion, clearing a profile is
  * reversible by re-setting it, so there's no lockout risk.
  */
-adminRouter.post('/users/:id/clear-profile', requireAdmin, async (req: Request, res: Response) => {
-  const id = req.params.id;
-  if (typeof id !== 'string' || id.length === 0) {
-    return res.status(400).json({ error: 'Missing user id.' });
+adminRouter.post(
+  '/users/:id/clear-profile',
+  requireAdmin,
+  adminLimiter,
+  async (req: Request, res: Response) => {
+    const id = req.params.id;
+    if (typeof id !== 'string' || id.length === 0) {
+      return res.status(400).json({ error: 'Missing user id.' });
+    }
+    const db = getDb();
+    const cleared = await db
+      .update(users)
+      .set({
+        displayName: null,
+        bio: null,
+        avatarCardId: null,
+        avatarCardName: null,
+        avatarImageUrl: null,
+      })
+      .where(eq(users.id, id))
+      .returning({ id: users.id });
+    if (cleared.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    res.json({ ok: true });
   }
-  const db = getDb();
-  const cleared = await db
-    .update(users)
-    .set({
-      displayName: null,
-      bio: null,
-      avatarCardId: null,
-      avatarCardName: null,
-      avatarImageUrl: null,
-    })
-    .where(eq(users.id, id))
-    .returning({ id: users.id });
-  if (cleared.length === 0) {
-    return res.status(404).json({ error: 'User not found.' });
-  }
-  res.json({ ok: true });
-});
+);
 
 interface AdminReportRow {
   id: string;
@@ -176,7 +190,7 @@ interface AdminReportRow {
  * and the reporter's username when signed in (null -> the client shows
  * "Anonymous").
  */
-adminRouter.get('/reports', requireAdmin, async (_req: Request, res: Response) => {
+adminRouter.get('/reports', requireAdmin, adminLimiter, async (_req: Request, res: Response) => {
   const { rows } = await getPool().query<AdminReportRow>(`
     SELECT cr.id, cr.kind, cr.target_id, cr.reason, cr.created_at,
            owner.username AS owner_username,
@@ -224,72 +238,77 @@ adminRouter.get('/reports', requireAdmin, async (_req: Request, res: Response) =
  * down, only the hub page listing it). Gated on `resolved_at IS NULL` so a
  * double resolve 404s rather than double-applying the side effect.
  */
-adminRouter.post('/reports/:id/resolve', requireAdmin, async (req: Request, res: Response) => {
-  const id = req.params.id;
-  const action = (req.body as { action?: unknown }).action;
-  if (action !== 'dismiss' && action !== 'hide') {
-    return res.status(400).json({ error: "action must be 'dismiss' or 'hide'." });
-  }
+adminRouter.post(
+  '/reports/:id/resolve',
+  requireAdmin,
+  adminLimiter,
+  async (req: Request, res: Response) => {
+    const id = req.params.id;
+    const action = (req.body as { action?: unknown }).action;
+    if (action !== 'dismiss' && action !== 'hide') {
+      return res.status(400).json({ error: "action must be 'dismiss' or 'hide'." });
+    }
 
-  const pool = getPool();
-  const found = await pool.query<{
-    kind: string;
-    target_id: string;
-    target_owner_id: string;
-    owner_username: string;
-  }>(
-    `SELECT cr.kind, cr.target_id, cr.target_owner_id, u.username AS owner_username
+    const pool = getPool();
+    const found = await pool.query<{
+      kind: string;
+      target_id: string;
+      target_owner_id: string;
+      owner_username: string;
+    }>(
+      `SELECT cr.kind, cr.target_id, cr.target_owner_id, u.username AS owner_username
        FROM content_reports cr
        JOIN users u ON u.id = cr.target_owner_id
       WHERE cr.id = $1 AND cr.resolved_at IS NULL`,
-    [id]
-  );
-  const report = found.rows[0];
-  if (!report) {
-    return res.status(404).json({ error: 'Report not found.' });
-  }
+      [id]
+    );
+    const report = found.rows[0];
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found.' });
+    }
 
-  if (action === 'hide') {
-    const now = Date.now();
-    if (report.kind === 'deck') {
-      const updated = await pool.query<{ slug: string }>(
-        `UPDATE deck_publications SET unpublished_at = $3
+    if (action === 'hide') {
+      const now = Date.now();
+      if (report.kind === 'deck') {
+        const updated = await pool.query<{ slug: string }>(
+          `UPDATE deck_publications SET unpublished_at = $3
            WHERE user_id = $1 AND deck_id = $2 AND unpublished_at IS NULL
          RETURNING slug`,
-        [report.target_owner_id, report.target_id, now]
-      );
-      if (updated.rows[0]) invalidateDeckPublicationCache(updated.rows[0].slug);
-      invalidatePublicUserCache(report.owner_username);
-    } else if (report.kind === 'profile') {
-      await pool.query(`UPDATE users SET profile_hidden_at = $2 WHERE id = $1`, [
-        report.target_owner_id,
-        now,
-      ]);
-      const cascaded = await pool.query<{ slug: string }>(
-        `UPDATE deck_publications SET unpublished_at = $2
+          [report.target_owner_id, report.target_id, now]
+        );
+        if (updated.rows[0]) invalidateDeckPublicationCache(updated.rows[0].slug);
+        invalidatePublicUserCache(report.owner_username);
+      } else if (report.kind === 'profile') {
+        await pool.query(`UPDATE users SET profile_hidden_at = $2 WHERE id = $1`, [
+          report.target_owner_id,
+          now,
+        ]);
+        const cascaded = await pool.query<{ slug: string }>(
+          `UPDATE deck_publications SET unpublished_at = $2
            WHERE user_id = $1 AND unpublished_at IS NULL
          RETURNING slug`,
-        [report.target_owner_id, now]
-      );
-      for (const row of cascaded.rows) invalidateDeckPublicationCache(row.slug);
-      invalidatePublicUserCache(report.owner_username);
-    } else if (report.kind === 'game-result') {
-      // target_id is the share TOKEN (not the session id) — revoking exactly
-      // that token takes down the reported artifact without touching a
-      // sibling share of the same underlying game. Same two-step every
-      // existing DELETE /api/shares/:token revoke already performs.
-      await pool.query(
-        `UPDATE shares SET revoked_at = $2 WHERE token = $1 AND kind = 'game-result' AND revoked_at IS NULL`,
-        [report.target_id, now]
-      );
-      invalidateShareContext(report.target_id);
+          [report.target_owner_id, now]
+        );
+        for (const row of cascaded.rows) invalidateDeckPublicationCache(row.slug);
+        invalidatePublicUserCache(report.owner_username);
+      } else if (report.kind === 'game-result') {
+        // target_id is the share TOKEN (not the session id) — revoking exactly
+        // that token takes down the reported artifact without touching a
+        // sibling share of the same underlying game. Same two-step every
+        // existing DELETE /api/shares/:token revoke already performs.
+        await pool.query(
+          `UPDATE shares SET revoked_at = $2 WHERE token = $1 AND kind = 'game-result' AND revoked_at IS NULL`,
+          [report.target_id, now]
+        );
+        invalidateShareContext(report.target_id);
+      }
     }
-  }
 
-  await pool.query(`UPDATE content_reports SET resolved_at = $2, resolution = $3 WHERE id = $1`, [
-    id,
-    Date.now(),
-    action === 'hide' ? 'hidden' : 'dismissed',
-  ]);
-  res.json({ ok: true });
-});
+    await pool.query(`UPDATE content_reports SET resolved_at = $2, resolution = $3 WHERE id = $1`, [
+      id,
+      Date.now(),
+      action === 'hide' ? 'hidden' : 'dismissed',
+    ]);
+    res.json({ ok: true });
+  }
+);

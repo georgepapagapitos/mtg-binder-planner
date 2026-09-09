@@ -12,6 +12,32 @@ import { createMarkerGate, runTool, type AiTool, type FetchedCard } from './tool
  */
 export const AI_MODEL = 'claude-haiku-4-5';
 
+/**
+ * List price for AI_MODEL, USD per million tokens (Anthropic first-party
+ * rates for claude-haiku-4-5). Change it together with AI_MODEL — the admin
+ * spend readout multiplies stored per-row token counts by these.
+ */
+export const AI_USD_PER_MTOK = { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
+
+export interface AiTokenCounts {
+  inputTokens: number;
+  outputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+}
+
+/** Estimated USD for a token bundle at AI_USD_PER_MTOK. */
+export function estimateUsd(t: AiTokenCounts): number {
+  const p = AI_USD_PER_MTOK;
+  return (
+    (t.inputTokens * p.input +
+      t.outputTokens * p.output +
+      t.cacheWriteTokens * p.cacheWrite +
+      t.cacheReadTokens * p.cacheRead) /
+    1_000_000
+  );
+}
+
 /** Key absent → the whole feature is off: routes 404, no UI renders. */
 export function aiEnabled(): boolean {
   return !!process.env.ANTHROPIC_API_KEY;
@@ -19,10 +45,8 @@ export function aiEnabled(): boolean {
 
 let client: Anthropic | null = null;
 
-export interface AiGeneration {
+export interface AiGeneration extends AiTokenCounts {
   content: string;
-  inputTokens: number;
-  outputTokens: number;
   /** `stop_reason === 'max_tokens'` — the reply was cut off, not finished. */
   truncated: boolean;
   /**
@@ -114,6 +138,8 @@ export async function generateReview(
   const fetched: FetchedCard[] = [];
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheWriteTokens = 0;
+  let cacheReadTokens = 0;
 
   // Gate whenever there is a marker to gate on, with or without tools. The
   // review's WRITING pass has no tools — nothing to narrate toward — but it
@@ -154,6 +180,8 @@ export async function generateReview(
     const res = await stream.finalMessage();
     inputTokens += res.usage.input_tokens;
     outputTokens += res.usage.output_tokens;
+    cacheWriteTokens += res.usage.cache_creation_input_tokens ?? 0;
+    cacheReadTokens += res.usage.cache_read_input_tokens ?? 0;
     // Cache reads are billed at ~0.1x and are NOT part of `input_tokens`, so
     // the usage we store and show can't tell a landing breakpoint from a
     // silently invalidated one — the difference is 10x on a prefix every turn
@@ -193,6 +221,8 @@ export async function generateReview(
         content: generated,
         inputTokens,
         outputTokens,
+        cacheWriteTokens,
+        cacheReadTokens,
         truncated: res.stop_reason === 'max_tokens',
         fetched,
       };
@@ -249,6 +279,8 @@ export async function generateReview(
       content: gate.text.trim(),
       inputTokens,
       outputTokens,
+      cacheWriteTokens,
+      cacheReadTokens,
       truncated: true,
       fetched,
     };

@@ -88,6 +88,9 @@ export const aiReviews = pgTable(
     content: text('content').notNull(),
     inputTokens: integer('input_tokens').notNull(),
     outputTokens: integer('output_tokens').notNull(),
+    /** Prompt-cache tokens, priced separately (T116); 0 on rows predating the columns. */
+    cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
     createdAt: bigint('created_at', { mode: 'number' }).notNull(),
     /** Deck the reading was written for; NULL on rows predating history. */
     deckId: text('deck_id'),

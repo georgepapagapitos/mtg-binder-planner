@@ -789,5 +789,11 @@ export async function ensureSchema(): Promise<void> {
     -- show it (the input_hash is normalised and unreadable). Nullable — the
     -- deck features have no free-text question.
     ALTER TABLE ai_reviews ADD COLUMN IF NOT EXISTS question TEXT;
+    -- Cache-priced tokens (T116 spend readout). input_tokens is only the
+    -- UNCACHED prefix; a write bills 1.25x and a read 0.1x, so without these
+    -- the per-row cost is wrong in both directions. Rows before the column
+    -- default to 0 and are priced as if uncached.
+    ALTER TABLE ai_reviews ADD COLUMN IF NOT EXISTS cache_write_tokens INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE ai_reviews ADD COLUMN IF NOT EXISTS cache_read_tokens INTEGER NOT NULL DEFAULT 0;
   `);
 }

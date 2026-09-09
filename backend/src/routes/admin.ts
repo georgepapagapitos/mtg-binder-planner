@@ -6,11 +6,72 @@ import { getDb, getPool } from '../db';
 import { users } from '../db/schema';
 import { invalidateDeckPublicationCache, invalidatePublicUserCache } from '../publications/cache';
 import { invalidateShareContext } from '../shares/context';
+import { AI_MODEL, estimateUsd, type AiTokenCounts } from '../ai/client';
 
 export const adminRouter: Router = Router();
 
 // Admin-only, low-volume: one shared bucket mirrors the 60/min read limiters elsewhere.
 const adminLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
+
+interface SpendRow {
+  calls: string;
+  input_tokens: string;
+  output_tokens: string;
+  cache_write_tokens: string;
+  cache_read_tokens: string;
+}
+
+function spendWindow(r: SpendRow): AiTokenCounts & { calls: number; usd: number } {
+  const t: AiTokenCounts = {
+    inputTokens: Number(r.input_tokens),
+    outputTokens: Number(r.output_tokens),
+    cacheWriteTokens: Number(r.cache_write_tokens),
+    cacheReadTokens: Number(r.cache_read_tokens),
+  };
+  return { calls: Number(r.calls), ...t, usd: estimateUsd(t) };
+}
+
+/**
+ * GET /api/admin/ai-spend
+ * Estimated AI cost (T116): token totals per window (today UTC, last 7 days,
+ * last 30 days) priced at AI_USD_PER_MTOK, plus a per-user 30-day breakdown.
+ * ai_reviews only holds FRESH generations (cached replays write no row), so
+ * every row is a billable call.
+ */
+adminRouter.get('/ai-spend', requireAdmin, adminLimiter, async (_req: Request, res: Response) => {
+  const now = Date.now();
+  const day = 86_400_000;
+  const since = {
+    today: new Date().setUTCHours(0, 0, 0, 0),
+    d7: now - 7 * day,
+    d30: now - 30 * day,
+  };
+  const sums = (alias: string) =>
+    `COUNT(*) FILTER (WHERE created_at >= $${alias})::text AS calls,
+     COALESCE(SUM(input_tokens) FILTER (WHERE created_at >= $${alias}), 0)::text AS input_tokens,
+     COALESCE(SUM(output_tokens) FILTER (WHERE created_at >= $${alias}), 0)::text AS output_tokens,
+     COALESCE(SUM(cache_write_tokens) FILTER (WHERE created_at >= $${alias}), 0)::text AS cache_write_tokens,
+     COALESCE(SUM(cache_read_tokens) FILTER (WHERE created_at >= $${alias}), 0)::text AS cache_read_tokens`;
+  const pool = getPool();
+  const [today, d7, d30, perUser] = await Promise.all([
+    pool.query<SpendRow>(`SELECT ${sums('1')} FROM ai_reviews`, [since.today]),
+    pool.query<SpendRow>(`SELECT ${sums('1')} FROM ai_reviews`, [since.d7]),
+    pool.query<SpendRow>(`SELECT ${sums('1')} FROM ai_reviews`, [since.d30]),
+    pool.query<SpendRow & { user_id: string }>(
+      `SELECT user_id, ${sums('1')} FROM ai_reviews WHERE created_at >= $1 GROUP BY user_id`,
+      [since.d30]
+    ),
+  ]);
+  res.json({
+    model: AI_MODEL,
+    windows: {
+      today: spendWindow(today.rows[0]),
+      d7: spendWindow(d7.rows[0]),
+      d30: spendWindow(d30.rows[0]),
+    },
+    users: perUser.rows.map((r) => ({ userId: r.user_id, ...spendWindow(r) })),
+  });
+});
 
 /**
  * GET /api/admin/users

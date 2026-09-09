@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AdminPanel } from './AdminPanel';
-import type { AdminUserSummary, AdminReportRow } from '../lib/admin-api';
+import type { AdminUserSummary, AdminReportRow, AiSpend } from '../lib/admin-api';
 
 // AdminPanel's own network calls are mocked; Modal is real, so this is an
 // integration-style test of the confirm-gating wiring around clearUserProfile
@@ -15,8 +15,24 @@ const clearUserProfileMock = vi.fn<(id: string) => Promise<void>>();
 const listReportsMock = vi.fn<() => Promise<AdminReportRow[]>>(() => Promise.resolve([]));
 const setUserAiMock =
   vi.fn<(id: string, patch: { access?: boolean; dailyLimit?: number | null }) => Promise<void>>();
+const emptyWindow = {
+  calls: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheWriteTokens: 0,
+  cacheReadTokens: 0,
+  usd: 0,
+};
+const getAiSpendMock = vi.fn<() => Promise<AiSpend>>(() =>
+  Promise.resolve({
+    model: 'claude-haiku-4-5',
+    windows: { today: emptyWindow, d7: emptyWindow, d30: emptyWindow },
+    users: [],
+  })
+);
 vi.mock('../lib/admin-api', () => ({
   listUsers: () => listUsersMock(),
+  getAiSpend: () => getAiSpendMock(),
   deleteUser: vi.fn(),
   clearUserProfile: (id: string) => clearUserProfileMock(id),
   setUserAi: (id: string, patch: { access?: boolean; dailyLimit?: number | null }) =>
@@ -37,6 +53,46 @@ const baseUser: AdminUserSummary = {
   aiAccess: false,
   aiDailyLimit: null,
 };
+
+describe('AdminPanel — AI spend (T116)', () => {
+  it('renders the three windows in USD and the per-user 30-day column', async () => {
+    listUsersMock.mockResolvedValueOnce([baseUser, { ...baseUser, id: 'u2', username: 'orin' }]);
+    getAiSpendMock.mockResolvedValueOnce({
+      model: 'claude-haiku-4-5',
+      windows: {
+        today: { ...emptyWindow, calls: 1, usd: 0.0123 },
+        d7: { ...emptyWindow, calls: 4, usd: 0.5 },
+        d30: { ...emptyWindow, calls: 12, usd: 2.345 },
+      },
+      users: [{ ...emptyWindow, userId: 'u1', calls: 12, usd: 2.345 }],
+    });
+    render(<AdminPanel currentUserId="admin-1" />);
+    await screen.findByText('$0.01');
+    expect(screen.getByText('Today · 1 call')).toBeTruthy();
+    expect(screen.getByText('$0.50')).toBeTruthy();
+    expect(screen.getByText('30 days · 12 calls')).toBeTruthy();
+    expect(screen.getByText(/for claude-haiku-4-5/)).toBeTruthy();
+    await screen.findByText('orin');
+    // nova has spend in the per-user list, orin does not.
+    expect(screen.getAllByText('$2.35')).toHaveLength(2);
+    expect(screen.queryByText('No AI calls in the last 30 days.')).toBeNull();
+  });
+
+  it('shows the empty hint and a Retry on failure', async () => {
+    listUsersMock.mockResolvedValueOnce([]);
+    // A non-noise Error message is shown verbatim (userMessage), so match it.
+    getAiSpendMock.mockRejectedValueOnce(new Error('Spend service is down'));
+    render(<AdminPanel currentUserId="admin-1" />);
+    await screen.findByText('Spend service is down');
+    getAiSpendMock.mockResolvedValueOnce({
+      model: 'claude-haiku-4-5',
+      windows: { today: emptyWindow, d7: emptyWindow, d30: emptyWindow },
+      users: [],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await screen.findByText('No AI calls in the last 30 days.');
+  });
+});
 
 describe('AdminPanel — AI access (T114)', () => {
   it('shows Off, then saves access + limit from the dialog and re-renders On', async () => {
@@ -96,6 +152,7 @@ describe('AdminPanel — clear profile', () => {
     await waitFor(() => expect(clearUserProfileMock).toHaveBeenCalledWith('u1'));
     await waitFor(() => expect(screen.queryByText('Clear profile?')).toBeNull());
     await waitFor(() => expect(screen.queryByText('Nova')).toBeNull());
-    expect(screen.getByText('—')).toBeTruthy();
+    // Two dashes: the cleared Profile cell and the (empty) AI spend cell.
+    expect(screen.getAllByText('—')).toHaveLength(2);
   });
 });

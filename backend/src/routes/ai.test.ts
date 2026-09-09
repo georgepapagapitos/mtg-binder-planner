@@ -89,7 +89,14 @@ beforeEach(() => {
       }
       onDelta?.('Your deck is ');
       onDelta?.('a fine deck.');
-      return { content: REVIEW_TEXT, inputTokens: 1000, outputTokens: 200, fetched: [] };
+      return {
+        content: REVIEW_TEXT,
+        inputTokens: 1000,
+        outputTokens: 200,
+        cacheWriteTokens: 40,
+        cacheReadTokens: 60,
+        fetched: [],
+      };
     }
   );
 });
@@ -218,6 +225,13 @@ describe('admin-only flag', () => {
       .send(reviewBody());
     expect(res.status).toBe(200);
     expect(parseStream(res.text).done).toMatchObject({ content: REVIEW_TEXT });
+    // The stored row carries the cache-priced token counts (T116 spend readout).
+    const stored = await getPool().query<{ cache_write_tokens: number; cache_read_tokens: number }>(
+      `SELECT r.cache_write_tokens, r.cache_read_tokens FROM ai_reviews r
+         JOIN users u ON u.id = r.user_id WHERE u.username = $1`,
+      ['ai-gate-granted']
+    );
+    expect(stored.rows[0]).toEqual({ cache_write_tokens: 40, cache_read_tokens: 60 });
 
     await getPool().query('UPDATE users SET ai_access = false WHERE username = $1', [
       'ai-gate-granted',

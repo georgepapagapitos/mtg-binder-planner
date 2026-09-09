@@ -1667,6 +1667,16 @@
   align-items: flex-start;
 }
 
+/* AI spend card (T116): three stat tiles on the shared deck-stat strip. The
+   skeleton keeps each tile's footprint so the card doesn't jump on load. */
+.admin-spend-strip {
+  gap: var(--space-3) var(--space-6);
+}
+
+.admin-spend-skeleton {
+  min-width: 7rem;
+}
+
 /* Reports section: loading skeleton rows shown while GET /api/admin/reports
    is in flight. Reuses the shared skeleton-shimmer keyframe from global.css —
    do NOT redeclare it here (motion-tokens.test.ts enforces a single

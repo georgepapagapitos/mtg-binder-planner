@@ -3,6 +3,8 @@ import { readNdjson } from './ndjson';
 import type { AiScope } from './ai-scope';
 import type { DeckAnalysisResult } from './deck-analysis';
 import type { ScryfallCard } from '@/deck-builder/types';
+import { analyzeDeckSynergy } from '@/deck-builder/services/synergy/deckSynergy';
+import type { CardLike } from '@/deck-builder/services/synergy/text';
 
 /**
  * Client for the opt-in AI deck review (T96 "Read the deck"). Consent and
@@ -62,12 +64,45 @@ export interface AiAnalysisPayload {
   roles: { label: string; count: number }[];
   /** Omitted entirely when both are absent. */
   bracket?: { target: number | null; estimate: number | null };
+  /**
+   * The deck's producer/payoff engines, counted from card text by the synergy
+   * classifier (T112 part 2) — the inventory the review used to take itself
+   * from memory and get wrong. Names are sorted and capped so the payload
+   * (and the cache key it hashes into) is stable across re-renders.
+   */
+  engines?: { label: string; sources: string[]; payoffs: string[] }[];
+}
+
+const ENGINE_MAX_AXES = 6;
+const ENGINE_MAX_NAMES = 15;
+
+/**
+ * The engine inventory for the AI payload — see `AiAnalysisPayload.engines`.
+ *
+ * Only axes the deck is INVESTED in (deckSynergy's own bar: enough cards AND
+ * both halves present). Measured live, the model picks the most lopsided line
+ * it is shown as the weakness, and a half-empty axis is classifier noise more
+ * often than a finding — "Lifegain: 8 sources · 0 payoffs" on a Mr. House
+ * deck was Blood Artist and Zulaport Cutthroat's incidental "you gain 1 life",
+ * and both prompt arms wrote a dead-lifegain-engine review off it.
+ */
+export function buildEngineInventory(cards: CardLike[]): AiAnalysisPayload['engines'] {
+  const names = (rows: { name: string }[]) =>
+    [...new Set(rows.map((r) => r.name))].sort().slice(0, ENGINE_MAX_NAMES);
+  const synergy = analyzeDeckSynergy(cards);
+  const invested = new Set(synergy.invested);
+  return synergy.axes
+    .filter((a) => invested.has(a.axis))
+    .slice(0, ENGINE_MAX_AXES)
+    .map((a) => ({ label: a.label, sources: names(a.producers), payoffs: names(a.payoffs) }));
 }
 
 /** Project a full `DeckAnalysisResult` down to what the AI prompt reads. */
 export function toAiAnalysis(
   analysis: DeckAnalysisResult,
-  bracket?: { target: number | null; estimate: number | null }
+  bracket?: { target: number | null; estimate: number | null },
+  /** Commander(s) + mainboard, for the engine inventory. Omit to leave it out. */
+  cards?: CardLike[]
 ): AiAnalysisPayload {
   const payload: AiAnalysisPayload = {
     totalNonCommander: analysis.totalNonCommander,
@@ -89,6 +124,10 @@ export function toAiAnalysis(
   };
   if (bracket && (bracket.target != null || bracket.estimate != null)) {
     payload.bracket = bracket;
+  }
+  if (cards) {
+    const engines = buildEngineInventory(cards);
+    if (engines && engines.length > 0) payload.engines = engines;
   }
   return payload;
 }

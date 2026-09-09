@@ -74,7 +74,7 @@ import crypto from 'node:crypto';
 export const DECK_REVIEW_FEATURE = 'deck-review';
 
 /** Bump whenever DECK_REVIEW_SYSTEM_PROMPT's text changes. */
-export const DECK_REVIEW_PROMPT_VERSION = 'v12';
+export const DECK_REVIEW_PROMPT_VERSION = 'v13';
 
 /**
  * Section labels the model emits. They exist so the client can stream text
@@ -123,11 +123,20 @@ Gathering deck review inside SpellControl. You are NOT writing the review -
 a separate pass does that. Your only job is to find the cards that pass
 will need, using the lookup_cards tool.
 
-Work the deck out first. Read the list, take a functional inventory the
-statistics do not model - count enablers against payoffs, ask what single
-common opposing effect turns the deck off, check whether the coloured mana
-its spells demand matches what its lands actually produce - and decide what
-really breaks. Only then search.
+Work the deck out first. Read the list, ask what single common opposing
+effect turns the deck off, check whether the coloured mana its spells demand
+matches what its lands actually produce - and decide what really breaks.
+Only then search.
+
+The statistics carry an ENGINE inventory computed from every card's rules
+text: for each engine the deck is built around, the cards that are its
+SOURCES (they make the resource - roll the dice, create the tokens) and the
+cards that are its PAYOFFS (they reward it). That count is the app's, not
+yours: take enablers-versus-payoffs from those lines rather than counting
+from memory. A card listed as a source is one, however small; a deck whose
+line shows several sources does not lack them. The lines are for checking
+what you are about to claim, not a menu to pick the weakness from - an
+engine's shape is only a weakness if the deck needs that engine to win.
 
 Search for the EFFECT the deck is missing, in rules wording: "destroy
 target artifact", "return creature card from your graveyard to the
@@ -297,6 +306,13 @@ Rules:
   well you think you know the card. For a card with no reference line,
   reason about the deck without it.
 - Do not restate the statistics back at the user.
+- An Engine line in the statistics is the app's own count of that engine's
+  sources and payoffs, read off every card's rules text. A structural claim
+  about an engine must agree with it: never call a card the deck's only
+  source, or say the deck lacks sources or payoffs, when the line lists
+  more. It is a check on what you claim, not a menu of weaknesses: a lopsided
+  line is a finding only when the deck needs that engine to win, and then say
+  so by name.
 - No headers beyond the section labels above, and no bullet lists or
   numbering anywhere - one fix per line is the whole of the structure.
   Prose. Second person ("your deck").
@@ -497,6 +513,20 @@ export function renderAnalysis(analysis: Record<string, unknown>): string {
       )
       .map((r) => `${r.label} ${r.count}`);
     if (parts.length > 0) lines.push(`- Roles: ${parts.join(' · ')}`);
+  }
+  if (Array.isArray(analysis.engines)) {
+    for (const e of analysis.engines as unknown[]) {
+      if (typeof e !== 'object' || e === null) continue;
+      const { label, sources, payoffs } = e as Record<string, unknown>;
+      if (typeof label !== 'string') continue;
+      const list = (v: unknown) =>
+        Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string') : [];
+      const s = list(sources);
+      const p = list(payoffs);
+      const side = (word: string, xs: string[]) =>
+        `${xs.length} ${word}${xs.length === 1 ? '' : 's'}${xs.length ? ` (${xs.join(', ')})` : ''}`;
+      lines.push(`- Engine, ${label}: ${side('source', s)} · ${side('payoff', p)}`);
+    }
   }
   if (types) {
     const order = [

@@ -43,7 +43,8 @@ export type AxisKey =
   | 'monarch'
   | 'poison'
   | 'cycling'
-  | 'venture';
+  | 'venture'
+  | 'dice';
 
 export interface SynergyAxis {
   key: AxisKey;
@@ -817,6 +818,34 @@ const venture: SynergyAxis = {
   },
 };
 
+// ── Dice rolling ──────────────────────────────────────────────────────────────
+// A SOURCE starts a roll: "roll a d20", "roll two six-sided dice", "each player
+// rolls a d20". A clause that mentions rolling only because it triggers on or
+// rewrites one ("if you would roll one or more dice, instead roll that many
+// plus one") is the PAYOFF side, not a source — Barbarian Class and Wyll
+// improve rolls but never begin one, and that is exactly the count the AI
+// review got wrong on a Mr. House deck (calling the commander the deck's only
+// roll source while Celebr-8000 rolled two dice every combat). Word-bounded on
+// purpose: "controller" contains "roll".
+const ROLLS_DICE =
+  /\broll(?:s)? (?:a |an |two |three |x |that many |one or more |\d+ )?(?:additional )?(?:six-sided )?(?:d\d+|dice|die)\b/;
+const ROLL_TRIGGER = /\b(?:if|whenever|after) you (?:would )?roll\b/;
+
+const dice: SynergyAxis = {
+  key: 'dice',
+  label: 'Dice rolling',
+  producer(card) {
+    return splitClauses(card.oracle).some((c) => !ROLL_TRIGGER.test(c) && ROLLS_DICE.test(c))
+      ? 'rolls dice'
+      : null;
+  },
+  payoff(card) {
+    if (/\bif you would roll\b/.test(card.oracle)) return 'improves your die rolls';
+    if (/\b(?:whenever|after) you roll\b/.test(card.oracle)) return 'triggers when you roll dice';
+    return null;
+  },
+};
+
 export const AXES: SynergyAxis[] = [
   tokens,
   counters,
@@ -841,4 +870,5 @@ export const AXES: SynergyAxis[] = [
   poison,
   cycling,
   venture,
+  dice,
 ];

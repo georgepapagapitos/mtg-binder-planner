@@ -187,7 +187,10 @@ export function DeckAiRefine({
     setRerollIndex(new Map());
     const analysis = toAiAnalysis(
       analyzeDeck({ format, commander, partnerCommander, mainboard }, taggerReady),
-      { target: bracketTarget, estimate: bracketEstimate }
+      { target: bracketTarget, estimate: bracketEstimate },
+      // The engine inventory counts the commander zone too — the engine is
+      // usually the commander's.
+      [commander, ...(partnerCommander ? [partnerCommander] : []), ...mainboard.map((m) => m.card)]
     );
     requestDeckRefine(
       { deckId, commander: commanderName, cards, pool, scope, analysis },

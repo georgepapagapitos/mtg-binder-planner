@@ -3351,4 +3351,187 @@ export const CORPUS: CorpusCard[] = [
     oracle_text: 'Creatures you control get +1/+1.',
     expect: { producers: [], payoffs: [] },
   },
+
+  // ── T112 part 2: dice rolling — SOURCES start a roll, PAYOFFS trigger on or
+  //    rewrite one. Real oracle text from the card cache. Barbarian Class / Wyll /
+  //    Pixie Guide mention rolling only to improve it: payoff, never a source. The
+  //    other-axis labels are the classifier's own reading, pinned so this block
+  //    also guards against a dice predicate leaking into a sibling axis.
+  {
+    name: 'Mr. House, President and CEO',
+    type_line: 'Legendary Artifact Creature — Human',
+    keywords: ['Treasure'],
+    oracle_text:
+      'Whenever you roll a 4 or higher, create a 3/3 colorless Robot artifact creature token. If you rolled 6 or higher, instead create that token and a Treasure token.\n{4}, {T}: Roll a six-sided die plus an additional six-sided die for each mana from Treasures spent to activate this ability.',
+    expect: { producers: ['tokens', 'artifacts', 'dice'], payoffs: ['dice'] },
+  },
+  {
+    name: 'Comet, Stellar Pup',
+    type_line: 'Legendary Planeswalker — Comet',
+    keywords: [],
+    oracle_text:
+      "0: Roll a six-sided die.\n1 or 2 — [+2], then create two 1/1 green Squirrel creature tokens. They gain haste until end of turn.\n3 — [−1], then return a card with mana value 2 or less from your graveyard to your hand.\n4 or 5 — Comet deals damage equal to the number of loyalty counters on him to a creature or player, then [−2].\n6 — [+1], and you may activate Comet's loyalty ability two more times this turn.",
+    expect: {
+      producers: ['tokens', 'superfriends', 'dice'],
+      payoffs: ['graveyard', 'superfriends'],
+    },
+  },
+  {
+    name: 'Celebr-8000',
+    type_line: 'Artifact Creature — Clown Robot',
+    keywords: ['Flying', 'Lifelink', 'Indestructible', 'Vigilance', 'Menace'],
+    oracle_text:
+      'At the beginning of combat on your turn, roll two six-sided dice. For each result of 1, this creature gets +1/+1 until end of turn. For each other result, it gains the indicated ability until end of turn. If you rolled doubles, it also gains double strike until end of turn.\n• 2 — menace\n• 3 — vigilance\n• 4 — lifelink\n• 5 — flying\n• 6 — indestructible',
+    expect: { producers: ['lifegain', 'dice'], payoffs: [] },
+  },
+  {
+    name: 'Barbarian Class',
+    type_line: 'Enchantment — Class',
+    keywords: [],
+    oracle_text:
+      '(Gain the next level as a sorcery to add its ability.)\nIf you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\n{1}{R}: Level 2\nWhenever you roll one or more dice, target creature you control gets +2/+0 and gains menace until end of turn.\n{2}{R}: Level 3\nCreatures you control have haste.',
+    expect: { producers: [], payoffs: ['dice'] },
+  },
+  {
+    name: 'Wyll, Blade of Frontiers',
+    type_line: 'Legendary Creature — Human Warlock',
+    keywords: ['Choose a background'],
+    oracle_text:
+      'If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.\nWhenever you roll one or more dice, put a +1/+1 counter on Wyll.\nChoose a Background (You can have a Background as a second commander.)',
+    expect: { producers: [], payoffs: ['dice'] },
+  },
+  {
+    name: 'Night Shift of the Living Dead',
+    type_line: 'Enchantment',
+    keywords: [],
+    oracle_text:
+      'After you roll a die, you may pay 1 life. If you do, increase or decrease the result by 1. Do this only once each turn.\nWhenever you roll a 6, create a 2/2 black Zombie Employee creature token.',
+    expect: { producers: ['tokens'], payoffs: ['dice'] },
+  },
+  {
+    name: 'Brazen Dwarf',
+    type_line: 'Creature — Dwarf Shaman',
+    keywords: [],
+    oracle_text:
+      'Whenever you roll one or more dice, this creature deals 1 damage to each opponent.',
+    expect: { producers: [], payoffs: ['dice'] },
+  },
+  {
+    name: 'Pixie Guide',
+    type_line: 'Creature — Faerie',
+    keywords: ['Flying'],
+    oracle_text:
+      'Flying\nGrant an Advantage — If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.',
+    expect: { producers: [], payoffs: ['dice'] },
+  },
+  {
+    name: 'Delina, Wild Mage',
+    type_line: 'Legendary Creature — Elf Shaman',
+    keywords: [],
+    oracle_text:
+      "Whenever Delina attacks, choose target creature you control, then roll a d20.\n1—14 | Create a tapped and attacking token that's a copy of that creature, except it's not legendary and it has 'At end of combat, exile this token.'\n15—20 | Create one of those tokens. You may roll again.",
+    expect: { producers: ['tokens', 'dice'], payoffs: [] },
+  },
+  {
+    name: 'The Deck of Many Things',
+    type_line: 'Legendary Artifact',
+    keywords: [],
+    oracle_text:
+      '{2}, {T}: Roll a d20 and subtract the number of cards in your hand. If the result is 0 or less, discard your hand.\n1—9 | Return a card at random from your graveyard to your hand.\n10—19 | Draw two cards.\n20 | Put a creature card from any graveyard onto the battlefield under your control. When that creature dies, its owner loses the game.',
+    expect: { producers: ['discard', 'dice'], payoffs: ['graveyard'] },
+  },
+  {
+    name: 'Vexing Puzzlebox',
+    type_line: 'Artifact',
+    keywords: [],
+    oracle_text:
+      'Whenever you roll one or more dice, put a number of charge counters on this artifact equal to the result.\n{T}: Add one mana of any color. Roll a d20.\n{T}, Remove 100 charge counters from this artifact: Search your library for an artifact card, put that card onto the battlefield, then shuffle.',
+    expect: { producers: ['dice'], payoffs: ['dice'] },
+  },
+  {
+    name: "Farideh, Devil's Chosen",
+    type_line: 'Legendary Creature — Tiefling Warlock',
+    keywords: [],
+    oracle_text:
+      "Dark One's Own Luck — Whenever you roll one or more dice, Farideh gains flying and menace until end of turn. If any of those results was 10 or higher, draw a card.",
+    expect: { producers: [], payoffs: ['dice'] },
+  },
+  {
+    name: 'Chaos Dragon',
+    type_line: 'Creature — Dragon',
+    keywords: ['Flying', 'Haste'],
+    oracle_text:
+      "Flying, haste\nThis creature attacks each combat if able.\nAt the beginning of combat on your turn, each player rolls a d20. If one or more opponents had the highest result, this creature can't attack those players or planeswalkers they control this combat.",
+    expect: { producers: ['dice'], payoffs: [] },
+  },
+  {
+    name: 'Hoarding Ogre',
+    type_line: 'Creature — Ogre',
+    keywords: ['Treasure'],
+    oracle_text:
+      "Whenever this creature attacks, roll a d20.\n1—9 | Create a Treasure token. (It's an artifact with '{T}, Sacrifice this token: Add one mana of any color.')\n10—19 | Create two Treasure tokens.\n20 | Create three Treasure tokens.",
+    expect: { producers: ['artifacts', 'dice'], payoffs: [] },
+  },
+  {
+    name: 'Goldspan Dragon',
+    type_line: 'Creature — Dragon',
+    keywords: ['Flying', 'Treasure', 'Haste'],
+    oracle_text:
+      "Flying, haste\nWhenever this creature attacks or becomes the target of a spell, create a Treasure token.\nTreasures you control have '{T}, Sacrifice this artifact: Add two mana of any one color.'",
+    expect: { producers: ['sacrifice', 'artifacts'], payoffs: [] },
+  },
+  {
+    name: "Krark's Thumb",
+    type_line: 'Legendary Artifact',
+    keywords: [],
+    oracle_text: 'If you would flip a coin, instead flip two coins and ignore one.',
+    expect: { producers: [], payoffs: [] },
+  },
+  {
+    name: 'Feywild Trickster',
+    type_line: 'Creature — Gnome Warlock',
+    keywords: [],
+    oracle_text:
+      'Whenever you roll one or more dice, create a 1/1 blue Faerie Dragon creature token with flying.',
+    expect: { producers: ['tokens'], payoffs: ['dice'] },
+  },
+  {
+    name: 'Netherese Puzzle-Ward',
+    type_line: 'Enchantment',
+    keywords: ['Scry'],
+    oracle_text:
+      "Focus Beam — At the beginning of your upkeep, roll a d4. Scry X, where X is the result.\nPerfect Illumination — Whenever you roll a die's highest natural result, draw a card.",
+    expect: { producers: ['dice'], payoffs: ['dice'] },
+  },
+  {
+    name: 'Ancient Copper Dragon',
+    type_line: 'Creature — Elder Dragon',
+    keywords: [],
+    oracle_text:
+      'Flying\nWhenever this creature deals combat damage to a player, roll a d20. You create a number of Treasure tokens equal to the result.',
+    expect: { producers: ['artifacts', 'dice'], payoffs: [] },
+  },
+  {
+    name: 'Contact Other Plane',
+    type_line: 'Instant',
+    keywords: [],
+    oracle_text:
+      'Roll a d20.\n1—9 | Draw two cards.\n10—19 | Scry 2, then draw two cards.\n20 | Scry 3, then draw three cards.',
+    expect: { producers: ['dice'], payoffs: [] },
+  },
+  {
+    name: 'Swords to Plowshares',
+    type_line: 'Instant',
+    keywords: [],
+    oracle_text: 'Exile target creature. Its controller gains life equal to its power.',
+    expect: { producers: [], payoffs: [] },
+  },
+  {
+    name: 'Beast Within',
+    type_line: 'Instant',
+    keywords: [],
+    oracle_text:
+      'Destroy target permanent. Its controller creates a 3/3 green Beast creature token.',
+    expect: { producers: [], payoffs: [] },
+  },
 ];

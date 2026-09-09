@@ -175,7 +175,8 @@ export async function liftPicksPhase(
     const cardMap = await getCardsByNames(
       topCandidates.map((c) => c.name),
       undefined,
-      state.cfg.preferredSet
+      state.cfg.preferredSet,
+      { arenaOnly: state.cfg.arenaOnly }
     );
 
     const filterCounts: Record<FilterReason, number> = {

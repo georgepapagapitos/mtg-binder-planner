@@ -39,6 +39,8 @@ function dedupeNonbasicLands(categories: Record<DeckCategory, ScryfallCard[]>): 
 export interface LandTopUpContext {
   colorIdentity: string[];
   categories: Record<DeckCategory, ScryfallCard[]>;
+  // Prefer an Arena-legal basic printing over the cheapest paper one (E271).
+  arenaOnly?: boolean;
 }
 
 /**
@@ -50,7 +52,7 @@ export interface LandTopUpContext {
  */
 export async function addBasicLands(ctx: LandTopUpContext, amount: number): Promise<void> {
   if (amount <= 0) return;
-  const { colorIdentity, categories } = ctx;
+  const { colorIdentity, categories, arenaOnly = false } = ctx;
   const basicTypes: Record<string, string> = {
     W: 'Plains',
     U: 'Island',
@@ -97,10 +99,10 @@ export async function addBasicLands(ctx: LandTopUpContext, amount: number): Prom
       const basicName = basicTypes[color];
       const countForColor = landsPerColor[color];
 
-      let basicCard = getCachedCard(basicName);
+      let basicCard = getCachedCard(basicName, arenaOnly);
       if (!basicCard) {
         try {
-          basicCard = await getCardByName(basicName);
+          basicCard = await getCardByName(basicName, arenaOnly);
         } catch {
           continue;
         }
@@ -114,10 +116,10 @@ export async function addBasicLands(ctx: LandTopUpContext, amount: number): Prom
     }
   } else {
     // Colorless deck — use Wastes as the basic land
-    let wastesCard = getCachedCard('Wastes');
+    let wastesCard = getCachedCard('Wastes', arenaOnly);
     if (!wastesCard) {
       try {
-        wastesCard = await getCardByName('Wastes');
+        wastesCard = await getCardByName('Wastes', arenaOnly);
       } catch {
         // Skip if can't fetch
       }

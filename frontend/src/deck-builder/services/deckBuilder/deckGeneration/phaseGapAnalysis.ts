@@ -55,7 +55,8 @@ export async function gapAnalysisPhase(
       const gapCardMap = await getCardsByNames(
         gapCandidates.map((c) => c.name),
         undefined,
-        state.cfg.preferredSet
+        state.cfg.preferredSet,
+        { arenaOnly: state.cfg.arenaOnly }
       );
 
       // Enforce the user's Scryfall filter / alt-mode constraint on

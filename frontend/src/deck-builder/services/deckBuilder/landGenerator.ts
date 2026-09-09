@@ -207,7 +207,9 @@ export async function generateLands(
       }
     }
 
-    const landCardMap = await getCardsByNames(landNamesToFetch, undefined, preferredSet);
+    const landCardMap = await getCardsByNames(landNamesToFetch, undefined, preferredSet, {
+      arenaOnly,
+    });
     if (preferredSet) {
       for (const [name, card] of landCardMap) {
         if (card.set !== preferredSet) landCardMap.delete(name);
@@ -464,7 +466,7 @@ export async function generateLands(
     availableCount('Command Tower') > 0
   ) {
     try {
-      const commandTower = await getCardByName('Command Tower');
+      const commandTower = await getCardByName('Command Tower', arenaOnly);
       if (!notLegalForFormat(commandTower, mtgFormat)) {
         lands.push(commandTower);
         usedNames.add('Command Tower');
@@ -514,13 +516,13 @@ export async function generateLands(
       const countForColor = Math.min(landsPerColor[color], availableCount(basicName));
 
       // Try to get cached basic land first (prefetched at start of deck generation)
-      let basicCard = getCachedCard(basicName);
+      let basicCard = getCachedCard(basicName, arenaOnly);
       if (!basicCard) {
         try {
-          basicCard = await getCardByName(basicName);
+          basicCard = await getCardByName(basicName, arenaOnly);
         } catch {
           try {
-            basicCard = await getCardByName(basicName); // retry once
+            basicCard = await getCardByName(basicName, arenaOnly); // retry once
           } catch {
             failedBasics.push({ basicName, countForColor });
             continue;
@@ -551,10 +553,10 @@ export async function generateLands(
   } else if (colorsWithBasics.length === 0 && basicsNeeded > 0) {
     // Colorless deck — use Wastes as the basic land
     onProgress?.('Adding basic lands', 92);
-    let wastesCard = getCachedCard('Wastes');
+    let wastesCard = getCachedCard('Wastes', arenaOnly);
     if (!wastesCard) {
       try {
-        wastesCard = await getCardByName('Wastes');
+        wastesCard = await getCardByName('Wastes', arenaOnly);
       } catch {
         // Skip if can't fetch
       }

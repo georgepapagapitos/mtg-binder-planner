@@ -62,7 +62,9 @@ export async function stapleManaRocksPhase(
         // One retry: a transient fetch failure here silently costs the deck a
         // staple (observed live: Sol Ring absent from one panel deck), and
         // nothing downstream re-adds it.
-        const card = await getCardByName(staple.name).catch(() => getCardByName(staple.name));
+        const card = await getCardByName(staple.name, state.cfg.arenaOnly).catch(() =>
+          getCardByName(staple.name, state.cfg.arenaOnly)
+        );
         // Format-keyed legality (PDH: Sol Ring has no common printing
         // (not_legal); Arcane Signet's CLB common downshift keeps it legal —
         // the gate decides, not a list. Also covers brawl/other formats.).

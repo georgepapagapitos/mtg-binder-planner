@@ -126,7 +126,7 @@ export async function resolveMultiCopyCards(
 
     // Step 7: Fetch the card from Scryfall
     try {
-      const card = await getCardByName(cardName);
+      const card = await getCardByName(cardName, arenaOnly);
       if (!card) {
         logger.warn(`[DeckGen] Could not find "${cardName}" on Scryfall, skipping multi-copy`);
         continue;

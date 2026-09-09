@@ -68,6 +68,19 @@ const cardCache = {
   },
 };
 
+/**
+ * Composite cache key builder — same idea as the pre-existing `name|set`
+ * preferredSet keys, generalized with an `arena` qualifier so an
+ * arena-preferred resolution never overwrites (or is served from) the
+ * plain/cheapest-paper cache entry for the same name, and vice versa (E271).
+ */
+function cacheKeyFor(name: string, preferredSet?: string, arenaOnly?: boolean): string {
+  const parts = [name];
+  if (preferredSet) parts.push(preferredSet);
+  if (arenaOnly) parts.push('arena');
+  return parts.join('|');
+}
+
 /** Pull any of these keys we already hold on disk into the in-memory cache, so
  *  the synchronous cache checks downstream can see them. Best-effort. */
 async function primeFromDisk(keys: string[]): Promise<void> {
@@ -327,11 +340,30 @@ async function bulkGetCardByName(name: string): Promise<ScryfallCard | null> {
  * trust, a silent wrong card is strictly worse than a miss. Freehand user input
  * belongs on `/cards/search`, which is where tolerant matching lives.
  */
-async function liveGetCardByName(name: string): Promise<ScryfallCard> {
-  return freshCopy(await shareInflight(`named:${name}`, () => resolveLiveCardByName(name)));
+async function liveGetCardByName(name: string, arenaOnly = false): Promise<ScryfallCard> {
+  return freshCopy(
+    await shareInflight(cacheKeyFor(`named:${name}`, undefined, arenaOnly), () =>
+      resolveLiveCardByName(name, arenaOnly)
+    )
+  );
 }
 
-async function resolveLiveCardByName(name: string): Promise<ScryfallCard> {
+async function resolveLiveCardByName(name: string, arenaOnly = false): Promise<ScryfallCard> {
+  const card = await resolveCheapestLiveCardByName(name);
+  // The cheapest paper printing resolved above may not be on Arena (E271:
+  // Command Tower, basics, Impact Tremors et al all have an Arena printing
+  // that just isn't their cheapest paper one). Prefer an Arena-legal printing
+  // without disturbing the plain-name cache entry above — a truly non-Arena
+  // card falls back to `card` unchanged, and `notOnArena` rejects it exactly
+  // as it did before this flag existed.
+  if (!arenaOnly || card.games?.includes('arena')) return card;
+  const arenaCached = cardCache.get(cacheKeyFor(name, undefined, true));
+  if (arenaCached) return freshCopy(arenaCached);
+  const arenaCard = await fetchCardByNameThrottled(name, true);
+  return arenaCard ? freshCopy(arenaCard) : card;
+}
+
+async function resolveCheapestLiveCardByName(name: string): Promise<ScryfallCard> {
   await primeFromDisk([name]);
   const cached = cardCache.get(name);
   if (cached) return freshCopy(cached);
@@ -366,6 +398,12 @@ async function resolveLiveCardByName(name: string): Promise<ScryfallCard> {
   return freshCopy(card);
 }
 
+// `arenaOnly` is accepted for CardRepository conformance but has no effect
+// offline: the slim payload keeps one representative printing per oracle with
+// no `games` field at all (not per-printing data), so there is no Arena-vs-paper
+// distinction to prefer. `notOnArena` downstream degrades the same way it
+// already does for every other offline card — see project memory on offline
+// data shape before changing this.
 async function offlineGetCardByNameImpl(name: string): Promise<ScryfallCard> {
   const cached = cardCache.get(name);
   if (cached) return freshCopy(cached);
@@ -382,8 +420,8 @@ async function offlineGetCardByNameImpl(name: string): Promise<ScryfallCard> {
   return freshCopy(card);
 }
 
-export async function getCardByName(name: string): Promise<ScryfallCard> {
-  return getCardRepository().getCardByName(name);
+export async function getCardByName(name: string, arenaOnly = false): Promise<ScryfallCard> {
+  return getCardRepository().getCardByName(name, arenaOnly);
 }
 
 /**
@@ -508,15 +546,27 @@ export async function getCardsByIds(ids: string[]): Promise<Map<string, Scryfall
  * Fetch a single card by name with proper rate limiting.
  * Returns null if not found instead of throwing.
  */
-function fetchCardByNameThrottled(name: string): Promise<ScryfallCard | null> {
-  return shareInflight(`search:${name}`, () => fetchCheapestPrintingByName(name));
+function fetchCardByNameThrottled(name: string, arenaOnly = false): Promise<ScryfallCard | null> {
+  return shareInflight(cacheKeyFor(`search:${name}`, undefined, arenaOnly), () =>
+    fetchCheapestPrintingByName(name, arenaOnly)
+  );
 }
 
-async function fetchCheapestPrintingByName(name: string): Promise<ScryfallCard | null> {
+/**
+ * Search-based printing resolve, cheapest USD first. When `arenaOnly`, scopes
+ * the search to `game:arena` so the result is Arena-legal rather than the
+ * globally-cheapest paper printing (E271); a card with no Arena printing at
+ * all falls back to the plain cheapest-paper search below (unfiltered), same
+ * result as before this flag existed — `notOnArena` rejects it downstream.
+ */
+async function fetchCheapestPrintingByName(
+  name: string,
+  arenaOnly = false
+): Promise<ScryfallCard | null> {
   try {
-    // Search for cheapest USD paper printing across all sets
-    // Filter out digital-only printings and require a USD price
-    const searchQuery = encodeURIComponent(`!"${name}" -is:digital`);
+    // Filter out digital-only printings and require a USD price.
+    const gameFilter = arenaOnly ? ' game:arena' : '';
+    const searchQuery = encodeURIComponent(`!"${name}" -is:digital${gameFilter}`);
     const response = await scryfallRequest(
       `/cards/search?q=${searchQuery}&unique=prints&order=usd&dir=asc`
     );
@@ -530,12 +580,16 @@ async function fetchCheapestPrintingByName(name: string): Promise<ScryfallCard |
           playable.find((c) => c.prices?.usd) ||
           playable.find((c) => getCardPrice(c)) ||
           playable[0];
-        cardCache.set(name, card);
+        cardCache.set(cacheKeyFor(name, undefined, arenaOnly), card);
         // Also cache under Scryfall's canonical name if different
-        if (card.name !== name) cardCache.set(card.name, card);
+        if (card.name !== name) cardCache.set(cacheKeyFor(card.name, undefined, arenaOnly), card);
         return card;
       }
     }
+
+    // No Arena-legal printing exists (or the query 404'd) — retry as a plain
+    // cheapest-paper search rather than giving up.
+    if (arenaOnly) return fetchCheapestPrintingByName(name, false);
 
     // Fallback to /cards/named if search returned no results (name mismatch, etc.)
     if (response.status === 404) {
@@ -549,21 +603,20 @@ async function fetchCheapestPrintingByName(name: string): Promise<ScryfallCard |
 
     return null;
   } catch {
-    return null;
+    return arenaOnly ? fetchCheapestPrintingByName(name, false) : null;
   }
 }
 
 /** Split requested names into already-cached results and the names still to fetch. */
 function partitionCachedCards(
   names: string[],
-  preferredSet?: string
+  preferredSet?: string,
+  arenaOnly?: boolean
 ): { result: Map<string, ScryfallCard>; uncachedNames: string[] } {
   const result = new Map<string, ScryfallCard>();
   const uncachedNames: string[] = [];
   for (const name of names) {
-    // When a preferred set is specified, use a composite cache key.
-    const cacheKey = preferredSet ? `${name}|${preferredSet}` : name;
-    const cached = cardCache.get(cacheKey);
+    const cached = cardCache.get(cacheKeyFor(name, preferredSet, arenaOnly));
     if (cached) result.set(name, freshCopy(cached));
     else uncachedNames.push(name);
   }
@@ -611,10 +664,12 @@ async function liveGetCardsByNames(
 ): Promise<Map<string, ScryfallCard>> {
   if (names.length === 0) return new Map();
 
-  // One bulk disk read for the whole request, before the synchronous partition.
-  await primeFromDisk(preferredSet ? names.map((n) => `${n}|${preferredSet}`) : names);
+  const arenaOnly = opts?.arenaOnly ?? false;
 
-  const { result, uncachedNames } = partitionCachedCards(names, preferredSet);
+  // One bulk disk read for the whole request, before the synchronous partition.
+  await primeFromDisk(names.map((n) => cacheKeyFor(n, preferredSet, arenaOnly)));
+
+  const { result, uncachedNames } = partitionCachedCards(names, preferredSet, arenaOnly);
   if (uncachedNames.length === 0) return result;
 
   logger.debug(
@@ -741,6 +796,7 @@ async function liveGetCardsByNames(
   const notFound = uncachedNames.filter((name) => !result.has(name) && !unanswered.has(name));
   if (notFound.length > 0) {
     const pass = notFound.slice(0, followupBudget);
+    followupBudget -= pass.length;
     logger.debug(
       `[Scryfall] Retrying ${pass.length}/${notFound.length} not-found cards individually...`
     );
@@ -748,6 +804,43 @@ async function liveGetCardsByNames(
       const card = await fetchCardByNameThrottled(name);
       if (card) {
         result.set(name, freshCopy(card));
+      }
+    }
+  }
+
+  // Arena-only mode (E271): /cards/collection returns one printing per name
+  // and doesn't accept game filters, so the batch above can hand back a
+  // printing that isn't on Arena even though the card has one (Command Tower,
+  // basics, Impact Tremors, ...). Re-resolve just the names that came back
+  // non-Arena through the arena-preferred single-name search — this list is
+  // small in practice (most EDHREC staples ARE on Arena). Cache both outcomes
+  // under the composite `name|arena` key so a repeat call for the same names
+  // skips straight to the cache instead of re-running this pass.
+  if (arenaOnly) {
+    const nonArenaNames = uncachedNames.filter((name) => {
+      const card = result.get(name);
+      return card && !card.games?.includes('arena');
+    });
+    const pass = nonArenaNames.slice(0, followupBudget);
+    if (pass.length < nonArenaNames.length) {
+      logger.debug(
+        `[Scryfall] Arena-only: only re-resolving ${pass.length}/${nonArenaNames.length} non-Arena printings (follow-up budget exhausted)`
+      );
+    }
+    for (const name of pass) {
+      const arenaCard = await fetchCardByNameThrottled(name, true);
+      if (arenaCard) {
+        cardCache.set(cacheKeyFor(name, preferredSet, true), arenaCard);
+        result.set(name, freshCopy(arenaCard));
+      }
+    }
+    // Cards whose batch-resolved printing is already on Arena: cache under the
+    // composite key too, so a later arenaOnly call for the same name is a
+    // straight cache hit instead of redoing this whole pass.
+    for (const name of uncachedNames) {
+      const card = result.get(name);
+      if (card?.games?.includes('arena')) {
+        cardCache.set(cacheKeyFor(name, preferredSet, true), card);
       }
     }
   }
@@ -1000,22 +1093,27 @@ export async function upgradeCardPrintings(
  * Pre-cache basic lands for faster deck generation.
  * Call this once at the start of deck generation.
  */
-export async function prefetchBasicLands(): Promise<void> {
+export async function prefetchBasicLands(arenaOnly = false): Promise<void> {
   const basicLands = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'];
 
-  // Check if already cached
-  await primeFromDisk(basicLands);
-  const uncached = basicLands.filter((name) => !memoryCache.has(name));
+  // Check if already cached (under the same composite key getCachedCard reads).
+  await primeFromDisk(basicLands.map((name) => cacheKeyFor(name, undefined, arenaOnly)));
+  const uncached = basicLands.filter(
+    (name) => !memoryCache.has(cacheKeyFor(name, undefined, arenaOnly))
+  );
   if (uncached.length === 0) return;
 
-  await getCardsByNames(uncached);
+  await getCardsByNames(uncached, undefined, undefined, { arenaOnly });
 }
 
 /**
- * Get a cached card if available (for basic lands).
+ * Get a cached card if available (for basic lands). Pass `arenaOnly` to read
+ * the Arena-preferred cache entry rather than the plain cheapest-paper one
+ * (E271) — they're cached under different composite keys so one can't shadow
+ * the other.
  */
-export function getCachedCard(name: string): ScryfallCard | undefined {
-  const cached = cardCache.get(name);
+export function getCachedCard(name: string, arenaOnly = false): ScryfallCard | undefined {
+  const cached = cardCache.get(cacheKeyFor(name, undefined, arenaOnly));
   return cached ? freshCopy(cached) : undefined;
 }
 
@@ -1519,8 +1617,8 @@ export function withPlayableFilter(repo: CardRepository): CardRepository {
       const res = await repo.searchCards(query, colorIdentity, options);
       return { ...res, data: res.data.filter(isPlayableCard) };
     },
-    async getCardByName(name) {
-      const card = await repo.getCardByName(name);
+    async getCardByName(name, arenaOnly) {
+      const card = await repo.getCardByName(name, arenaOnly);
       if (!isPlayableCard(card)) {
         throw new Error(`That printing of ${name} can't be played. Try another printing.`);
       }

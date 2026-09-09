@@ -9,8 +9,9 @@ import type { ComboMatch } from '@/types/combos';
 vi.mock('@/lib/card-thumbs', () => ({
   useCardThumb: () => undefined,
 }));
+const carouselOpen = vi.fn();
 vi.mock('./useCardCarousel', () => ({
-  useCardCarousel: () => ({ open: vi.fn(), preview: null }),
+  useCardCarousel: () => ({ open: carouselOpen, preview: null }),
 }));
 vi.mock('./use-deck-hover-peek', () => ({
   useDeckHoverPeek: () => ({ listHandlers: {}, peek: null }),
@@ -200,6 +201,43 @@ describe('CoachFeed', () => {
     expect(onConvergeBracket).toHaveBeenCalledWith([
       { removeName: 'Rhystic Study', addName: 'Mystic Remora' },
     ]);
+  });
+
+  it('tapping the card being cut on a swap row opens the cut → incoming pair', () => {
+    carouselOpen.mockClear();
+    const bracketFit = {
+      direction: 'too-strong',
+      targetBracket: 2,
+      detectedBracket: 3,
+      summary: 'Swap 1 card to reach Bracket 2',
+      achievable: true,
+      moves: [
+        {
+          type: 'swap',
+          name: 'Rhystic Study',
+          inName: 'Mystic Remora',
+          reason: 'too strong for B2',
+          signal: 'fast-mana',
+        },
+      ],
+    } as unknown as CoachFeedProps['bracketFit'];
+    render(
+      <CoachFeed
+        {...makeProps({
+          bracketFit,
+          deckNames: new Set(['rhystic study']),
+          initialFilter: 'bracket-fit',
+        })}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Rhystic Study (being cut)' }));
+    expect(carouselOpen).toHaveBeenCalledWith(
+      [
+        { name: 'Rhystic Study', label: 'Cut for Mystic Remora' },
+        expect.objectContaining({ name: 'Mystic Remora' }),
+      ],
+      'Rhystic Study'
+    );
   });
 
   it('deduplicates a card suggested by two sources (gap + combo)', () => {

@@ -139,16 +139,26 @@ const sacrifice: SynergyAxis = {
   },
 };
 
+/** "loses N life and you gain N life", within one sentence — the drain shape. */
+const DRAIN_CLAUSE =
+  /\blose(?:s)? (?:\d+|x|that much) life[^.;]*\byou gain (?:\d+|x|that much) life/g;
+
 const lifegain: SynergyAxis = {
   key: 'lifegain',
   label: 'Lifegain',
   producer(card) {
     if (has(card, 'lifelink')) return 'lifelink';
+    // A drain's gain is a side effect, not a source: "each opponent loses 1 life
+    // and you gain 1 life" (Blood Artist, Zulaport Cutthroat) is an aristocrats
+    // payoff whose lifegain nobody builds around — counted as a source it put a
+    // dead "Lifegain: 8 sources · 0 payoffs" engine line in front of the AI
+    // review. Soul Warden's "you gain 1 life" is the whole clause and stays.
+    const oracle = card.oracle.replace(DRAIN_CLAUSE, '');
     // "you gain 3 life", "gain that much life", or "gain life equal to …" (note the
     // word order — "life" precedes "equal to", so it needs its own branch).
-    if (/\bgain (?:\d+|x|that much) life/.test(card.oracle)) return 'gains you life';
-    if (/\bgain life equal to/.test(card.oracle)) return 'gains you life';
-    if (/creatures you control (?:have|gain)[^.]*lifelink|gain lifelink/.test(card.oracle))
+    if (/\bgain (?:\d+|x|that much) life/.test(oracle)) return 'gains you life';
+    if (/\bgain life equal to/.test(oracle)) return 'gains you life';
+    if (/creatures you control (?:have|gain)[^.]*lifelink|gain lifelink/.test(oracle))
       return 'grants lifelink';
     return null;
   },

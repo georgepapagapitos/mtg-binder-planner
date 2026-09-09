@@ -98,7 +98,21 @@ export async function replaceOracleCards(
   }
 }
 
+/**
+ * Bumped by every combo-store write in this process. `combo-index.ts` keeps a
+ * per-session copy of its index in memory and uses this (plus the dataset
+ * version and row count) to know when that copy is stale — a test that
+ * rewrites the store between cases, or an in-tab import, invalidates it
+ * without a hook. Writes from another context (the import worker) change the
+ * version stamp instead, which the same check also sees.
+ */
+let comboWriteGeneration = 0;
+export function getComboWriteGeneration(): number {
+  return comboWriteGeneration;
+}
+
 export async function replaceCombos(combos: OfflineCombo[]): Promise<void> {
+  comboWriteGeneration++;
   const db = await getDB();
   {
     const tx = db.transaction(STORE_COMBOS, 'readwrite');
@@ -113,6 +127,7 @@ export async function replaceCombos(combos: OfflineCombo[]): Promise<void> {
 /** Upsert a batch of combos by id (one transaction). Streaming import's write step. */
 export async function appendCombos(combos: OfflineCombo[]): Promise<void> {
   if (combos.length === 0) return;
+  comboWriteGeneration++;
   const db = await getDB();
   const tx = db.transaction(STORE_COMBOS, 'readwrite');
   const store = tx.objectStore(STORE_COMBOS);
@@ -126,6 +141,7 @@ export async function appendCombos(combos: OfflineCombo[]): Promise<void> {
  * reads the values.
  */
 export async function pruneCombosNotIn(keep: ReadonlySet<string>): Promise<number> {
+  comboWriteGeneration++;
   const db = await getDB();
   const keys = (await db.getAllKeys(STORE_COMBOS)) as string[];
   const stale = keys.filter((k) => !keep.has(k));
@@ -224,6 +240,37 @@ export async function getAllCombos(): Promise<OfflineCombo[]> {
   return out;
 }
 
+/**
+ * Full rows for a handful of ids — how the matcher hydrates its results now
+ * that the scan itself runs over the compact index (combo-index.ts). One
+ * readonly transaction; ids the store does not have are skipped.
+ */
+export async function getCombosByIds(ids: readonly string[]): Promise<Map<string, OfflineCombo>> {
+  const out = new Map<string, OfflineCombo>();
+  if (ids.length === 0) return out;
+  const db = await getDB();
+  const tx = db.transaction(STORE_COMBOS, 'readonly');
+  const rows = await Promise.all(
+    ids.map((id) => tx.store.get(id) as Promise<OfflineCombo | undefined>)
+  );
+  await tx.done;
+  for (const row of rows) if (row) out.set(row.id, row);
+  return out;
+}
+
+const META_COMBO_INDEX_KEY = 'combo-index';
+
+/** The persisted match index (combo-index.ts), or null if never built. */
+export async function readComboIndexRow<T>(): Promise<T | null> {
+  const db = await getDB();
+  return ((await db.get(STORE_META, META_COMBO_INDEX_KEY)) as T | undefined) ?? null;
+}
+
+export async function writeComboIndexRow(index: unknown): Promise<void> {
+  const db = await getDB();
+  await db.put(STORE_META, index, META_COMBO_INDEX_KEY);
+}
+
 export async function readManifest(): Promise<OfflineManifest | null> {
   const db = await getDB();
   return ((await db.get(STORE_META, META_MANIFEST_KEY)) as OfflineManifest | undefined) ?? null;
@@ -246,6 +293,7 @@ export async function writeStandaloneCombosVersion(version: string): Promise<voi
 }
 
 export async function clearOfflineData(): Promise<void> {
+  comboWriteGeneration++;
   const db = await getDB();
   const tx = db.transaction([STORE_CARDS, STORE_NAMES, STORE_COMBOS, STORE_META], 'readwrite');
   await Promise.all([

@@ -1,5 +1,6 @@
 import type { ComboMatch, ComboMatchResponse, ComboSummary } from '@/types/combos';
-import { iterateComboPages } from './db';
+import { getCombosByIds, iterateComboPages } from './db';
+import { formatBit, getComboIndex } from './combo-index';
 import type { OfflineCombo } from './types';
 
 /**
@@ -13,72 +14,85 @@ export async function matchCombosLocal(opts: {
   deckOracleIds?: Iterable<string>;
   format?: string;
 }): Promise<Omit<ComboMatchResponse, 'source'>> {
-  const owned = toSet(opts.ownedOracleIds);
-  const inDeckSet = opts.deckOracleIds ? toSet(opts.deckOracleIds) : null;
+  // The scan runs over the compact index (combo-index.ts) — ids, interned
+  // card numbers, popularity and legality bits — never over the full rows.
+  // Only the rows that will be returned are read back from the store.
+  const { index, lookup } = await getComboIndex();
+  const owned = toCardSet(opts.ownedOracleIds, lookup);
+  const inDeckSet = opts.deckOracleIds ? toCardSet(opts.deckOracleIds, lookup) : null;
+  // A format the dataset does not know is legal for nothing — the same answer
+  // the row-by-row check (`legalities[format] !== 'legal'`) always gave.
+  const bit = opts.format ? formatBit(opts.format) : 0;
+  if (opts.format && bit === 0) {
+    return { inDeck: [], oneAway: [], almostInCollection: [], almostInCollectionTotal: 0 };
+  }
 
-  const inDeck: ComboMatch[] = [];
-  const oneAway: ComboMatch[] = [];
-  const almostInCollection: ComboMatch[] = [];
+  type Hit = { slot: number; present: string[]; missing: string[] };
+  const inDeck: Hit[] = [];
+  const oneAway: Hit[] = [];
+  const almostInCollection: Hit[] = [];
 
-  for await (const page of iterateComboPages())
-    for (const combo of page) {
-      if (opts.format && combo.legalities[opts.format] !== 'legal') continue;
-      if (combo.cards.length === 0) continue;
+  const { offsets, cards, legal, cardIds } = index;
+  for (let slot = 0; slot < index.count; slot++) {
+    if (bit && (legal[slot] & bit) === 0) continue;
+    const from = offsets[slot];
+    const to = offsets[slot + 1];
+    if (to === from) continue;
 
-      const present: string[] = [];
-      const missing: string[] = [];
+    const have = inDeckSet ?? owned;
+    let missingCount = 0;
+    for (let k = from; k < to; k++) if (!have.has(cards[k])) missingCount++;
+    if (missingCount > 1) continue;
 
-      if (inDeckSet) {
-        for (const card of combo.cards) {
-          (inDeckSet.has(card.oracleId) ? present : missing).push(card.oracleId);
-        }
-        if (missing.length === 0) {
-          inDeck.push({
-            combo: toSummary(combo),
-            presentOracleIds: present,
-            missingOracleIds: [],
-          });
-          continue;
-        }
-        if (missing.length === 1) {
-          oneAway.push({
-            combo: toSummary(combo),
-            presentOracleIds: present,
-            missingOracleIds: missing,
-          });
-        }
-        continue;
-      }
-
-      for (const card of combo.cards) {
-        (owned.has(card.oracleId) ? present : missing).push(card.oracleId);
-      }
-      if (missing.length === 0) {
-        inDeck.push({
-          combo: toSummary(combo),
-          presentOracleIds: present,
-          missingOracleIds: [],
-        });
-      } else if (missing.length === 1) {
-        almostInCollection.push({
-          combo: toSummary(combo),
-          presentOracleIds: present,
-          missingOracleIds: missing,
-        });
-      }
+    const present: string[] = [];
+    const missing: string[] = [];
+    for (let k = from; k < to; k++) {
+      (have.has(cards[k]) ? present : missing).push(cardIds[cards[k]]);
     }
+    const hit = { slot, present, missing };
+    if (inDeckSet) (missingCount === 0 ? inDeck : oneAway).push(hit);
+    else (missingCount === 0 ? inDeck : almostInCollection).push(hit);
+  }
 
-  const byPopularity = (a: ComboMatch, b: ComboMatch) => b.combo.popularity - a.combo.popularity;
+  const byPopularity = (a: Hit, b: Hit) => index.popularity[b.slot] - index.popularity[a.slot];
   inDeck.sort(byPopularity);
   oneAway.sort(byPopularity);
   almostInCollection.sort(byPopularity);
+  const almostShown = almostInCollection.slice(0, ALMOST_LIMIT);
+
+  const rows = await getCombosByIds(
+    [...inDeck, ...oneAway, ...almostShown].map((h) => index.ids[h.slot])
+  );
+  const hydrate = (hits: Hit[]): ComboMatch[] => {
+    const out: ComboMatch[] = [];
+    for (const h of hits) {
+      const row = rows.get(index.ids[h.slot]);
+      if (row)
+        out.push({
+          combo: toSummary(row),
+          presentOracleIds: h.present,
+          missingOracleIds: h.missing,
+        });
+    }
+    return out;
+  };
 
   return {
-    inDeck,
-    oneAway,
-    almostInCollection: almostInCollection.slice(0, ALMOST_LIMIT),
+    inDeck: hydrate(inDeck),
+    oneAway: hydrate(oneAway),
+    almostInCollection: hydrate(almostShown),
     almostInCollectionTotal: almostInCollection.length,
   };
+}
+
+/** Query ids as interned card numbers; ids no combo uses simply never match. */
+function toCardSet(ids: Iterable<string>, lookup: Map<string, number>): Set<number> {
+  const out = new Set<number>();
+  for (const id of ids) {
+    const n = lookup.get(id);
+    if (n !== undefined) out.add(n);
+  }
+  return out;
 }
 
 /**

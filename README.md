@@ -164,7 +164,7 @@ For local development, `docker-compose.dev.yml` runs just the Postgres container
 
 ### Offline mode
 
-Card data is always-on. After sign-in, the frontend silently downloads a slim Scryfall oracle bulk (~7 MB gzipped, ~35k cards) and the Commander Spellbook combo dataset into IndexedDB. Card search, deck generation, and combo matching prefer the local copy whenever it's populated — the live Scryfall API is the fallback, not the primary. There is no toggle. The Settings page shows a one-line status (`35,329 cards · 7.3 MB · updated 2 days ago`) and an escape-hatch "Clear cached card data" button; otherwise the user shouldn't have to think about it.
+Card data is always-on. After sign-in, the frontend silently downloads a slim Scryfall oracle bulk (~7 MB gzipped, ~35k cards) and the Commander Spellbook combo dataset into IndexedDB. Card search, deck generation, and combo matching prefer the local copy whenever it's populated — the live Scryfall API is the fallback, not the primary. The combo dataset (~107k rows, 163 MB decoded) is imported in a Web Worker and matched through a compact index (`frontend/src/lib/offline/combo-index.ts`: ids, interned card ids, popularity, legality bits — ~5 MB, one IndexedDB row, kept in memory for the session), so a deck view never reads the full rows back; only the combos it shows are hydrated. There is no toggle. The Settings page shows a one-line status (`35,329 cards · 7.3 MB · updated 2 days ago`) and an escape-hatch "Clear cached card data" button; otherwise the user shouldn't have to think about it.
 
 How the freshness loop works:
 

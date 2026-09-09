@@ -210,7 +210,7 @@ export async function syncOfflineData(opts: {
         fraction: total ? Math.min(1, received / total) : null,
         detail: `${(received / 1_000_000).toFixed(2)} / ${total ? (total / 1_000_000).toFixed(2) : '?'} MB`,
       });
-    });
+    }, server.combosVersion);
   }
 
   await writeManifest(server);

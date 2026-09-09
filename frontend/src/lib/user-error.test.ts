@@ -23,6 +23,14 @@ describe('userMessage', () => {
       'Unknown error',
       'The operation was aborted.',
       "Cannot read properties of undefined (reading 'id')",
+      // Browser-storage internals — Firefox's IndexedDB response cap (#1815),
+      // Chromium's DOMException prefix, quota errors.
+      'The serialized value is too large (size=262901152 bytes, max=257949696 bytes).',
+      "Failed to execute 'put' on 'IDBObjectStore': The transaction has finished.",
+      'IndexedDB is not available in this browsing context.',
+      'QuotaExceededError: The quota has been exceeded.',
+      'A mutation operation was attempted on a database that did not allow mutations.',
+      'Internal error opening backing store for indexedDB.open.',
       '',
       '   ',
     ]) {

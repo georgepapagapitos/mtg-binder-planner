@@ -52,6 +52,16 @@ const NOISE = [
   /^null$/i,
   /^\[object /i,
   /econn(refused|reset)/i,
+  // Browser-storage internals (IndexedDB / structured clone). Chromium prefixes
+  // every DOMException with "Failed to execute '…'"; Firefox's read the way
+  // the size cap did in #1815 ("The serialized value is too large …").
+  /^failed to execute '/i,
+  /serialized (keys and\/or )?value/i,
+  /indexeddb/i,
+  /quota(exceeded| has been exceeded)/i,
+  /^a mutation operation was attempted/i,
+  /^the operation failed for reasons unrelated/i,
+  /^internal error/i,
 ];
 
 export function isTransportNoise(message: string): boolean {

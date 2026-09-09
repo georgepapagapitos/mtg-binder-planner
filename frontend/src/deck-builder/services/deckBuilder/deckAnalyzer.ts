@@ -29,6 +29,7 @@ import { PACING_CURVE_MULTIPLIERS } from './roleTargets';
 import { frontFaceName } from '@/lib/card-text';
 import { getEdhrecCardPrice } from '@/deck-builder/lib/edhrecUtils';
 import { isBasicLandName } from '@/lib/allocations';
+import { producedManaColors } from '@/lib/mana-sources';
 
 export interface RoleDeficit {
   role: string;
@@ -357,32 +358,12 @@ export function computeLandDropProbabilities(
   return results;
 }
 
-// Determine which colors a land produces from produced_mana + oracle text fallback
+// Colors a land produces — the shared produced_mana + oracle-text reader
+// (unclamped: no identity here, so contextual fixers keep their full rainbow).
 function getLandProducedColors(card: ScryfallCard): string[] {
-  const colors: Set<string> = new Set();
-  const producedMana = card.produced_mana || [];
-  const oracleText = (card.oracle_text || '').toLowerCase();
-  const typeLine = getFrontFaceTypeLine(card).toLowerCase();
-
-  for (const mana of producedMana) {
-    if (['W', 'U', 'B', 'R', 'G'].includes(mana)) colors.add(mana);
-  }
-
-  // Fallback: check basic land types and oracle text
-  if (colors.size === 0) {
-    if (typeLine.includes('plains') || oracleText.includes('add {w}')) colors.add('W');
-    if (typeLine.includes('island') || oracleText.includes('add {u}')) colors.add('U');
-    if (typeLine.includes('swamp') || oracleText.includes('add {b}')) colors.add('B');
-    if (typeLine.includes('mountain') || oracleText.includes('add {r}')) colors.add('R');
-    if (typeLine.includes('forest') || oracleText.includes('add {g}')) colors.add('G');
-    // "any color" / "any type" patterns
-    if (oracleText.includes('any color') || oracleText.includes('any type')) {
-      for (const c of ['W', 'U', 'B', 'R', 'G']) colors.add(c);
-    }
-  }
-
-  return [...colors];
+  return producedManaColors(card, NO_IDENTITY).filter((c) => c !== 'C');
 }
+const NO_IDENTITY: ReadonlySet<string> = new Set();
 
 /** Resolve produced colors for a recommendation card via Scryfall cache, with EDHREC color_identity fallback. */
 function getRecommendationColors(cardName: string, edhrecColorIdentity?: string[]): string[] {

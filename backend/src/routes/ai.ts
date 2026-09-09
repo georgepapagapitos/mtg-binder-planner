@@ -792,6 +792,14 @@ aiRouter.post('/deck-refine', reviewLimiter, requireAuth, async (req: Request, r
   if (out.rejected.length > 0) {
     logger.warn(`[ai] deck refine proposed ${out.rejected.length} unusable card(s)`, out.rejected);
   }
+  // A cut of an engine source/payoff is refused the same way — the prompt's
+  // "cut a weak slot" rule slipped, and the piece never leaves the deck.
+  if (out.protectedCuts.length > 0) {
+    logger.warn(
+      `[ai] deck refine tried to cut ${out.protectedCuts.length} engine piece(s) (deckId=${request.deckId})`,
+      out.protectedCuts
+    );
+  }
   // Provenance, as a drift signal only — the enforced check is legality, since
   // that is the one a cache replay can recompute. A tweak the model never
   // looked up is a real card it recalled rather than read, which is exactly

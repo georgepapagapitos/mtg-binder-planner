@@ -319,6 +319,29 @@ export interface RefineOutput {
   tweaks: RefineTweak[];
   /** Names the model proposed that no pool/decklist entry backs. Audit only. */
   rejected: string[];
+  /** Cuts refused because the card is a source or payoff of a deck engine. Audit only. */
+  protectedCuts: string[];
+}
+
+/**
+ * Every card named on an engine line — a source or payoff of an axis the deck
+ * is INVESTED in (`analysis.engines` is built invested-only client-side). A
+ * swap that cuts one of these dismantles the engine the review just told the
+ * player to lean on; refine once cut Celebr-8000, a Mr. House deck's best free
+ * roll source. Lowercased, like the other lookups here.
+ */
+function engineCardNames(analysis: Record<string, unknown> | undefined): Set<string> {
+  const names = new Set<string>();
+  if (!Array.isArray(analysis?.engines)) return names;
+  for (const e of analysis.engines as unknown[]) {
+    if (typeof e !== 'object' || e === null) continue;
+    const { sources, payoffs } = e as Record<string, unknown>;
+    for (const side of [sources, payoffs]) {
+      if (!Array.isArray(side)) continue;
+      for (const n of side) if (typeof n === 'string') names.add(n.toLowerCase());
+    }
+  }
+  return names;
 }
 
 /**
@@ -338,7 +361,8 @@ export interface RefineOutput {
  */
 export function parseRefineOutput(
   raw: string,
-  req: Pick<RefineRequest, 'commander' | 'cards' | 'pool'>,
+  req: Pick<RefineRequest, 'commander' | 'cards' | 'pool'> &
+    Partial<Pick<RefineRequest, 'analysis'>>,
   resolveCandidate?: (name: string) => string | null
 ): RefineOutput {
   // Anything before the answer marker is the model's research narration; the
@@ -348,27 +372,29 @@ export function parseRefineOutput(
   const idx = raw.indexOf(TWEAKS_DELIMITER);
   const strategy = (idx === -1 ? raw : raw.slice(0, idx)).trim();
   const rejected: string[] = [];
-  if (idx === -1) return { strategy, tweaks: [], rejected };
+  const protectedCuts: string[] = [];
+  if (idx === -1) return { strategy, tweaks: [], rejected, protectedCuts };
 
   const tail = raw.slice(idx + TWEAKS_DELIMITER.length).trim();
   // The model occasionally wraps the array in a code fence; take the array.
   const start = tail.indexOf('[');
   const end = tail.lastIndexOf(']');
-  if (start === -1 || end <= start) return { strategy, tweaks: [], rejected };
+  if (start === -1 || end <= start) return { strategy, tweaks: [], rejected, protectedCuts };
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(tail.slice(start, end + 1));
   } catch {
-    return { strategy, tweaks: [], rejected };
+    return { strategy, tweaks: [], rejected, protectedCuts };
   }
-  if (!Array.isArray(parsed)) return { strategy, tweaks: [], rejected };
+  if (!Array.isArray(parsed)) return { strategy, tweaks: [], rejected, protectedCuts };
 
   // Lowercase → canonical spelling, so a case slip still resolves but an
   // invented name can't.
   const poolByName = new Map(req.pool.map((c) => [c.name.toLowerCase(), c.name]));
   const deckByName = new Map(req.cards.map((c) => [c.name.toLowerCase(), c.name]));
   const commander = req.commander.toLowerCase();
+  const engineNames = engineCardNames(req.analysis);
 
   const tweaks: RefineTweak[] = [];
   const usedAdds = new Set<string>();
@@ -402,6 +428,11 @@ export function parseRefineOutput(
         rejected.push(cut.trim());
         continue;
       }
+      // Mirror of the add check: an engine piece is not a weak slot.
+      if (engineNames.has(lower)) {
+        protectedCuts.push(cutName);
+        continue;
+      }
       // One card can't be cut for two different adds.
       if (usedCuts.has(cutName)) continue;
       usedCuts.add(cutName);
@@ -411,7 +442,7 @@ export function parseRefineOutput(
     tweaks.push({ add: addName, cut: cutName, why: why.trim() });
   }
 
-  return { strategy, tweaks, rejected };
+  return { strategy, tweaks, rejected, protectedCuts };
 }
 
 /** Assemble the user message: decklist + stats + the pool the model may use. */

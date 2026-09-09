@@ -68,6 +68,42 @@ describe('parseRefineOutput — the model curates, it never invents', () => {
     expect(out.rejected).toEqual(['Mana Vault']);
   });
 
+  it('refuses to cut a source or payoff of an invested engine (T112 residual)', () => {
+    // The live failure: refine cut Celebr-8000, a Mr. House deck's best free
+    // roll source, while the review's own engine line listed it. The engine
+    // inventory arrives in `analysis.engines`; every name on it is protected.
+    const req = {
+      ...REQ,
+      cards: [card('Celebr-8000'), card('Barbarian Class'), card('Lightning Greaves')],
+      analysis: {
+        engines: [
+          { label: 'Dice rolling', sources: ['Celebr-8000'], payoffs: ['Barbarian Class'] },
+          { bogus: true },
+        ],
+      },
+    };
+    const out = parseRefineOutput(
+      reply('Prose.', [
+        { add: 'Boros Signet', cut: 'celebr-8000', why: 'Slow artifact.' },
+        { add: 'Orzhov Signet', cut: 'Barbarian Class', why: 'Low impact.' },
+        { add: 'Burnished Hart', cut: 'Lightning Greaves', why: 'Ramp over haste.' },
+      ]),
+      req
+    );
+    expect(out.tweaks).toEqual([
+      { add: 'Burnished Hart', cut: 'Lightning Greaves', why: 'Ramp over haste.' },
+    ]);
+    expect(out.protectedCuts).toEqual(['Celebr-8000', 'Barbarian Class']);
+    expect(out.rejected).toEqual([]);
+    // Without an inventory nothing is protected — old clients keep working.
+    expect(
+      parseRefineOutput(
+        reply('Prose.', [{ add: 'Boros Signet', cut: 'Celebr-8000', why: 'Slow artifact.' }]),
+        { ...req, analysis: {} }
+      ).tweaks
+    ).toHaveLength(1);
+  });
+
   it('never lets the commander be cut', () => {
     const out = parseRefineOutput(
       reply('Prose.', [{ add: 'Boros Signet', cut: 'Kaalia of the Vast', why: 'Too slow.' }]),

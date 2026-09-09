@@ -19,8 +19,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { nextBinderMatch } from '@spellcontrol/binder-routing';
 import { useCollectionStore } from '../store/collection';
+import { normalizeForSearch } from '../lib/normalize-search';
 import { CardPickerSheet } from './CardPickerSheet';
 import { Modal } from './Modal';
+import { SearchPill } from './SearchPill';
 import { Tabs } from './Tabs';
 import type { BinderDef, EnrichedCard, MaterializedBinder } from '../types';
 
@@ -35,6 +37,10 @@ type Tab = 'cards' | 'order';
 export function BinderCardEditor({ binder, allCards, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('cards');
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Cards-tab search. A 591-row binder is unscannable without one; the Order
+  // tab stays unfiltered because a drag-sortable list with hidden rows can't
+  // say where a drop lands.
+  const [query, setQuery] = useState('');
 
   const removeCardFromBinder = useCollectionStore((s) => s.removeCardFromBinder);
   const restoreExcludedCard = useCollectionStore((s) => s.restoreExcludedCard);
@@ -133,6 +139,16 @@ export function BinderCardEditor({ binder, allCards, onClose }: Props) {
 
   const currentBoundSet = useMemo(() => new Set(activeCards.map((c) => c.copyId)), [activeCards]);
 
+  // Same predicate as CardPickerSheet: folded name, set code, collector number.
+  const q = query.trim().toLowerCase();
+  const nq = normalizeForSearch(query);
+  const matches = (c: EnrichedCard) =>
+    !q ||
+    normalizeForSearch(c.name).includes(nq) ||
+    c.setCode.toLowerCase().includes(q) ||
+    c.collectorNumber.toLowerCase().includes(q);
+  const hasCards = activeCards.length > 0 || excludedCards.length > 0;
+
   return (
     <>
       <Modal className="modal" label={`Edit cards: ${binder.def.name}`} onClose={onClose}>
@@ -166,6 +182,17 @@ export function BinderCardEditor({ binder, allCards, onClose }: Props) {
           ]}
         />
 
+        {tab === 'cards' && hasCards && (
+          <div className="binder-card-editor-search">
+            <SearchPill
+              value={query}
+              onChange={setQuery}
+              placeholder="Search by name, set, or number…"
+              ariaLabel="Search cards in this binder"
+            />
+          </div>
+        )}
+
         <div
           className="modal-body"
           id="binder-card-editor-panel"
@@ -174,8 +201,9 @@ export function BinderCardEditor({ binder, allCards, onClose }: Props) {
         >
           {tab === 'cards' && (
             <CardsTab
-              activeCards={activeCards}
-              excludedCards={excludedCards}
+              activeCards={activeCards.filter(matches)}
+              excludedCards={excludedCards.filter(matches)}
+              query={q}
               pinnedSet={pinnedSet}
               binderId={binder.def.id}
               binderMode={binder.def.mode}
@@ -234,8 +262,10 @@ export function BinderCardEditor({ binder, allCards, onClose }: Props) {
 // ── Cards tab ──────────────────────────────────────────────────────────────
 
 interface CardsTabProps {
+  /** Already narrowed by `query`; empty with a query set means "no match". */
   activeCards: EnrichedCard[];
   excludedCards: EnrichedCard[];
+  query: string;
   pinnedSet: Set<string>;
   binderId: string;
   binderMode: BinderDef['mode'];
@@ -247,6 +277,7 @@ interface CardsTabProps {
 function CardsTab({
   activeCards,
   excludedCards,
+  query,
   pinnedSet,
   binderId,
   binderMode,
@@ -257,7 +288,9 @@ function CardsTab({
   if (activeCards.length === 0 && excludedCards.length === 0) {
     return (
       <p className="binder-card-editor-empty">
-        No cards yet. Use “Add cards” to add cards from your collection.
+        {query
+          ? `No cards match “${query}”`
+          : 'No cards yet. Use “Add cards” to add cards from your collection.'}
       </p>
     );
   }

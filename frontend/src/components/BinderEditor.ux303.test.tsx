@@ -467,3 +467,75 @@ describe('Tradeable binder flag', () => {
     );
   });
 });
+
+// ── "No filters" warning waits for interaction on a NEW binder ─────────────
+// The amber banner used to fire the instant "New binder" opened — before the
+// user had typed anything — so a blank form greeted them with a warning. It
+// now waits until they have authored something: a name, a rule-group edit, or
+// a save attempt. Existing binders with no filters still warn straight away.
+
+describe('empty-filter warning gating', () => {
+  const WARNING = /This binder has no filters/;
+
+  beforeEach(() => {
+    useCollectionStore.setState({
+      editingBinder: null,
+      editingBinderSeed: null,
+      binders: [],
+      cards: [],
+    });
+  });
+
+  function openNew() {
+    render(<BinderEditor />);
+    act(() => {
+      useCollectionStore.setState({ editingBinder: 'new' });
+    });
+  }
+
+  it('is silent on a freshly opened new binder, then fires once the binder is named', () => {
+    openNew();
+    expect(screen.queryByText(WARNING)).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText('Standard staples'), {
+      target: { value: 'Bulk rares' },
+    });
+    expect(screen.getByText(WARNING)).toBeTruthy();
+  });
+
+  it('fires on a save attempt even with nothing typed', () => {
+    openNew();
+    fireEvent.click(screen.getByRole('button', { name: 'Create binder' }));
+    expect(screen.getByText('Name is required')).toBeTruthy();
+    expect(screen.getByText(WARNING)).toBeTruthy();
+  });
+
+  it('fires after a rule-group edit (adding a group counts as authoring)', () => {
+    openNew();
+    fireEvent.click(screen.getByRole('button', { name: '+ Add OR rule' }));
+    expect(screen.getByText(WARNING)).toBeTruthy();
+  });
+
+  it('still warns immediately on an EXISTING binder with no filters', () => {
+    const now = Date.now();
+    const existing: BinderDef = {
+      id: 'b-empty',
+      name: 'Catch-all',
+      position: 0,
+      filterGroups: [{ filter: {} }],
+      sorts: [],
+      pocketSize: 9,
+      doubleSided: false,
+      fixedCapacity: null,
+      color: '#888',
+      createdAt: now,
+      updatedAt: now,
+    };
+    useCollectionStore.setState({ binders: [existing] });
+    render(<BinderEditor />);
+    act(() => {
+      useCollectionStore.setState({ editingBinder: existing.id });
+    });
+    expect(screen.getByText(WARNING)).toBeTruthy();
+  });
+});

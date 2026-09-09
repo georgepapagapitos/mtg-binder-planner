@@ -120,3 +120,64 @@ describe('BinderCardEditor overlay contract', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The Cards tab lists every card in the binder — 591 rows on the dev
+ * account's Commanders binder — with no way to find one. The SearchPill
+ * narrows both the active list and the hidden (excluded) list by folded
+ * name, set code or collector number, the same predicate the Add-cards
+ * picker uses.
+ */
+describe('Cards tab search', () => {
+  const sldCard = { ...card('c3', 'Jötun Grunt'), setCode: 'sld' } as EnrichedCard;
+  const twoCardBinder = {
+    def: { id: 'b1', name: 'Staples', mode: 'rule', excludedCopyIds: ['c2'] },
+    sections: [{ cards: [card('c1', 'Sol Ring'), sldCard] }],
+  } as unknown as MaterializedBinder;
+  const cards = [card('c1', 'Sol Ring'), card('c2', 'Arcane Signet'), sldCard];
+
+  const renderTwo = () =>
+    render(<BinderCardEditor binder={twoCardBinder} allCards={cards} onClose={onClose} />);
+  const search = () => screen.getByRole('textbox', { name: 'Search cards in this binder' });
+
+  it('narrows active and hidden rows by name, folding diacritics', () => {
+    renderTwo();
+    expect(screen.getByText('Sol Ring')).toBeTruthy();
+    expect(screen.getByText('Arcane Signet')).toBeTruthy();
+
+    fireEvent.change(search(), { target: { value: 'jotun' } });
+    expect(screen.getByText('Jötun Grunt')).toBeTruthy();
+    expect(screen.queryByText('Sol Ring')).toBeNull();
+    // The hidden list narrows too, and its label goes with it.
+    expect(screen.queryByText('Arcane Signet')).toBeNull();
+    expect(screen.queryByText('Hidden (manually excluded)')).toBeNull();
+  });
+
+  it('matches on set code and collector number, and says so when nothing matches', () => {
+    renderTwo();
+    fireEvent.change(search(), { target: { value: 'SLD' } });
+    expect(screen.getByText('Jötun Grunt')).toBeTruthy();
+    expect(screen.queryByText('Sol Ring')).toBeNull();
+
+    fireEvent.change(search(), { target: { value: 'zzz' } });
+    expect(screen.getByText('No cards match “zzz”')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByText('Sol Ring')).toBeTruthy();
+    expect(screen.getByText('Arcane Signet')).toBeTruthy();
+  });
+
+  it('has no search on the Order tab or on an empty binder', () => {
+    renderTwo();
+    fireEvent.click(screen.getByRole('tab', { name: /Order/ }));
+    expect(screen.queryByRole('textbox', { name: 'Search cards in this binder' })).toBeNull();
+
+    const empty = {
+      def: { id: 'b2', name: 'Empty', mode: 'rule' },
+      sections: [],
+    } as unknown as MaterializedBinder;
+    render(<BinderCardEditor binder={empty} allCards={[]} onClose={onClose} />);
+    expect(screen.queryByRole('textbox', { name: 'Search cards in this binder' })).toBeNull();
+    expect(screen.getByText(/No cards yet/)).toBeTruthy();
+  });
+});

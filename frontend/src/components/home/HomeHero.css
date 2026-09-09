@@ -360,6 +360,34 @@
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
+/* Pending value / scale lines (E277): the same box as the resolved line,
+   with a shimmer bar where the figure goes — the label text is real so the
+   plates are already the right size. Only rendered when the last visit had
+   the line (lib/home-shape); an nbsp keeps the exact line height. */
+.home-hero-value--loading .home-hero-value-amount,
+.home-hero-stats--loading .home-hero-stat-value,
+.home-hero-caption--loading .home-hero-caption-tape,
+.home-hero-caption--loading .home-hero-caption-sub {
+  display: inline-block;
+  width: 3.5ch;
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.home-hero-value--loading .home-hero-value-amount {
+  width: 6ch;
+}
+
+.home-hero-caption--loading .home-hero-caption-tape {
+  width: 12ch;
+}
+
+.home-hero-caption--loading .home-hero-caption-sub {
+  width: 16ch;
+}
+
 /* Settled-empty (or guest) state: an empty sleeve, waiting for a card —
    dashed pocket outline with the brand mark, no tape. */
 .home-hero-fallback {
@@ -425,7 +453,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-hero-art-loading {
+  .home-hero-art-loading,
+  .home-hero-value--loading .home-hero-value-amount,
+  .home-hero-stats--loading .home-hero-stat-value,
+  .home-hero-caption--loading .home-hero-caption-tape,
+  .home-hero-caption--loading .home-hero-caption-sub {
     animation: none;
   }
 }

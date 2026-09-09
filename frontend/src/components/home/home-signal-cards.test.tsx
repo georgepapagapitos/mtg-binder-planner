@@ -118,6 +118,7 @@ const daysAgo = (n: number) => Date.now() - n * 86400000;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.removeItem('sc-home-shape');
   mockUseCardThumb.mockReturnValue(undefined);
   // Every card that resolves owned-printing art reads the collection; default
   // it to empty so a case that doesn't care needn't stub the store.
@@ -343,9 +344,22 @@ describe('ValueMoversCard', () => {
 });
 
 describe('NewArrivalsCard', () => {
+  it('shows the skeleton, never "No new arrivals", while the stores are still hydrating (E277)', () => {
+    mockUseDecksStore.mockImplementation((sel: (s: Record<string, unknown>) => unknown) =>
+      sel({ decks: [], hydrated: false })
+    );
+    mockUseCollectionStore.mockImplementation((sel: (s: Record<string, unknown>) => unknown) =>
+      sel({ cards: [], importHistory: [], hydrating: true })
+    );
+    renderIn(<NewArrivalsCard />);
+    expect(screen.queryByText('No new arrivals to review.')).toBeNull();
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeTruthy();
+  });
+
   it('renders the empty state when no deck has qualifying arrivals', () => {
-    mockUseDecksStore.mockImplementation((sel: (s: { decks: Deck[] }) => unknown) =>
-      sel({ decks: [] })
+    mockUseDecksStore.mockImplementation(
+      (sel: (s: { decks: Deck[]; hydrated: boolean }) => unknown) =>
+        sel({ hydrated: true, decks: [] })
     );
     mockUseCollectionStore.mockImplementation(
       (sel: (s: { cards: ArrivalCandidateCard[]; importHistory: [] }) => unknown) =>
@@ -357,8 +371,9 @@ describe('NewArrivalsCard', () => {
 
   it('lists a deck with its new-arrival count and a descriptive aria-label', () => {
     const deck = makeDeck({ id: 'atraxa', name: 'Atraxa Superfriends', updatedAt: 1000 });
-    mockUseDecksStore.mockImplementation((sel: (s: { decks: Deck[] }) => unknown) =>
-      sel({ decks: [deck] })
+    mockUseDecksStore.mockImplementation(
+      (sel: (s: { decks: Deck[]; hydrated: boolean }) => unknown) =>
+        sel({ hydrated: true, decks: [deck] })
     );
     mockUseCollectionStore.mockImplementation(
       (sel: (s: { cards: ArrivalCandidateCard[]; importHistory: [] }) => unknown) =>
@@ -386,8 +401,8 @@ describe('NewArrivalsCard', () => {
     const decks = Array.from({ length: 4 }, (_, i) =>
       makeDeck({ id: `d${i}`, name: `Deck ${i}`, updatedAt: i })
     );
-    mockUseDecksStore.mockImplementation((sel: (s: { decks: Deck[] }) => unknown) =>
-      sel({ decks })
+    mockUseDecksStore.mockImplementation(
+      (sel: (s: { decks: Deck[]; hydrated: boolean }) => unknown) => sel({ hydrated: true, decks })
     );
     mockUseCollectionStore.mockImplementation(
       (sel: (s: { cards: ArrivalCandidateCard[]; importHistory: [] }) => unknown) =>
@@ -403,8 +418,9 @@ describe('NewArrivalsCard', () => {
   it('renders an overlapping thumb fan (deduped card names, via useCardThumb) with the total count', () => {
     mockUseCardThumb.mockReturnValue('sol-ring.png');
     const deck = makeDeck({ id: 'atraxa', name: 'Atraxa Superfriends', updatedAt: 1000 });
-    mockUseDecksStore.mockImplementation((sel: (s: { decks: Deck[] }) => unknown) =>
-      sel({ decks: [deck] })
+    mockUseDecksStore.mockImplementation(
+      (sel: (s: { decks: Deck[]; hydrated: boolean }) => unknown) =>
+        sel({ hydrated: true, decks: [deck] })
     );
     mockUseCollectionStore.mockImplementation(
       (sel: (s: { cards: ArrivalCandidateCard[]; importHistory: [] }) => unknown) =>
@@ -431,8 +447,9 @@ describe('NewArrivalsCard', () => {
   it('fans the owned printing art when the arriving card carries one', () => {
     mockUseCardThumb.mockReturnValue('wrong-printing.png');
     const deck = makeDeck({ id: 'atraxa', name: 'Atraxa Superfriends', updatedAt: 1000 });
-    mockUseDecksStore.mockImplementation((sel: (s: { decks: Deck[] }) => unknown) =>
-      sel({ decks: [deck] })
+    mockUseDecksStore.mockImplementation(
+      (sel: (s: { decks: Deck[]; hydrated: boolean }) => unknown) =>
+        sel({ hydrated: true, decks: [deck] })
     );
     mockUseCollectionStore.mockImplementation((sel: (s: Record<string, unknown>) => unknown) =>
       sel({
@@ -458,6 +475,16 @@ describe('BinderReviewCard', () => {
   beforeEach(() => {
     mockUseAllocations.mockReturnValue(new Map());
     mockUseSetMap.mockReturnValue(undefined);
+  });
+
+  it('shows the skeleton, never "No binders set up yet.", while the collection is hydrating (E277)', () => {
+    mockUseCollectionStore.mockImplementation((sel: (s: Record<string, unknown>) => unknown) =>
+      sel({ cards: [], binders: [], importHistory: [], hydrating: true })
+    );
+    renderIn(<BinderReviewCard />);
+    expect(screen.queryByText('No binders set up yet.')).toBeNull();
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeTruthy();
+    expect(mockMaterializeBinders).not.toHaveBeenCalled();
   });
 
   it('renders "No binders set up yet." with a setup CTA and never computes anything', () => {

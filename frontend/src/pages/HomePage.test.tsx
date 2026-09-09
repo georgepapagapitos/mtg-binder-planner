@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
@@ -42,11 +42,14 @@ vi.mock('../lib/discover-client', () => ({
 vi.mock('../components/play/GameNights', () => ({
   useGameNights: () => ({ nights: [], loading: false, error: null, refresh: vi.fn() }),
 }));
+// Controllable so the hero's pending-value branch (E277 reservation) is
+// reachable — the default resolves empty like before.
+const mockGetValueHistory = vi.hoisted(() => vi.fn((): Promise<unknown> => Promise.resolve([])));
 vi.mock('../lib/value-history', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/value-history')>();
   return {
     ...actual,
-    getValueHistory: () => Promise.resolve([]),
+    getValueHistory: mockGetValueHistory,
     getLatestMovers: () => Promise.resolve(null),
   };
 });
@@ -121,6 +124,10 @@ beforeEach(() => {
   mockPickHeroCard.mockReturnValue(null);
   mockUseCardThumb.mockReturnValue(undefined);
   mockSyncState.state = 'idle';
+  mockGetValueHistory.mockImplementation(() => Promise.resolve([]));
+  // The remembered /home shape is written from effects that can land after a
+  // test's last await — cleared at the start, never the end.
+  localStorage.removeItem('sc-home-shape');
   // The real store boots with hydrating: true (App flips it after the IDB
   // hydrate); settle it here so the fallback branch is reachable by default.
   useCollectionStore.setState({ hydrating: false, cards: [], binders: [] });
@@ -236,6 +243,78 @@ describe('HomePage', () => {
         screen.getByRole('heading', { level: 1, name: 'Plan your Magic: The Gathering collection' })
       ).toBeTruthy();
       expect(screen.queryByText(/Good morning/)).toBeNull();
+    });
+  });
+
+  describe('hero reservations (E277)', () => {
+    it('reserves the value and scale lines while pending when the last visit had them', () => {
+      localStorage.setItem('sc-home-shape', JSON.stringify({ 'hero-value': 1, 'hero-stats': 1 }));
+      mockGetValueHistory.mockReturnValue(new Promise(() => {}));
+      useCollectionStore.setState({ hydrating: true });
+      const { container } = renderPage();
+      expect(container.querySelector('.home-hero-value--loading')).toBeTruthy();
+      expect(container.querySelector('.home-hero-stats--loading')).toBeTruthy();
+      // Placeholders, not doors: nothing linkable and nothing announced.
+      expect(screen.queryByRole('link', { name: /cards$/ })).toBeNull();
+      expect(
+        container.querySelector('.home-hero-stats--loading')?.getAttribute('aria-hidden')
+      ).toBe('true');
+    });
+
+    it('reserves the caption under the loading art when the last visit showed a card', () => {
+      localStorage.setItem('sc-home-shape', JSON.stringify({ 'hero-caption': 1 }));
+      useCollectionStore.setState({ hydrating: true });
+      const { container } = renderPage();
+      expect(container.querySelector('.home-hero-art-loading')).toBeTruthy();
+      expect(container.querySelector('.home-hero-caption--loading')).toBeTruthy();
+      expect(container.querySelector('.home-hero-value--loading')).toBeNull();
+    });
+
+    it('records the caption once a card with art resolves, and its absence on a settled-empty hero', async () => {
+      mockPickHeroCard.mockReturnValue({ name: 'Sol Ring', art: 'owned.jpg', reason: 'top' });
+      const { unmount } = renderPage();
+      await waitFor(() =>
+        expect(JSON.parse(localStorage.getItem('sc-home-shape') ?? '{}')).toMatchObject({
+          'hero-caption': 1,
+        })
+      );
+      unmount();
+      mockPickHeroCard.mockReturnValue(null);
+      renderPage();
+      await waitFor(() =>
+        expect(JSON.parse(localStorage.getItem('sc-home-shape') ?? '{}')).toMatchObject({
+          'hero-caption': 0,
+        })
+      );
+    });
+
+    it('reserves nothing on a first visit (no memory) — a fresh account never gets a phantom row', () => {
+      mockGetValueHistory.mockReturnValue(new Promise(() => {}));
+      useCollectionStore.setState({ hydrating: true });
+      const { container } = renderPage();
+      expect(container.querySelector('.home-hero-value--loading')).toBeNull();
+      expect(container.querySelector('.home-hero-stats--loading')).toBeNull();
+      expect(container.querySelector('.home-hero-caption--loading')).toBeNull();
+    });
+
+    it('records the resolved shape so the next visit can reserve it', async () => {
+      useCollectionStore.setState({ cards: [makeRow()] });
+      renderPage();
+      await waitFor(() =>
+        expect(JSON.parse(localStorage.getItem('sc-home-shape') ?? '{}')).toMatchObject({
+          'hero-stats': 1,
+          'hero-value': 0,
+        })
+      );
+    });
+
+    it('a guest reserves nothing even with a remembered shape', () => {
+      localStorage.setItem('sc-home-shape', JSON.stringify({ 'hero-value': 1, 'hero-stats': 1 }));
+      mockAuthState.status = 'guest';
+      useCollectionStore.setState({ hydrating: true });
+      const { container } = renderPage();
+      expect(container.querySelector('.home-hero-value--loading')).toBeNull();
+      expect(container.querySelector('.home-hero-stats--loading')).toBeNull();
     });
   });
 

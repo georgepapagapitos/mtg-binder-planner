@@ -1,0 +1,101 @@
+/* AiSourcesControl — the deck-scoped "where the AI may draw from" contract
+   (T112). A settings-style radio fieldset per STYLE_GUIDE § segmented
+   controls: options are rects (var(--radius)), never toolbar pills. Sits on
+   the Coach tab's tune bento above both AI panels, so it spans the grid row
+   the same way .deck-ai-strip does. */
+.ai-sources {
+  grid-column: 1 / -1;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.ai-sources-legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-sources-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ai-sources-option {
+  display: flex;
+  flex: 1 1 12rem;
+  align-items: flex-start;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) ease,
+    background var(--motion-fast) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ai-sources-option:not(.is-disabled):hover {
+    border-color: var(--accent);
+  }
+}
+
+.ai-sources-option.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-raised));
+}
+
+.ai-sources-option.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ai-sources-option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ai-sources-option input {
+  flex: 0 0 auto;
+  margin: 0.15rem 0 0;
+  accent-color: var(--accent);
+}
+
+@media (pointer: coarse) {
+  .ai-sources-option {
+    min-height: 44px;
+  }
+}
+
+.ai-sources-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.ai-sources-option-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-sources-option-hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.ai-sources-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}

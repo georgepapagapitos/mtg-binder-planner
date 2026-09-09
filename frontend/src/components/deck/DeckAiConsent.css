@@ -1,29 +1,8 @@
-/* DeckAiConsent.css — the AI provenance marker and the in-place consent card
-   (T96 / T102). Co-located with DeckAiConsent.tsx because the marker is
-   mounted well outside the deck editor: RulesPage puts it on its own title.
-   These rules used to sit in DeckAiReview.css, which only the review panel
-   loads — so on a direct visit to /rules the marker rendered as bare text
-   jammed against the heading. A component's own classes ship with the
-   component (STYLE_GUIDE § CSS file layout); the review panel imports this
-   file through DeckAiConsent.tsx and layers its strip override on top. */
-
-/* The AI marker: model-written text says so, always. Sits inline with the
-   surface's title so the provenance reads before the prose does. */
-.deck-ai-marker {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-left: var(--space-2);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.1rem var(--space-2);
-  vertical-align: middle;
-}
+/* DeckAiConsent.css — the in-place consent card (T96 / T102). The AI
+   provenance marker used to live here too; it moved to AiMarker.css because
+   DeckCardRow mounts it (E274) in chunks that never load this file. The
+   review panel imports this file through DeckAiConsent.tsx and layers its
+   strip override on top. */
 
 /* ── Invitation (not opted in; shown once, dismissible) ── */
 .deck-ai-invite {

@@ -17,6 +17,7 @@ const REQ: RefineRequest = {
   commander: 'Kaalia of the Vast',
   cards: [card('Sol Ring'), card('Lightning Greaves'), card('Swamp', 11)],
   pool: [card('Boros Signet'), card('Orzhov Signet'), card('Burnished Hart')],
+  scope: 'any',
   ownedOnly: false,
   analysis: { totalNonCommander: 13 },
 };
@@ -183,6 +184,31 @@ describe('parseRefineRequest', () => {
     cards: [{ name: 'Sol Ring', oracleId: 'o', qty: 1 }],
     pool: [{ name: 'Boros Signet', oracleId: 'o', qty: 1 }],
     analysis: {},
+  });
+
+  it('derives ownedOnly from the scope, honouring the legacy boolean (T112)', () => {
+    const body = {
+      deckId: 'd1',
+      commander: 'Kaalia of the Vast',
+      cards: [card('Sol Ring')],
+      pool: [],
+      analysis: {},
+    };
+    const legacy = parseRefineRequest({ ...body, ownedOnly: true });
+    expect(legacy.ok && legacy.value).toMatchObject({ scope: 'owned', ownedOnly: true });
+    const uncommitted = parseRefineRequest({ ...body, scope: 'uncommitted' });
+    expect(uncommitted.ok && uncommitted.value).toMatchObject({
+      scope: 'uncommitted',
+      ownedOnly: true,
+    });
+    // An owned reading keeps the key it was written under; uncommitted is a
+    // different question.
+    const owned = { ...REQ, scope: 'owned' as const, ownedOnly: true };
+    expect(hashRefineInput(owned)).toBe(hashRefineInput({ ...owned, scope: undefined as never }));
+    expect(hashRefineInput({ ...owned, scope: 'uncommitted' })).not.toBe(hashRefineInput(owned));
+    expect(buildRefineMessage({ ...owned, scope: 'uncommitted' }, [])).toMatch(
+      /OWNED ONLY .*not already in another of their decks/
+    );
   });
 
   it('accepts a well-formed body and defaults ownedOnly to false', () => {

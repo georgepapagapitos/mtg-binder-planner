@@ -198,6 +198,20 @@
    and the section header already say add/cut/swap, so only the reason stays.
    Clamped to a few lines so a long explanation can't blow the row up in a narrow
    column — the full text is still in the carousel/preview. */
+/* E274: the AI-agrees line — the refine reading's own sentence for this card,
+   marked as model-written (STYLE_GUIDE § AI-written content). */
+.deck-card-row-ai {
+  margin-top: 0.15rem;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.deck-card-row-ai .deck-ai-marker {
+  margin: 0 var(--space-1) 0 0;
+}
+
 .deck-card-row-reason {
   margin-top: 0.05rem;
   min-width: 0;

@@ -4,6 +4,7 @@ import { ArrowLeftRight, ArrowRight, Loader2, Minus, Plus } from 'lucide-react';
 import { OwnershipBadge } from './OwnershipBadge';
 import { VerdictBadge, type VerdictTone } from './VerdictBadge';
 import { WhyBreakdown } from './WhyBreakdown';
+import { AiMarker } from './AiMarker';
 import type { Change } from '@/lib/deck-change';
 
 /** Budget-swap confidence tier → badge tone + word (STYLE_GUIDE: success/info/warn).
@@ -247,6 +248,15 @@ export function DeckCardRow({
           )}
         </span>
         {reason && <span className="deck-card-row-reason">{reason}</span>}
+        {/* E274: the AI refine reading picked this same card. Its sentence is
+            model-written, so it carries the provenance marker and stays apart
+            from the engine's grounded reason/factors above and below it. */}
+        {change.aiWhy && (
+          <span className="deck-card-row-ai">
+            <AiMarker label="AI agrees" />
+            {change.aiWhy}
+          </span>
+        )}
         {change.whyFactors && change.whyFactors.length > 0 && (
           <WhyBreakdown
             factors={change.whyFactors}

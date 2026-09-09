@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { grantAiConsent } from '../../lib/use-ai-status';
+import { AiMarker } from './AiMarker';
 import './DeckAiConsent.css';
 
 import { userMessage } from '@/lib/user-error';
@@ -11,19 +12,9 @@ export function isAiInviteDismissed(): boolean {
   return localStorage.getItem('sc-ai-invite-dismissed') === '1';
 }
 
-/**
- * The AI provenance pill (STYLE_GUIDE "AI-written content"). One component so
- * every surface carries the same sparkle + outline treatment — still muted,
- * never the accent: provenance is metadata, not a feature to celebrate.
- */
-export function AiMarker({ label = 'AI Beta' }: { label?: string }) {
-  return (
-    <span className="deck-ai-marker">
-      <Sparkles width={11} height={11} aria-hidden />
-      {label}
-    </span>
-  );
-}
+/** Re-exported so the existing import sites keep working; the marker itself
+ *  lives in AiMarker.tsx (its own chunk-safe stylesheet). */
+export { AiMarker };
 
 /**
  * The in-place AI consent card (T102). One implementation, mounted by every

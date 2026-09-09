@@ -23,6 +23,7 @@ import {
   parseDeckReviewRequest,
   renderFetchedCards,
   unverifiedCitations,
+  type AiScope,
   type OracleEntry,
 } from '../ai/deck-review';
 import {
@@ -320,6 +321,12 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
   // reasons without that card's text (the prompt tells it how), never a live
   // Scryfall call from the shared egress IP.
   const cache = getScryfallCache();
+  // The review's search honours the same deck-scoped sources contract as the
+  // refine pass, so a restricted deck is never prescribed a card to buy.
+  const ownedNames =
+    request.scope === 'any'
+      ? undefined
+      : await loadOwnedNames(userId, request.scope, request.deckId);
   const oracle: OracleEntry[] = [];
   const seen = new Set<string>();
   for (const card of [{ name: request.commander }, ...request.cards]) {
@@ -368,13 +375,14 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
           lookupCardsTool(cache, {
             colorIdentity: commanderIdentity(cache, request.commander),
             exclude: [request.commander, ...request.cards.map((c) => c.name)],
+            ownedNames,
           }),
         ],
       }
     );
 
     // Pass 2 — write. The research pass's CARDS carry over; its prose does not.
-    const found = renderFetchedCards(research.fetched);
+    const found = renderFetchedCards(research.fetched, request.scope);
     generation = await generateReview(
       DECK_REVIEW_SYSTEM_PROMPT,
       found ? `${userMessage}\n\n${found}` : userMessage,
@@ -517,14 +525,44 @@ function hydrateOracle(names: string[]): OracleEntry[] {
  * rather than its size: a playset of a card is one row here, and a 20k-card
  * collection is a few thousand names.
  */
-async function loadOwnedNames(userId: string): Promise<string[]> {
-  const { rows } = await getPool().query<{ name: string }>(
-    `SELECT DISTINCT data->>'name' AS name
+/**
+ * The names the AI may search under a restricted scope (T112). `owned` is the
+ * collection; `uncommitted` subtracts, per name, the copies already sitting in
+ * the user's OTHER decks (mainboard plus commanders), so a card whose every
+ * copy is spoken for is not offered. Exported for its route test — the
+ * subtraction is the part worth pinning against real rows.
+ */
+export async function loadOwnedNames(
+  userId: string,
+  scope: Exclude<AiScope, 'any'>,
+  deckId: string
+): Promise<string[]> {
+  const pool = getPool();
+  const owned = await pool.query<{ name: string; qty: number }>(
+    `SELECT data->>'name' AS name, SUM(COALESCE((data->>'quantity')::numeric, 1))::int AS qty
        FROM user_cards
-      WHERE user_id = $1 AND deleted_at IS NULL AND data->>'name' IS NOT NULL`,
+      WHERE user_id = $1 AND deleted_at IS NULL AND data->>'name' IS NOT NULL
+      GROUP BY 1`,
     [userId]
   );
-  return rows.map((r) => r.name);
+  if (scope === 'owned') return owned.rows.map((r) => r.name);
+
+  // jsonb_path_query is set-returning: one row per card slot / commander.
+  const committed = await pool.query<{ name: string; qty: number }>(
+    `SELECT name, COUNT(*)::int AS qty FROM (
+       SELECT jsonb_path_query(data, '$.cards[*].card.name') #>> '{}' AS name
+         FROM user_decks WHERE user_id = $1 AND deleted_at IS NULL AND id <> $2
+       UNION ALL
+       SELECT jsonb_path_query(data, '$.commander.name') #>> '{}'
+         FROM user_decks WHERE user_id = $1 AND deleted_at IS NULL AND id <> $2
+       UNION ALL
+       SELECT jsonb_path_query(data, '$.partnerCommander.name') #>> '{}'
+         FROM user_decks WHERE user_id = $1 AND deleted_at IS NULL AND id <> $2
+     ) slots WHERE name IS NOT NULL GROUP BY name`,
+    [userId, deckId]
+  );
+  const taken = new Map(committed.rows.map((r) => [r.name, r.qty]));
+  return owned.rows.filter((r) => r.qty > (taken.get(r.name) ?? 0)).map((r) => r.name);
 }
 
 /**
@@ -660,7 +698,10 @@ aiRouter.post('/deck-refine', reviewLimiter, requireAuth, async (req: Request, r
   // without the resolver every card the model looked up would verify on the
   // first read and vanish on the second.
   const cache = getScryfallCache();
-  const ownedNames = request.ownedOnly ? await loadOwnedNames(userId) : undefined;
+  const ownedNames =
+    request.scope === 'any'
+      ? undefined
+      : await loadOwnedNames(userId, request.scope, request.deckId);
   const searchContext = {
     colorIdentity: commanderIdentity(cache, request.commander),
     exclude: [request.commander, ...request.cards.map((c) => c.name)],

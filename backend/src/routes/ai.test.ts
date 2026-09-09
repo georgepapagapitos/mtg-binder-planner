@@ -741,6 +741,29 @@ describe('POST /api/ai/deck-review', () => {
   });
 });
 
+describe('review scope (T112)', () => {
+  it('restricts the research search when the deck scope is owned', async () => {
+    const cookie = await makeUser('ai-review-scope');
+    await optIn(cookie);
+    mockState.generate.mockImplementation(async () => ({
+      content: REVIEW_TEXT,
+      inputTokens: 1,
+      outputTokens: 1,
+      fetched: [],
+    }));
+    const res = await request(app)
+      .post('/api/ai/deck-review')
+      .set('Cookie', cookie)
+      .send(reviewBody({ scope: 'owned' }));
+    expect(res.status).toBe(200);
+    // Call 0 is the research pass (the one with tools).
+    const options = mockState.generate.mock.calls[0][4] as {
+      tools: { definition: { description: string } }[];
+    };
+    expect(options.tools[0].definition.description).toMatch(/ALREADY OWNS/);
+  });
+});
+
 describe('POST /api/ai/deck-refine', () => {
   const PROSE = 'Your deck grinds value out of the graveyard.';
 
@@ -897,6 +920,75 @@ describe('POST /api/ai/deck-refine', () => {
       tools: { definition: { description: string } }[];
     };
     expect(options.tools[0].definition.description).toMatch(/ALREADY OWNS/);
+  });
+
+  it('under the uncommitted scope, drops a name whose every owned copy sits in another deck', async () => {
+    const cookie = await makeUser('ai-refine-uncommitted');
+    await optIn(cookie);
+    const { getPool } = await import('../db');
+    const { loadOwnedNames } = await import('./ai');
+    const { rows } = await getPool().query<{ id: string }>(
+      'SELECT id FROM users WHERE username = $1',
+      ['ai-refine-uncommitted']
+    );
+    const userId = rows[0].id;
+    // Two Sol Rings, one Swamp, one Viscera Seer in the collection …
+    const cardRows: Array<[string, string, number]> = [
+      ['c1', 'Sol Ring', 2],
+      ['c2', 'Swamp', 1],
+      ['c3', 'Viscera Seer', 1],
+    ];
+    for (const [id, name, quantity] of cardRows) {
+      await getPool().query(
+        `INSERT INTO user_cards (user_id, id, import_id, data, rev, updated_at)
+         VALUES ($1, $2, 'i1', $3, 1, 0)`,
+        [userId, id, JSON.stringify({ name, quantity })]
+      );
+    }
+    // … another deck commits ONE Sol Ring (mainboard) and the Viscera Seer
+    // (as its commander); this deck's own slots must not count against itself.
+    const deck = (id: string, cards: string[], commander: string | null) =>
+      getPool().query(
+        `INSERT INTO user_decks (user_id, id, data, rev, updated_at) VALUES ($1, $2, $3, 1, 0)`,
+        [
+          userId,
+          id,
+          JSON.stringify({
+            cards: cards.map((name) => ({ card: { name } })),
+            commander: commander ? { name: commander } : null,
+          }),
+        ]
+      );
+    await deck('other', ['Sol Ring'], 'Viscera Seer');
+    await deck('deck-1', ['Sol Ring', 'Swamp'], null);
+
+    expect((await loadOwnedNames(userId, 'owned', 'deck-1')).sort()).toEqual([
+      'Sol Ring',
+      'Swamp',
+      'Viscera Seer',
+    ]);
+    // Sol Ring survives (2 owned, 1 committed elsewhere); Swamp survives (this
+    // deck's own copy is not "another deck"); Viscera Seer is gone.
+    expect((await loadOwnedNames(userId, 'uncommitted', 'deck-1')).sort()).toEqual([
+      'Sol Ring',
+      'Swamp',
+    ]);
+
+    mockState.generate.mockImplementation(async () => ({
+      content: refineReply(PROSE, []),
+      inputTokens: 1,
+      outputTokens: 1,
+      fetched: [],
+    }));
+    await request(app)
+      .post('/api/ai/deck-refine')
+      .set('Cookie', cookie)
+      .send(refineBody({ scope: 'uncommitted' }));
+    const options = mockState.generate.mock.calls[0][4] as {
+      tools: { definition: { description: string } }[];
+    };
+    expect(options.tools[0].definition.description).toMatch(/ALREADY OWNS/);
+    expect(mockState.generate.mock.calls[0][1]).toMatch(/not already in another of their decks/);
   });
 
   it('leaves the search unrestricted when the build is not owned-only', async () => {

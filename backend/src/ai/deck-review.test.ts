@@ -3,6 +3,7 @@ import {
   MAX_CARDS,
   buildUserMessage,
   hashDeckReviewInput,
+  parseAiScope,
   parseDeckReviewRequest,
   renderAnalysis,
   renderFetchedCards,
@@ -78,6 +79,43 @@ describe('parseDeckReviewRequest', () => {
     const body = validBody();
     body.analysis = { blob: 'x'.repeat(70 * 1024) };
     expect(parseDeckReviewRequest(body).ok).toBe(false);
+  });
+});
+
+describe('AI scope (T112)', () => {
+  it('defaults to any and honours the legacy ownedOnly boolean', () => {
+    expect(parseAiScope(undefined)).toBe('any');
+    expect(parseAiScope('bogus')).toBe('any');
+    expect(parseAiScope(undefined, true)).toBe('owned');
+    expect(parseAiScope('uncommitted', false)).toBe('uncommitted');
+  });
+
+  it('is parsed off the review body, defaulting to any', () => {
+    const plain = parseDeckReviewRequest(validBody());
+    expect(plain.ok && plain.value.scope).toBe('any');
+    const owned = parseDeckReviewRequest({ ...validBody(), scope: 'owned' });
+    expect(owned.ok && owned.value.scope).toBe('owned');
+  });
+
+  it('leaves the hash of an unrestricted review unchanged, and keys restricted ones apart', () => {
+    const base = parseDeckReviewRequest(validBody());
+    if (!base.ok) throw new Error(base.error);
+    // The pre-scope key: the same canonical object without a scope field.
+    const legacy = hashDeckReviewInput({ ...base.value, scope: undefined as never });
+    expect(hashDeckReviewInput(base.value)).toBe(legacy);
+    const owned = hashDeckReviewInput({ ...base.value, scope: 'owned' });
+    const uncommitted = hashDeckReviewInput({ ...base.value, scope: 'uncommitted' });
+    expect(owned).not.toBe(legacy);
+    expect(uncommitted).not.toBe(owned);
+  });
+
+  it('tells the writing pass the looked-up cards are owned when the scope says so', () => {
+    const fetched = [{ name: 'Sol Ring', typeLine: 'Artifact', oracleText: '{T}: Add {C}{C}.' }];
+    expect(renderFetchedCards(fetched)).not.toMatch(/owned by the player/);
+    expect(renderFetchedCards(fetched, 'owned')).toMatch(/every one owned by the player/);
+    expect(renderFetchedCards(fetched, 'uncommitted')).toMatch(
+      /not already in another of their decks/
+    );
   });
 });
 

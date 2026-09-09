@@ -59,6 +59,8 @@ import { DeckCombosPanel, type DeckCombosPanelHandle } from '../components/deck/
 import { DeckAnalysisPanel } from '../components/deck/DeckAnalysisPanel';
 import { DeckAiReview } from '../components/deck/DeckAiReview';
 import { DeckAiRefine } from '../components/deck/DeckAiRefine';
+import { AiSourcesControl } from '../components/deck/AiSourcesControl';
+import type { AiScope } from '../lib/ai-scope';
 import { buildRefinePool } from '../lib/ai-refine';
 import { buildAlternativeIndex } from '../lib/refine-alternatives';
 import { constrainsToCollection } from '@/deck-builder/services/deckBuilder/deckFilters';
@@ -1146,6 +1148,24 @@ export function DeckEditorPage() {
     () => constrainsToCollection(deck?.buildReport?.collectionStrategy ?? 'prefer'),
     [deck?.buildReport?.collectionStrategy]
   );
+  /**
+   * The deck's AI sources contract (T112). The player's choice wins; until
+   * they make one, a deck built from the collection or mostly owned already
+   * reads as "cards you own" — that default is what stops a hand-built deck
+   * from being prescribed a shopping list on its very first reading. The
+   * threshold is coarse on purpose: once the player touches the control the
+   * answer is persisted and this derivation never runs again for the deck.
+   */
+  const aiScope: AiScope = useMemo(() => {
+    if (deck?.aiScope) return deck.aiScope;
+    if (refineOwnedOnly) return 'owned';
+    const cards = deck?.cards ?? [];
+    if (cards.length === 0) return 'any';
+    const owned = cards.filter((c) => ownedNames.has(c.card.name)).length;
+    return owned / cards.length >= 0.8 ? 'owned' : 'any';
+  }, [deck?.aiScope, deck?.cards, refineOwnedOnly, ownedNames]);
+  /** E274: the Coach tab's live refine reading, for the feed's "AI agrees" join. */
+  const [aiAgrees, setAiAgrees] = useState<ReadonlyMap<string, string> | null>(null);
   const refinePool = useMemo(
     () =>
       deck
@@ -1156,10 +1176,10 @@ export function DeckEditorPage() {
             hiddenGems: deck.hiddenGems ?? [],
             landUpgrades,
             deckNames: deckCardNames,
-            ownedNames: refineOwnedOnly ? ownedNames : undefined,
+            ownedNames: aiScope !== 'any' ? ownedNames : undefined,
           })
         : [],
-    [deck, substitutionPlan, landUpgrades, deckCardNames, refineOwnedOnly, ownedNames]
+    [deck, substitutionPlan, landUpgrades, deckCardNames, aiScope, ownedNames]
   );
   // New arrivals, tailored to THIS deck: only cards the coach already
   // recommends for it (the refine pool — gaps, synergy, substitutes, hidden
@@ -1477,7 +1497,7 @@ export function DeckEditorPage() {
               partnerCommander={deck.partnerCommander ?? null}
               mainboard={deck.cards.map((c) => ({ slotId: c.slotId, card: c.card }))}
               pool={refinePool}
-              ownedOnly={refineOwnedOnly || ownedOnly}
+              scope={aiScope}
               alternatives={refineAlternatives}
               bracketTarget={deck.bracketOverride ?? null}
               bracketEstimate={deck.bracketEstimation?.bracket ?? null}
@@ -3217,8 +3237,14 @@ export function DeckEditorPage() {
             aiReviewSlot={
               formatConfig?.hasCommander && deck.commander ? (
                 <>
+                  <AiSourcesControl
+                    value={aiScope}
+                    onChange={(scope) => updateDeck(deck.id, { aiScope: scope })}
+                    collectionEmpty={collectionCards.length === 0}
+                  />
                   <DeckAiReview
                     deckId={deck.id}
+                    scope={aiScope}
                     format={deck.format}
                     commander={deck.commander}
                     partnerCommander={deck.partnerCommander ?? null}
@@ -3229,13 +3255,14 @@ export function DeckEditorPage() {
                   <DeckAiRefine
                     key={deck.id}
                     variant="coach"
+                    onReading={setAiAgrees}
                     deckId={deck.id}
                     format={deck.format}
                     commander={deck.commander}
                     partnerCommander={deck.partnerCommander ?? null}
                     mainboard={deck.cards.map((c) => ({ slotId: c.slotId, card: c.card }))}
                     pool={refinePool}
-                    ownedOnly={refineOwnedOnly || ownedOnly}
+                    scope={aiScope}
                     alternatives={refineAlternatives}
                     bracketTarget={deck.bracketOverride ?? null}
                     bracketEstimate={deck.bracketEstimation?.bracket ?? null}
@@ -3308,6 +3335,7 @@ export function DeckEditorPage() {
                   }
                   ownedOnly={ownedOnly}
                   onOwnedOnlyChange={handleOwnedOnlyChange}
+                  aiAgrees={aiAgrees ?? undefined}
                   nextBestMoves={nextBestMoves}
                   combosLoading={!!formatConfig?.hasCommander && comboData.loading}
                   onNbmNavigate={handleNbmNavigate}
@@ -3612,7 +3640,7 @@ export function DeckEditorPage() {
                 partnerCommander={deck.partnerCommander ?? null}
                 mainboard={deck.cards.map((c) => ({ slotId: c.slotId, card: c.card }))}
                 pool={[{ name: pendingAdd, oracleId: '', qty: 1 }]}
-                ownedOnly={false}
+                scope="any"
                 bracketTarget={deck.bracketOverride ?? null}
                 bracketEstimate={deck.bracketEstimation?.bracket ?? null}
                 onApplyMove={(change) => {
@@ -3720,7 +3748,7 @@ export function DeckEditorPage() {
                 partnerCommander={deck.partnerCommander ?? null}
                 mainboard={deck.cards.map((c) => ({ slotId: c.slotId, card: c.card }))}
                 pool={refinePool}
-                ownedOnly={refineOwnedOnly || ownedOnly}
+                scope={aiScope}
                 alternatives={refineAlternatives}
                 bracketTarget={deck.bracketOverride ?? null}
                 bracketEstimate={deck.bracketEstimation?.bracket ?? null}

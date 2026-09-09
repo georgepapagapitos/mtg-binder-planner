@@ -410,6 +410,7 @@ describe('requestDeckReview', () => {
     deckId: 'd1',
     commander: 'Meren',
     cards: [{ name: 'Swamp', oracleId: 'o', qty: 1 }],
+    scope: 'any' as const,
     analysis: {} as never,
   };
 

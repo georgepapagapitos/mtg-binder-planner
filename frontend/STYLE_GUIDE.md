@@ -4738,6 +4738,22 @@ Model-written text always says so. The rulings:
 - **Granting consent never spends a call.** Enabling drops the surface into its
   idle state with the AI button waiting — it does not auto-run the thing the
   user just permitted.
+- **One sources contract per deck, one control (T112).** Where the AI may draw
+  candidates from (any card / cards you own / free copies you own) is a deck
+  field (`deck.aiScope`), read identically by every AI surface on that deck and
+  set in exactly one place: the `AiSourcesControl` fieldset above the Coach
+  tab's AI panels. Native radios, options are rects (§ segmented controls), and
+  the note under them states the cost — the scope is part of the server cache
+  key, so a change makes the next reading a new one against the daily cap. An
+  AI panel never grows its own owned/budget toggle; the Coach feed's "Owned
+  only" checkbox is a free display filter over engine rows and does not drive
+  the AI.
+- **The AI never annotates engine rows unlabelled (E274).** When the live
+  refine reading picks the same card as an engine row, the row gets an
+  "AI agrees" `AiMarker` followed by the model's own sentence, on its own line
+  (`.deck-card-row-ai`) — apart from the engine's `reason` and never inside the
+  grounded `WhyBreakdown` factors. Output-only join; it drops the moment the
+  tweak is dismissed, re-rolled or applied.
 - **Long AI prose is sectioned, and the finding leads (T102).** Prose past a
   couple of paragraphs gets client-side section titles derived from the
   prompt's fixed order — the model writes headerless prose, the UI titles it —

@@ -319,10 +319,27 @@ export interface DeckReviewCard {
   qty: number;
 }
 
+/**
+ * Where the AI may draw candidates from — the deck-scoped sources contract every
+ * AI feature reads identically (T112). `owned` restricts the card search to the
+ * player's collection; `uncommitted` further drops names whose every owned copy
+ * already sits in another of their decks. A HARD constraint in the query, never
+ * a preference the model weighs.
+ */
+export type AiScope = 'any' | 'owned' | 'uncommitted';
+
+/** Parse an untrusted scope. `ownedOnly` is the pre-scope wire field a native
+ *  bundle built before T112 still sends — honoured so an old APK keeps working. */
+export function parseAiScope(scope: unknown, ownedOnly?: unknown): AiScope {
+  if (scope === 'owned' || scope === 'uncommitted') return scope;
+  return ownedOnly === true ? 'owned' : 'any';
+}
+
 export interface DeckReviewRequest {
   deckId: string;
   commander: string;
   cards: DeckReviewCard[];
+  scope: AiScope;
   /** The frontend's DeckAnalysisResult — opaque here; rendered defensively. */
   analysis: Record<string, unknown>;
 }
@@ -374,6 +391,7 @@ export function parseDeckReviewRequest(
       deckId: b.deckId,
       commander: (b.commander as string).trim(),
       cards,
+      scope: parseAiScope(b.scope),
       analysis: b.analysis as Record<string, unknown>,
     },
   };
@@ -417,6 +435,9 @@ export function hashDeckReviewInput(req: DeckReviewRequest): string {
     cards: [...req.cards]
       .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
       .map((c) => ({ name: c.name, oracleId: c.oracleId, qty: c.qty })),
+    // Omitted (not `'any'`) so every reading written before scopes existed keeps
+    // its key; a restricted search is a different question and gets its own.
+    scope: req.scope === 'any' ? undefined : req.scope,
     analysis: req.analysis,
   });
   return crypto.createHash('sha256').update(canonical).digest('hex');
@@ -589,7 +610,8 @@ export function buildUserMessage(req: DeckReviewRequest, oracle: OracleEntry[]):
  * research found nothing should not be told it has a list.
  */
 export function renderFetchedCards(
-  fetched: { name: string; typeLine?: string; oracleText?: string }[]
+  fetched: { name: string; typeLine?: string; oracleText?: string }[],
+  scope: AiScope = 'any'
 ): string {
   if (fetched.length === 0) return '';
   const seen = new Set<string>();
@@ -603,8 +625,16 @@ export function renderFetchedCards(
     const head = card.typeLine ? `${card.name} — ${card.typeLine}` : card.name;
     lines.push(card.oracleText ? `${head}: ${card.oracleText.replace(/\n/g, ' ')}` : head);
   }
+  // The scope is stated here because the writing pass never sees the tool: a
+  // restricted search means every name below is one the player can field today.
+  const owned =
+    scope === 'owned'
+      ? ', every one owned by the player'
+      : scope === 'uncommitted'
+        ? ', every one owned by the player with a copy not already in another of their decks'
+        : '';
   return (
-    '## Cards you looked up (real cards, legal in this deck, not already in it —\n' +
+    `## Cards you looked up (real cards, legal in this deck, not already in it${owned} —\n` +
     'these are the only cards outside the decklist you may name)\n\n' +
     lines.join('\n')
   );

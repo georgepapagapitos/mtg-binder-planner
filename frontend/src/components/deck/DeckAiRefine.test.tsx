@@ -75,7 +75,7 @@ function renderPanel(onApplyMove: (c: Change) => void) {
         { slotId: 's2', card: card('Swamp') },
       ]}
       pool={[{ name: "Hell's Caretaker", oracleId: 'p1', qty: 1 }]}
-      ownedOnly={false}
+      scope="any"
       onApplyMove={onApplyMove}
     />
   );
@@ -106,6 +106,43 @@ describe('DeckAiRefine', () => {
 
     const { container } = renderPanel(() => {});
     await waitFor(() => expect(container.querySelector('.deck-ai-review')).toBeNull());
+  });
+
+  it('sends the deck scope and reports live picks for the coach join, dropping dismissed ones (T112/E274)', async () => {
+    const readings: Array<ReadonlyMap<string, string> | null> = [];
+    stubApi(true, [
+      { add: "Hell's Caretaker", cut: 'Necrogen Mists', why: 'Recursion, not a symmetric tax.' },
+      { add: 'Viscera Seer', cut: null, why: 'A free sacrifice outlet.' },
+    ]);
+    const { unmount } = render(
+      <DeckAiRefine
+        deckId="d1"
+        format="commander"
+        commander={card('Meren of Clan Nel Toth')}
+        partnerCommander={null}
+        mainboard={[{ slotId: 's1', card: card('Necrogen Mists') }]}
+        pool={[{ name: "Hell's Caretaker", oracleId: 'p1', qty: 1 }]}
+        scope="uncommitted"
+        onApplyMove={() => {}}
+        onReading={(m) => readings.push(m)}
+      />
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Refine this build' }));
+    await screen.findByRole('button', { name: /Swap Necrogen Mists/ });
+
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    const refineCall = fetchMock.mock.calls.find((c) => c[0] === '/api/ai/deck-refine')!;
+    expect(JSON.parse((refineCall[1] as RequestInit).body as string).scope).toBe('uncommitted');
+
+    const latest = () => readings[readings.length - 1]!;
+    expect([...latest().keys()].sort()).toEqual(["Hell's Caretaker", 'Viscera Seer']);
+    expect(latest().get('Viscera Seer')).toBe('A free sacrifice outlet.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss Viscera Seer' }));
+    expect([...latest().keys()]).toEqual(["Hell's Caretaker"]);
+
+    unmount();
+    expect(readings[readings.length - 1]).toBeNull();
   });
 
   it('applies an accepted swap as a Change on the existing coach path', async () => {
@@ -171,7 +208,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Necrogen Mists') }]}
         pool={[{ name: 'Karumonix, the Rat King', oracleId: 'p1', qty: 1 }]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={(c) => applied.push(c)}
         variant="replace"
       />
@@ -199,7 +236,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Swamp') }]}
         pool={[{ name: 'Karumonix, the Rat King', oracleId: 'p1', qty: 1 }]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={() => {}}
         variant="replace"
       />
@@ -219,7 +256,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Swamp') }]}
         pool={[{ name: "Hell's Caretaker", oracleId: 'p1', qty: 1 }]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={() => {}}
         variant="suggestions"
       />
@@ -243,7 +280,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Swamp') }]}
         pool={[{ name: "Hell's Caretaker", oracleId: 'p1', qty: 1 }]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={() => {}}
         variant="coach"
       />
@@ -268,7 +305,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Swamp') }]}
         pool={[{ name: "Hell's Caretaker", oracleId: 'p1', qty: 1 }]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={() => {}}
         variant="suggestions"
       />
@@ -287,7 +324,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Swamp') }]}
         pool={[]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={() => {}}
         variant="suggestions"
       />
@@ -306,7 +343,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Swamp') }]}
         pool={[]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={() => {}}
       />
     );
@@ -349,7 +386,7 @@ describe('DeckAiRefine', () => {
           { slotId: 's3', card: card('Cut C') },
         ]}
         pool={[{ name: 'Card A', oracleId: 'p1', qty: 1 }]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={props.onApplyMove ?? (() => {})}
         onApplyAll={props.onApplyAll}
         alternatives={props.alternatives}
@@ -399,7 +436,7 @@ describe('DeckAiRefine', () => {
         partnerCommander={null}
         mainboard={[{ slotId: 's1', card: card('Cut A') }]}
         pool={[{ name: 'Card A', oracleId: 'p1', qty: 1 }]}
-        ownedOnly={false}
+        scope="any"
         onApplyMove={() => {}}
         onApplyAll={() => {}}
         variant="replace"

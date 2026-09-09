@@ -1,6 +1,7 @@
 import { authedFetch, handleResponse } from './fetch-utils';
 import { readNdjson } from './ndjson';
 import type { AiAnalysisPayload } from './ai-review';
+import type { AiScope } from './ai-scope';
 import type { GapAnalysisCard, HiddenGemRow } from '@/deck-builder/types';
 import type { SynergySuggestion } from '@/deck-builder/services/synergy/suggest';
 import type { SubstituteRow } from '@/deck-builder/services/deckBuilder/substituteFinder';
@@ -43,7 +44,8 @@ export interface DeckRefinePayload {
   commander: string;
   cards: RefineCard[];
   pool: RefineCard[];
-  ownedOnly: boolean;
+  /** The deck's AI sources contract — see {@link AiScope}. */
+  scope: AiScope;
   analysis: AiAnalysisPayload;
 }
 

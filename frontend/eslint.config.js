@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
@@ -33,11 +34,25 @@ export default [
       react,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      'jsx-a11y': jsxA11y,
     },
     settings: { react: { version: 'detect' } },
     rules: {
       ...react.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      // Static accessibility lint (quality program, 2026-09-09): a11y, focus
+      // and aria defects were ~27 fix PRs in the last thousand; this catches
+      // the mechanical class at edit time. The CSS guards cover focus rings
+      // and touch floors; the audit matrix measures the rendered result.
+      ...jsxA11y.flatConfigs.recommended.rules,
+      // Sheets and dialogs focus their first field on open on purpose; the
+      // overlay layer (lib/overlay-layer.ts) restores focus on close. The
+      // rule is an opinion about page loads, not about opened dialogs.
+      'jsx-a11y/no-autofocus': 'off',
+      // `role="list"` on a `<ul>` is deliberate: Safari/VoiceOver drops the
+      // list semantics of any list styled `list-style: none`, and every
+      // list here is. The explicit role restores them.
+      'jsx-a11y/no-redundant-roles': ['error', { ul: ['list'], ol: ['list'] }],
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
       // Apostrophes in user-facing copy stay readable in source; the rule

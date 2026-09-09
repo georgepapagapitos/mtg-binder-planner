@@ -42,7 +42,7 @@ export function RemoveCopiesDialog({ cardName, total, onConfirm, onCancel }: Pro
         removed?
       </p>
       <div className="card-edit-qty">
-        <label className="card-edit-qty-label">Copies to remove</label>
+        <span className="card-edit-qty-label">Copies to remove</span>
         <div className="card-edit-qty-controls">
           <button
             type="button"

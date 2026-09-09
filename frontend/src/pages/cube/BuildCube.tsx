@@ -40,7 +40,6 @@ import {
   namesToCubePool,
   pickToPreviewCard,
   groupPicksByBucket,
-  cubeRowKeyDown,
 } from './shared';
 
 import { userMessage } from '@/lib/user-error';
@@ -619,27 +618,26 @@ function CubeResult({
                       const s = enrichedMap.get(p.card.name);
                       const img = s?.image_uris?.small ?? s?.card_faces?.[0]?.image_uris?.small;
                       return (
-                        <li
-                          key={p.card.oracleId || p.card.name}
-                          className="cube-row cube-row-interactive"
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Open preview for ${p.card.name}`}
-                          onClick={() => setPreviewIndex(flatIndex)}
-                          onKeyDown={(e) => cubeRowKeyDown(e, flatIndex, setPreviewIndex)}
-                        >
-                          {img ? (
-                            <img src={img} alt="" loading="lazy" className="cube-row-thumb" />
-                          ) : (
-                            <span className="cube-row-thumb cube-row-thumb-ph" aria-hidden />
-                          )}
-                          <div className="cube-row-body">
-                            <span className="cube-row-title">
-                              <span className="cube-row-name">{p.card.name}</span>
-                              <OwnRowBadge own={own} />
-                            </span>
-                            {p.reason && <span className="cube-row-reason">{p.reason}</span>}
-                          </div>
+                        <li key={p.card.oracleId || p.card.name} className="cube-row">
+                          <button
+                            type="button"
+                            className="cube-row-interactive"
+                            aria-label={`Open preview for ${p.card.name}`}
+                            onClick={() => setPreviewIndex(flatIndex)}
+                          >
+                            {img ? (
+                              <img src={img} alt="" loading="lazy" className="cube-row-thumb" />
+                            ) : (
+                              <span className="cube-row-thumb cube-row-thumb-ph" aria-hidden />
+                            )}
+                            <div className="cube-row-body">
+                              <span className="cube-row-title">
+                                <span className="cube-row-name">{p.card.name}</span>
+                                <OwnRowBadge own={own} />
+                              </span>
+                              {p.reason && <span className="cube-row-reason">{p.reason}</span>}
+                            </div>
+                          </button>
                         </li>
                       );
                     })}

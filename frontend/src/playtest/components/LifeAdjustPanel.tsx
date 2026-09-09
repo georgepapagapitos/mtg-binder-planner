@@ -208,14 +208,15 @@ export function LifeAdjustPanel({
 
   if (variant === 'sheet') {
     return (
-      <div className="card-picker-root" role="presentation" onClick={() => beginClose()}>
-        <div className="card-picker-backdrop" />
+      <div className="card-picker-root">
+        {/* The backdrop fully covers the root (both `inset: 0`), so it — not
+            root — is what a "click outside the sheet" actually lands on. */}
+        <div className="card-picker-backdrop" role="presentation" onClick={() => beginClose()} />
         <div
           className={`card-picker-sheet playtest-life-panel-sheet${isClosing ? ' is-closing' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          onClick={(e) => e.stopPropagation()}
           onAnimationEnd={onAnimationEnd}
         >
           <div className="card-picker-handle" aria-hidden />
@@ -235,7 +236,7 @@ export function LifeAdjustPanel({
 
   return (
     <>
-      <div className="playtest-ctx__backdrop" onClick={onClose} />
+      <div className="playtest-ctx__backdrop" role="presentation" onClick={onClose} />
       <div
         ref={panelRef}
         className="playtest-life-panel-floating"

@@ -123,7 +123,7 @@ export function PullListSheet({
       className="card-picker-root pull-list-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -132,7 +132,6 @@ export function PullListSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

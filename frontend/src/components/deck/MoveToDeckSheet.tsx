@@ -93,7 +93,7 @@ export function MoveToDeckSheet({
       className="card-picker-root move-deck-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -102,7 +102,6 @@ export function MoveToDeckSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

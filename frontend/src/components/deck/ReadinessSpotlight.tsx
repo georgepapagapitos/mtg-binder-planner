@@ -121,7 +121,10 @@ function ReadinessSpotlightSheet({
   return (
     <div
       className="card-picker-root readiness-spotlight-sheet-root"
-      onClick={dismiss}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) dismiss();
+      }}
       role="presentation"
     >
       <div
@@ -129,7 +132,6 @@ function ReadinessSpotlightSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Build another"
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

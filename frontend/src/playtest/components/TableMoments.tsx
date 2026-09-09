@@ -136,6 +136,7 @@ function WinCeremony() {
   return createPortal(
     <div
       className={`table-win-backdrop${closing ? ' is-closing' : ''}`}
+      role="presentation"
       // "Tap anywhere" dismisses — the panel below has no interactive
       // content besides the explicit ✕, so a tap on it simply bubbles here.
       onClick={beginClose}

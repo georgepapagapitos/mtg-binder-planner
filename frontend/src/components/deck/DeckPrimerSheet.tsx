@@ -68,7 +68,7 @@ export function DeckPrimerSheet({ deck, onClose }: Props): JSX.Element {
       role="presentation"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
     >
       <div
@@ -76,7 +76,6 @@ export function DeckPrimerSheet({ deck, onClose }: Props): JSX.Element {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

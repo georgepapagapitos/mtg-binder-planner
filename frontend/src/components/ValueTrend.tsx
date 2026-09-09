@@ -99,8 +99,12 @@ function TrendChart({ points }: { points: ValuePoint[] }) {
     <div
       ref={wrapRef}
       className="value-trend-chart"
-      role="group"
+      role="slider"
       aria-label="Daily value chart. Use the arrow keys to read individual days."
+      aria-valuemin={0}
+      aria-valuemax={last}
+      aria-valuenow={active ?? last}
+      aria-valuetext={`${formatDayKey(points[active ?? last].day)}, ${formatMoney(points[active ?? last].value, { wholeDollars: true })}`}
       tabIndex={0}
       onKeyDown={onKeyDown}
       onBlur={() => setActive(null)}

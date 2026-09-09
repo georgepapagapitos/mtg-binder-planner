@@ -139,7 +139,10 @@ export function AddCardsSheet({ onClose, initialTab = 'search' }: Props) {
   return (
     <div
       className={`modal-backdrop add-cards-backdrop${isClosing ? ' is-closing' : ''}`}
-      onClick={() => beginClose()}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) beginClose();
+      }}
       role="presentation"
     >
       <div
@@ -147,7 +150,6 @@ export function AddCardsSheet({ onClose, initialTab = 'search' }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelId}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="modal-header add-cards-modal-header">

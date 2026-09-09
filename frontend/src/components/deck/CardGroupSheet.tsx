@@ -132,7 +132,11 @@ export function CardGroupSheet({
   return createPortal(
     <div
       className={`card-group-backdrop${isClosing ? ' is-closing' : ''}`}
-      onClick={() => beginClose()}
+      role="presentation"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) beginClose();
+      }}
     >
       <section
         ref={sheetRef}
@@ -143,7 +147,6 @@ export function CardGroupSheet({
         aria-modal="true"
         aria-labelledby={labelId}
         style={exitStyle}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
         {...touchHandlers}
       >

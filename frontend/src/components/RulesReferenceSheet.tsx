@@ -96,7 +96,10 @@ function RulesReferenceBody({ onClose }: { onClose: () => void }) {
   return (
     <div
       className={`modal-backdrop rules-ref-backdrop${isClosing ? ' is-closing' : ''}`}
-      onClick={() => beginClose()}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) beginClose();
+      }}
       role="presentation"
     >
       <div
@@ -104,7 +107,6 @@ function RulesReferenceBody({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelId}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="modal-header rules-ref-header">

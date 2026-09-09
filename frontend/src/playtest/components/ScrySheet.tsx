@@ -182,14 +182,15 @@ export function ScrySheet({ library, initialMode = 'scry', onClose, onResolve }:
   const activeCard = activeId ? byId.get(activeId) : undefined;
 
   return (
-    <div className="card-picker-root" role="presentation" onClick={() => beginClose()}>
-      <div className="card-picker-backdrop" />
+    <div className="card-picker-root">
+      {/* The backdrop fully covers the root (both `inset: 0`), so it — not
+          root — is what a "click outside the sheet" actually lands on. */}
+      <div className="card-picker-backdrop" role="presentation" onClick={() => beginClose()} />
       <div
         className={`card-picker-sheet playtest-scry-sheet${isClosing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="playtest-scry-title"
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

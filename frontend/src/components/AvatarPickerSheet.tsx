@@ -230,7 +230,10 @@ export function AvatarPickerSheet({ current, onPick, onClose }: Props) {
   return createPortal(
     <div
       className="card-picker-root avatar-picker-root"
-      onClick={() => dismiss()}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) dismiss();
+      }}
       role="presentation"
     >
       <div
@@ -238,7 +241,6 @@ export function AvatarPickerSheet({ current, onPick, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

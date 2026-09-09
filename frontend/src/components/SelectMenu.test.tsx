@@ -72,7 +72,11 @@ describe('SelectMenu', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /Tags/ }));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'zzz' } });
-    expect(screen.queryByRole('option')).toBeNull();
+    // The "No matches" row carries role="option" (so its aria-disabled is
+    // ARIA-valid), but it's the only option and it's disabled — not a pick.
+    const opts = screen.queryAllByRole('option');
+    expect(opts).toHaveLength(1);
+    expect(opts[0].getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByText('No matches')).toBeTruthy();
   });
 

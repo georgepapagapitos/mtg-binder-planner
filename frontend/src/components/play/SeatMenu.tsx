@@ -46,6 +46,7 @@ export function SeatMenu({
   // per instance anyway so a second never silently joins this group.
   const panelColorGroup = useId();
   const facingGroup = useId();
+  const setLifeInputId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   useOverlayDismiss(onClose, panelRef);
   // B7-02: the body can genuinely exceed even the biggest panel's height
@@ -89,7 +90,6 @@ export function SeatMenu({
       role="dialog"
       aria-modal="true"
       aria-label={`Seat menu for ${player.name}`}
-      onClick={(e) => e.stopPropagation()}
     >
       <header className="seat-menu-head">
         <span>{player.name}</span>
@@ -114,9 +114,12 @@ export function SeatMenu({
               onClose();
             }}
           >
-            <label className="seat-menu-label">Set life to</label>
+            <label className="seat-menu-label" htmlFor={setLifeInputId}>
+              Set life to
+            </label>
             <div className="seat-menu-row">
               <input
+                id={setLifeInputId}
                 type="number"
                 inputMode="numeric"
                 value={setLifeVal}

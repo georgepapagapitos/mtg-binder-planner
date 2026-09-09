@@ -169,11 +169,11 @@ export function CommanderTypeahead({ value, onChange }: Props) {
       {showListbox && (
         <ul id={listboxId} className="commander-typeahead-results" role="listbox">
           {loading ? (
-            <li className="commander-typeahead-status" aria-disabled="true">
+            <li className="commander-typeahead-status">
               <span className="spinner" aria-hidden="true" /> Searching…
             </li>
           ) : results.length === 0 ? (
-            <li className="commander-typeahead-status" aria-disabled="true">
+            <li className="commander-typeahead-status">
               No commanders match &quot;{debouncedQuery}&quot;
             </li>
           ) : (

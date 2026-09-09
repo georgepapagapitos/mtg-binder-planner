@@ -85,8 +85,6 @@ export function LifeKeypad({ playerName, currentLife, onConfirm, onClose }: Prop
       role="dialog"
       aria-modal="true"
       aria-label={`Set life for ${playerName}`}
-      onClick={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="life-keypad-head">
         <span className="life-keypad-title">

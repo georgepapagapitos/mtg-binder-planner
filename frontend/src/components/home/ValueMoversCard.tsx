@@ -130,9 +130,18 @@ function ValueSparkline({ points }: { points: ValuePoint[] }) {
     <div
       ref={wrapRef}
       className="home-value-sparkline"
-      role="group"
+      // A keyboard-scrubbable data series is a slider along a discrete
+      // range (Home/End/arrow keys move the active point) — "group" is a
+      // non-interactive role, which is what made the tabIndex/key handlers
+      // here invalid; "slider" is the closest real widget role and gets
+      // proper value semantics instead of a bare, unlabeled numeric index.
+      role="slider"
       tabIndex={0}
       aria-label={ariaLabel}
+      aria-valuemin={0}
+      aria-valuemax={last}
+      aria-valuenow={active ?? last}
+      aria-valuetext={`${formatMoney((activePoint ?? latest).value, { wholeDollars: true })} on ${formatDayKey((activePoint ?? latest).day)}`}
       onKeyDown={onKeyDown}
       onBlur={() => setActive(null)}
     >

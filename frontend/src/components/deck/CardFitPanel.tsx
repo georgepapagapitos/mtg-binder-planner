@@ -114,7 +114,7 @@ export function CardFitPanel({
       className="card-picker-root"
       onClick={(e) => {
         e.stopPropagation();
-        onClose();
+        if (e.target === e.currentTarget) onClose();
       }}
       role="presentation"
     >
@@ -123,7 +123,6 @@ export function CardFitPanel({
         role="dialog"
         aria-modal="true"
         aria-label={`Will ${addCard.name} fit?`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="card-picker-handle" aria-hidden />
         <div className="card-picker-header">

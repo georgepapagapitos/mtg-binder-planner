@@ -862,6 +862,7 @@ export function DecksIndexPage() {
                             // opens the tooltip instead of following the card's
                             // enclosing Link — see STYLE_GUIDE "Info tooltips".
                             <span
+                              role="presentation"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();

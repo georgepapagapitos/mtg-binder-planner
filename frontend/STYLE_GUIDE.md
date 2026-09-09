@@ -1372,6 +1372,41 @@ Any future line/trend chart follows the same specs (horizontal bars stay on
 - **No trend, no chart:** with fewer than two points the section renders
   nothing (insight-strip rule) — never an empty-state chart.
 
+## Interactive semantics (jsx-a11y, 2026-09-09)
+
+`eslint-plugin-jsx-a11y` (recommended set) is part of `npm run lint`; these are
+the rulings behind the config and the fixes that brought the tree to zero.
+
+- **A thing you click is a `<button>`.** A `div`/`span`/`li` with `onClick`
+  and no interactive children becomes `<button type="button">` with its
+  classes kept (add `background: none; border: 0; padding: 0; font: inherit;
+  color: inherit; text-align: inherit;` to the element's OWN rule only if the
+  button chrome shows through). One that must stay a `div` because it wraps
+  other controls (a row with an inner button) gets `role="button"`,
+  `tabIndex={0}`, and an Enter/Space `onKeyDown` — the pattern in
+  `components/shared/CardRow.tsx`. Never an `eslint-disable`.
+- **Backdrops.** The dim layer is `role="presentation"` and dismisses only on
+  a hit on itself: `onClick={(e) => { e.stopPropagation(); if (e.target ===
+  e.currentTarget) close(); }}`. The dialog panel inside carries NO click
+  handler — the old `onClick={(e) => e.stopPropagation()}` on the panel was
+  never an interaction. The backdrop keeps the propagation stop because
+  overlays are portaled and React bubbles a click inside them to the tile
+  that opened them.
+- **Options are options.** A pick-list row is `role="option"` +
+  `aria-selected` inside a `role="listbox"`, with its own Enter/Space
+  handler even when the container drives arrow keys (`useMenuKeyboard`).
+  A search input that opens one is `role="combobox"` with
+  `aria-expanded`, `aria-controls`, `aria-autocomplete="list"`.
+- **Labels label a control.** `<label>` sits on a real input via `htmlFor`,
+  or becomes a `<span id>` the custom control points at with
+  `aria-labelledby`. A label wrapping an icon-only control carries its text
+  as `.sr-only`.
+- **Deliberate exceptions, in the config:** `no-autofocus` is off (sheets and
+  dialogs focus their first field on open; `lib/overlay-layer.ts` restores
+  focus on close), and `role="list"` on `ul`/`ol` is allowed (Safari/VoiceOver
+  drops list semantics from `list-style: none` lists; the explicit role
+  restores them).
+
 ## Overlays
 
 - **Multi-destination exports/shares are one labelled menu trigger**, never

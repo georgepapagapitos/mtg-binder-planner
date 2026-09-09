@@ -1037,7 +1037,6 @@ function CountersPopover({
       role="dialog"
       aria-modal="true"
       aria-label={`${player.name} counters`}
-      onClick={(e) => e.stopPropagation()}
       {...swipeHandlers(0)}
     >
       <div className="pp-counters-inner">
@@ -1301,9 +1300,11 @@ function WinCelebration({
   return (
     <div
       className="win-celebration"
-      role="dialog"
-      aria-label={winner ? `${winner.name} wins` : 'Game over. No winner.'}
-      onClick={() => setDismissed(true)}
+      role="presentation"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) setDismissed(true);
+      }}
     >
       {winner && (
         <div className="win-celebration-confetti" aria-hidden="true">
@@ -1324,8 +1325,10 @@ function WinCelebration({
       )}
       <div
         className="win-celebration-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={winner ? `${winner.name} wins` : 'Game over. No winner.'}
         style={palette ? { ['--win-accent' as never]: palette.edge } : undefined}
-        onClick={(e) => e.stopPropagation()}
       >
         {winner ? (
           <>

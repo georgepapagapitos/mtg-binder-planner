@@ -234,14 +234,20 @@ export function CustomLayoutEditor({
   };
 
   return (
-    <div className="cle-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="cle-backdrop"
+      role="presentation"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
         ref={panelRef}
         className="cle"
         role="dialog"
         aria-modal="true"
         aria-label="Custom table layout"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="cle-head">
           <span className="cle-title">Custom layout</span>
@@ -428,7 +434,14 @@ function EditorSeat({
       {...attributes}
       {...listeners}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       role="button"
+      tabIndex={0}
       aria-pressed={selected}
       aria-label={`${name}: drag or tap to arrange`}
     >

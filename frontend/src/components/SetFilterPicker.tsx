@@ -103,7 +103,11 @@ export function SetFilterPicker({ setMap, value, onChange }: Props) {
 
   return (
     <div className="set-filter-picker" ref={wrapperRef}>
-      <div className="set-filter-pill" onClick={() => inputRef.current?.focus()}>
+      <div
+        className="set-filter-pill"
+        role="presentation"
+        onClick={() => inputRef.current?.focus()}
+      >
         {selectedSummaries.map((s) => (
           <span key={s.code} className="set-filter-chip">
             {s.iconSvgUri && (

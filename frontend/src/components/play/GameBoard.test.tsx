@@ -179,8 +179,10 @@ describe('Win celebration', () => {
       winnerSeat: 0,
     });
     const first = render(<GameBoard game={game} dispatch={vi.fn()} canControlAll />);
+    // The dialog is the card; dismissal is a backdrop hit (its parent), never
+    // a click inside the card itself.
     const overlay = screen.getByRole('dialog', { name: 'Alice wins' });
-    fireEvent.click(overlay);
+    fireEvent.click(overlay.parentElement!);
     expect(screen.queryByRole('dialog', { name: 'Alice wins' })).toBeNull();
     first.unmount();
 
@@ -198,7 +200,7 @@ describe('Win celebration', () => {
       winnerSeat: 0,
     });
     render(<GameBoard game={game} dispatch={vi.fn()} canControlAll onLeave={vi.fn()} />);
-    fireEvent.click(screen.getByRole('dialog', { name: 'Alice wins' }));
+    fireEvent.click(screen.getByRole('dialog', { name: 'Alice wins' }).parentElement!);
     fireEvent.click(screen.getByRole('button', { name: 'Game menu' }));
     expect(screen.getByRole('button', { name: 'Clear the table' })).toBeTruthy();
     // Exactly one control named "Close" in the sheet — the ✕.

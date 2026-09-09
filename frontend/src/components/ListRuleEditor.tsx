@@ -117,7 +117,7 @@ export function ListRuleEditor({ list, onClose }: Props) {
       className="card-picker-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -126,7 +126,6 @@ export function ListRuleEditor({ list, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={`Edit rule for ${list.name}`}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

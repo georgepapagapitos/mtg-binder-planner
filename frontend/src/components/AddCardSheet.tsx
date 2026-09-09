@@ -45,7 +45,7 @@ export function AddCardSheet({ binderId, binderName, onClose }: Props) {
       className="card-picker-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -54,7 +54,6 @@ export function AddCardSheet({ binderId, binderName, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

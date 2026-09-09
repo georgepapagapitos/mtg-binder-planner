@@ -160,9 +160,11 @@ export function BinderPagePreview({
     <>
       <div
         className={`binder-pages-backdrop${isClosing ? ' is-closing' : ''}`}
-        onClick={() => beginClose()}
-        role="dialog"
-        aria-modal="true"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (e.target === e.currentTarget) beginClose();
+        }}
+        role="presentation"
         style={backdropStyle}
       >
         <div
@@ -170,6 +172,8 @@ export function BinderPagePreview({
           className={`binder-pages-sheet${isDragging ? ' is-dragging' : ''}${
             isClosing ? ' is-closing' : ''
           }`}
+          role="dialog"
+          aria-modal="true"
           style={exitStyle}
           onAnimationEnd={onAnimationEnd}
           {...touchHandlers}
@@ -210,7 +214,7 @@ export function BinderPagePreview({
             )}
           />
 
-          <div className="binder-pages-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="binder-pages-panel">
             <div className="binder-pages-name">{binderName}</div>
             <div className="binder-pages-context">{contextLine}</div>
             <div className="binder-pages-counter">{counterLine}</div>

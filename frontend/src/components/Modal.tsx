@@ -167,7 +167,14 @@ export function Modal({
       className={`modal-backdrop${backdropClassName ? ` ${backdropClassName}` : ''}${
         isClosing ? ' is-closing' : ''
       }`}
-      onClick={dismissable ? beginClose : undefined}
+      onClick={
+        dismissable
+          ? (e) => {
+              e.stopPropagation();
+              if (e.target === e.currentTarget) beginClose();
+            }
+          : undefined
+      }
       onAnimationEnd={onAnimationEnd}
       role="presentation"
     >
@@ -179,7 +186,6 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={labelledBy}
         aria-label={label}
-        onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>

@@ -132,6 +132,11 @@ export function DonorOutcomeInline({
               name={groupName}
               value={opt.value}
               checked={selected === opt.value}
+              // Explicit aria-label: the implicit <label> wrapping would
+              // otherwise concatenate the hint text below into the
+              // accessible name too, which reads as a run-on to a screen
+              // reader (see DeckCustomizer's collection-group-row).
+              aria-label={opt.label}
               onChange={() => onSelect(opt.value)}
             />
             <span className="donor-outcome-option-text">

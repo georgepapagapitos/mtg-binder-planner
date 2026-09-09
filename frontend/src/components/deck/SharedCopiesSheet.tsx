@@ -40,7 +40,7 @@ export function SharedCopiesSheet({
       className="card-picker-root shared-copies-root"
       onClick={(e) => {
         e.stopPropagation();
-        onClose();
+        if (e.target === e.currentTarget) onClose();
       }}
       role="presentation"
     >
@@ -49,7 +49,6 @@ export function SharedCopiesSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="card-picker-handle" aria-hidden />
         <header className="shared-copies-head">

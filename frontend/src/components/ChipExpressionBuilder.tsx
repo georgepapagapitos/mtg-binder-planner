@@ -287,12 +287,14 @@ function FreetextAdd({
         }}
         placeholder={placeholder}
         autoComplete="off"
+        role="combobox"
         aria-autocomplete="list"
         aria-expanded={open}
+        aria-controls="chip-suggest-list"
         aria-activedescendant={activeIdx >= 0 ? `chip-suggest-${activeIdx}` : undefined}
       />
       {open && (
-        <ul className="chip-suggest-list" role="listbox">
+        <ul className="chip-suggest-list" id="chip-suggest-list" role="listbox">
           {filtered.map((s, i) => (
             <li
               key={s}

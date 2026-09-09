@@ -37,7 +37,7 @@ export function DeckTokensSheet({
       className="card-picker-root deck-tokens-root"
       onClick={(e) => {
         e.stopPropagation();
-        onClose();
+        if (e.target === e.currentTarget) onClose();
       }}
       role="presentation"
     >
@@ -46,7 +46,6 @@ export function DeckTokensSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="card-picker-handle" aria-hidden />
         <header className="deck-tokens-sheet-head">

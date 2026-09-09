@@ -30,6 +30,7 @@ interface ReviewResult {
 export function BinderReviewCard() {
   const rawCards = useCollectionStore((s) => s.cards);
   const binders = useCollectionStore((s) => s.binders);
+  const hydrating = useCollectionStore((s) => s.hydrating);
   const importHistory = useCollectionStore((s) => s.importHistory);
   // Decorate with Scryfall oracle tags (no-op unless a binder uses a tag
   // rule) — same prep BindersIndexPage runs, so a tag-ruled binder's count
@@ -75,12 +76,14 @@ export function BinderReviewCard() {
   }, [cards, binders, importHistory, allocatedCopyIds, setMap]);
 
   if (binders.length === 0) {
+    // Still hydrating = indeterminate, not "no binders" (E277: the false
+    // empty row reflowed into the real card once the store landed).
     return (
       <HomeCard
         title="Binder review"
         icon={ClipboardList}
-        loading={false}
-        empty
+        loading={hydrating}
+        empty={!hydrating}
         emptyText="No binders set up yet."
         viewAllHref="/collection/binders"
         viewAllLabel="Set one up"

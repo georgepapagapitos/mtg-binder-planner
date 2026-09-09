@@ -15,6 +15,7 @@ import { useCurrency } from '../../lib/currency';
 import { formatMoney } from '../../lib/format-money';
 import { formatIdentity } from '../../lib/display-name';
 import { pickHeroCard, heroGreeting, type HeroPickReason } from '../../lib/home-hero';
+import { readHomeShape, rememberHomeShape } from '../../lib/home-shape';
 import {
   computeValueDelta,
   dayKey,
@@ -111,10 +112,20 @@ export function HomeHero() {
   // loading shimmer, never flash the brand fallback under the search bar.
   // Same subscribe-and-rerender idiom as SyncIndicator.
   const hydrating = useCollectionStore((s) => s.hydrating);
+  // Last visit's resolved hero shape (lib/home-shape) — read once at mount.
+  const [remembered] = useState(() => readHomeShape());
   const [, syncTick] = useState(0);
   useEffect(() => onSyncedChange(() => syncTick((n) => n + 1)), []);
   const settling = authed && !pick && (hydrating || getSyncState() === 'syncing');
   const showFallback = !pick && !settling;
+  // The art box is a fixed 4:3, but the caption under it is not reserved by
+  // the shimmer — and `.home-hero-main` is `space-between`, so a figure that
+  // grows by a caption spreads every functional row apart (the residual
+  // 4x-CPU shift after the value/scale reservations). Remembered like them.
+  useEffect(() => {
+    if (authed && !settling && (!pick || art))
+      rememberHomeShape('hero-caption', pick && art ? 1 : 0);
+  }, [authed, settling, pick, art]);
 
   const currency = useCurrency();
   // today is captured inside the async callback, not read via Date.now() in
@@ -151,6 +162,16 @@ export function HomeHero() {
   const chip = formatValueDeltaChip(delta, valueData?.today ?? '');
   const latestValue = points.length > 0 ? points[points.length - 1].value : null;
 
+  // Both async lines below (value, scale) reserve their box while pending IF
+  // this browser rendered them last time (`remembered`) — the hero's
+  // functional column otherwise grows ~130px under the search bar after
+  // first paint (E277). A fresh account has no memory and reserves nothing.
+  const valuePending = authed && valueData === undefined;
+  useEffect(() => {
+    if (authed && !valuePending) rememberHomeShape('hero-value', latestValue !== null ? 1 : 0);
+  }, [authed, valuePending, latestValue]);
+  const reserveValue = valuePending && remembered['hero-value'] === 1;
+
   // Scale line: the three things this collection IS, each one a door. The
   // header's nav chips carry the same two counts abbreviated to "12K"/"6";
   // these are the real figures, and they're what keeps the hero's functional
@@ -163,6 +184,10 @@ export function HomeHero() {
     { label: 'Binders', value: binders.length, to: '/collection/binders' },
   ];
   const showStats = authed && stats.some((s) => s.value > 0);
+  useEffect(() => {
+    if (authed && !hydrating) rememberHomeShape('hero-stats', showStats ? 1 : 0);
+  }, [authed, hydrating, showStats]);
+  const reserveStats = authed && hydrating && !showStats && remembered['hero-stats'] === 1;
 
   const name = formatIdentity({
     username: user?.username ?? '',
@@ -190,6 +215,11 @@ export function HomeHero() {
           {authed ? (
             <>
               <h1 className="home-hero-greeting">{name ? `${greeting}, ${name}` : greeting}</h1>
+              {reserveValue && (
+                <div className="home-hero-value home-hero-value--loading" aria-hidden="true">
+                  <span className="home-hero-value-amount">{'\u00a0'}</span>
+                </div>
+              )}
               {latestValue !== null && (
                 <div className="home-hero-value">
                   <span className="home-hero-value-amount">
@@ -210,6 +240,18 @@ export function HomeHero() {
           )}
         </div>
 
+        {reserveStats && (
+          <ul className="home-hero-stats home-hero-stats--loading" aria-hidden="true">
+            {stats.map((stat) => (
+              <li key={stat.label}>
+                <span className="home-hero-stat">
+                  <span className="home-hero-stat-value">{'\u00a0'}</span>
+                  <span className="home-hero-stat-label">{stat.label}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
         {showStats && (
           <ul className="home-hero-stats">
             {stats.map((stat) => (
@@ -292,7 +334,15 @@ export function HomeHero() {
             <BrandMark size={48} motion="idle" aria-hidden />
           </span>
         ) : (
-          <span className="home-hero-art-loading" aria-hidden="true" />
+          <>
+            <span className="home-hero-art-loading" aria-hidden="true" />
+            {remembered['hero-caption'] === 1 && (
+              <span className="home-hero-caption home-hero-caption--loading" aria-hidden="true">
+                <span className="home-hero-caption-tape">{'\u00a0'}</span>
+                <span className="home-hero-caption-sub">{'\u00a0'}</span>
+              </span>
+            )}
+          </>
         )}
       </figure>
     </header>

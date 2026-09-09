@@ -39,7 +39,9 @@ function ArrivalThumb({ name, owned }: { name: string; owned?: string }) {
  */
 export function NewArrivalsCard() {
   const decks = useDecksStore((s) => s.decks);
+  const decksHydrated = useDecksStore((s) => s.hydrated);
   const collectionCards = useCollectionStore((s) => s.cards);
+  const hydrating = useCollectionStore((s) => s.hydrating);
   const importHistory = useCollectionStore((s) => s.importHistory);
 
   const addedAtByImportId = useMemo(
@@ -93,7 +95,10 @@ export function NewArrivalsCard() {
     <HomeCard
       title="New arrivals"
       icon={PackagePlus}
-      loading={false}
+      // An un-hydrated store is indeterminate, not empty — "No new arrivals"
+      // over a collection that hasn't loaded yet is a false empty state that
+      // then reflows into the real card (E277).
+      loading={hydrating || !decksHydrated}
       empty={empty}
       emptyText="No new arrivals to review."
       viewAllHref={rows.length > DISPLAY_LIMIT ? '/decks' : undefined}

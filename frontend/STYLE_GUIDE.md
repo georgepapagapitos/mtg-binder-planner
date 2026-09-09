@@ -3637,6 +3637,21 @@ to show does not get a full-height placeholder panel — it collapses:
   before ever mounting `HomeCard`. This is the same "zero visible items →
   render nothing" instinct as the § Index-page insight strips ruling, just
   applied to a bento card instead of a toolbar strip.
+- **Loading takes last visit's footprint (E277).** Every hero line and
+  bento card resolves asynchronously, and each resolve is a reflow: a
+  skeleton becomes a tall list, or a 44px row that `order`s to the bottom,
+  or nothing. Measured with layout-shift attribution (2026-09-09), a
+  returning signed-in visitor took CLS 0.43 desktop / 0.21 phone on `/home`
+  from exactly that. The ruling: a skeleton reserves the shape it resolved
+  to on this browser's last visit — `lib/home-shape.ts` (`sc-home-shape`)
+  remembers, per card title, empty (→ the collapsed row skeletons in place,
+  door hidden) or the rendered height (→ `min-height` on the shell), and
+  the hero's value and scale lines reserve their box the same way. A first
+  visit still reflows once; a fresh account remembers "absent" and never
+  gets a phantom row. Same trade as `TrendingRail`'s `sc-trending-shape`.
+  Corollary: a card must report `loading` while its store is hydrating —
+  "No new arrivals" over an un-hydrated collection is a false empty state,
+  not an empty state.
 - **Trade-target prices always render in the author's stamped currency**,
   never the viewer's display-currency setting — `formatMoney(price,
 { currency: row.currency ?? 'USD' })`, explicit per-row, same "as-entered,

@@ -111,16 +111,30 @@ const aiReadLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
  */
 const aiPublic = (): boolean => process.env.AI_PUBLIC === '1';
 
+async function hasAiAccess(userId: string): Promise<boolean> {
+  const res = await getPool().query<{ ai_access: boolean }>(
+    'SELECT ai_access FROM users WHERE id = $1',
+    [userId]
+  );
+  return res.rows[0]?.ai_access === true;
+}
+
+/**
+ * Gate ladder: admin, or `AI_PUBLIC=1`, or a per-user unlock an admin granted
+ * from the panel (T114, `users.ai_access`). The user's own opt-in consent is
+ * checked separately by each route — this only decides who can see the door.
+ */
 aiRouter.use(async (req: Request, res: Response, next) => {
   if (!aiEnabled()) return res.status(404).json({ error: 'Not found.' });
   if (aiPublic()) return next();
-  // Non-admins get the same 404 as an unconfigured backend: the client treats
-  // 404 as "feature unavailable" and renders nothing, so the UI hides itself
-  // and the endpoints aren't advertised.
+  // Everyone else gets the same 404 as an unconfigured backend: the client
+  // treats 404 as "feature unavailable" and renders nothing, so the UI hides
+  // itself and the endpoints aren't advertised.
   const token = readSessionCookie(req);
   const user = token ? await loadAuthedUser(token) : null;
-  if (user?.role !== 'admin') return res.status(404).json({ error: 'Not found.' });
-  next();
+  if (!user) return res.status(404).json({ error: 'Not found.' });
+  if (user.role === 'admin' || (await hasAiAccess(user.id))) return next();
+  res.status(404).json({ error: 'Not found.' });
 });
 
 interface AiUserRow {

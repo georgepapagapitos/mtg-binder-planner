@@ -203,6 +203,28 @@ describe('admin-only flag', () => {
     expect(res.status).toBe(404);
   });
 
+  it('lets a user through once an admin grants ai_access, and revokes cleanly (T114)', async () => {
+    const { getPool } = await import('../db');
+    const cookie = await makeUser('ai-gate-granted');
+    expect((await request(app).get('/api/ai/status').set('Cookie', cookie)).status).toBe(404);
+
+    await getPool().query('UPDATE users SET ai_access = true WHERE username = $1', [
+      'ai-gate-granted',
+    ]);
+    await optIn(cookie);
+    const res = await request(app)
+      .post('/api/ai/deck-review')
+      .set('Cookie', cookie)
+      .send(reviewBody());
+    expect(res.status).toBe(200);
+    expect(parseStream(res.text).done).toMatchObject({ content: REVIEW_TEXT });
+
+    await getPool().query('UPDATE users SET ai_access = false WHERE username = $1', [
+      'ai-gate-granted',
+    ]);
+    expect((await request(app).get('/api/ai/status').set('Cookie', cookie)).status).toBe(404);
+  });
+
   it('lets an admin through end to end', async () => {
     process.env.ADMIN_USERNAMES = 'ai-gate-admin';
     try {

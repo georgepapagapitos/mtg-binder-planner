@@ -66,6 +66,8 @@ export const users = pgTable('users', {
    */
   aiOptIn: boolean('ai_opt_in').notNull().default(false),
   aiDailyLimit: integer('ai_daily_limit'),
+  /** Admin-granted unlock (T114): lets a non-admin through the AI gate. */
+  aiAccess: boolean('ai_access').notNull().default(false),
 });
 
 /**

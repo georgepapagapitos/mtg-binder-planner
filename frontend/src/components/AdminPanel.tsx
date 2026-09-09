@@ -4,6 +4,7 @@ import {
   listUsers,
   deleteUser,
   clearUserProfile,
+  setUserAi,
   listReports,
   resolveReport,
   type AdminUserSummary,
@@ -36,6 +37,11 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
   const [deleting, setDeleting] = useState(false);
   const [pendingClear, setPendingClear] = useState<AdminUserSummary | null>(null);
   const [clearingProfile, setClearingProfile] = useState(false);
+  // AI access dialog (T114): the row being edited plus its draft fields.
+  const [pendingAi, setPendingAi] = useState<AdminUserSummary | null>(null);
+  const [aiAccessDraft, setAiAccessDraft] = useState(false);
+  const [aiLimitDraft, setAiLimitDraft] = useState('');
+  const [savingAi, setSavingAi] = useState(false);
 
   // Reports: null while the initial GET is in flight (mirrors
   // SharedLinksSettings' shares===null loading sentinel).
@@ -147,6 +153,41 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
     }
   }
 
+  function openAiDialog(u: AdminUserSummary) {
+    setAiAccessDraft(u.aiAccess);
+    setAiLimitDraft(u.aiDailyLimit === null ? '' : String(u.aiDailyLimit));
+    setPendingAi(u);
+  }
+
+  const aiLimitValid = aiLimitDraft.trim() === '' || /^\d+$/.test(aiLimitDraft.trim());
+
+  async function handleSaveAi() {
+    if (!pendingAi || !aiLimitValid) return;
+    setSavingAi(true);
+    try {
+      const trimmed = aiLimitDraft.trim();
+      await setUserAi(pendingAi.id, {
+        access: aiAccessDraft,
+        dailyLimit: trimmed === '' ? null : Number(trimmed),
+      });
+      toast.show({
+        message: aiAccessDraft
+          ? `AI features on for ${pendingAi.username}`
+          : `AI features off for ${pendingAi.username}`,
+        tone: 'success',
+      });
+      setPendingAi(null);
+      await refresh();
+    } catch (err) {
+      toast.show({
+        message: userMessage(err, "Couldn't update AI access. Try again."),
+        tone: 'error',
+      });
+    } finally {
+      setSavingAi(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     listReports()
@@ -236,6 +277,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
                     <th scope="col">Username</th>
                     <th scope="col">Profile</th>
                     <th scope="col">Role</th>
+                    <th scope="col">AI</th>
                     <th scope="col">Registered</th>
                     <th scope="col">Data</th>
                     <th scope="col" aria-label="Actions" />
@@ -266,12 +308,30 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
                         <td>
                           <span className={`admin-role-pill is-${u.role}`}>{u.role}</span>
                         </td>
+                        <td>
+                          {u.role === 'admin' || u.aiAccess ? (
+                            <span className="admin-profile-cell admin-ai-cell">
+                              <span className="admin-role-pill is-admin">On</span>
+                              {u.aiDailyLimit !== null && (
+                                <span className="admin-profile-detail settings-row-hint">
+                                  {u.aiDailyLimit}/day
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="admin-role-pill">Off</span>
+                          )}
+                        </td>
                         <td>{formatDate(u.createdAt)}</td>
                         <td>{formatBytes(u.dataBytes)}</td>
                         <td>
                           <OverflowMenu
                             ariaLabel={`Actions for ${u.username}`}
                             items={[
+                              {
+                                label: 'AI access…',
+                                onClick: () => openAiDialog(u),
+                              },
                               {
                                 label: 'Clear profile',
                                 danger: true,
@@ -326,6 +386,79 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
                 {deleting ? 'Deleting…' : 'Delete'}
               </button>
             </div>
+          </Modal>
+        )}
+
+        {pendingAi && (
+          <Modal
+            onClose={() => !savingAi && setPendingAi(null)}
+            labelledBy="admin-ai-title"
+            dismissable={!savingAi}
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleSaveAi();
+              }}
+            >
+              <h2 id="admin-ai-title" className="choice-dialog-title">
+                AI access for {pendingAi.username}
+              </h2>
+              <p className="choice-dialog-body">
+                {pendingAi.role === 'admin'
+                  ? 'Admins always have AI features. The daily limit still applies.'
+                  : 'Opens the AI features to this account. They still choose to turn them on from their own AI panel.'}
+              </p>
+              <div className="admin-ai-fields">
+                <label className="field-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={aiAccessDraft}
+                    onChange={(e) => setAiAccessDraft(e.target.checked)}
+                    disabled={savingAi || pendingAi.role === 'admin'}
+                  />
+                  Allow AI features
+                </label>
+                <div className="field">
+                  <label htmlFor="admin-ai-limit">Daily limit</label>
+                  <input
+                    id="admin-ai-limit"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    placeholder="App default"
+                    value={aiLimitDraft}
+                    onChange={(e) => setAiLimitDraft(e.target.value)}
+                    disabled={savingAi}
+                    aria-invalid={!aiLimitValid}
+                    aria-describedby="admin-ai-limit-hint"
+                  />
+                  <span id="admin-ai-limit-hint" className="settings-row-hint">
+                    {aiLimitValid
+                      ? 'Reviews per day. Leave blank for the app default.'
+                      : 'Use a whole number, or leave it blank.'}
+                  </span>
+                </div>
+              </div>
+              <div className="choice-dialog-actions admin-modal-actions">
+                <button
+                  type="button"
+                  className="pill-btn"
+                  onClick={() => setPendingAi(null)}
+                  disabled={savingAi}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="pill-btn pill-btn-primary"
+                  disabled={savingAi || !aiLimitValid}
+                >
+                  {savingAi ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
           </Modal>
         )}
 

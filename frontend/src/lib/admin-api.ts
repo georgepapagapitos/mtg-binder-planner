@@ -13,6 +13,10 @@ export interface AdminUserSummary {
   displayName: string | null;
   bio: string | null;
   avatarCardName: string | null;
+  /** Admin-granted AI unlock (T114); admins pass the gate regardless. */
+  aiAccess: boolean;
+  /** Per-user daily AI quota override; null = the app default. */
+  aiDailyLimit: number | null;
 }
 
 export async function listUsers(): Promise<AdminUserSummary[]> {
@@ -32,6 +36,20 @@ export async function deleteUser(id: string): Promise<void> {
 export async function clearUserProfile(id: string): Promise<void> {
   const res = await authedFetch(`/api/admin/users/${encodeURIComponent(id)}/clear-profile`, {
     method: 'POST',
+  });
+  await handleResponse<{ ok: true }>(res);
+}
+
+/** Grant/revoke the per-user AI unlock and/or override the daily quota
+ *  (null = app default). Partial: omit a field to leave it as is. */
+export async function setUserAi(
+  id: string,
+  patch: { access?: boolean; dailyLimit?: number | null }
+): Promise<void> {
+  const res = await authedFetch(`/api/admin/users/${encodeURIComponent(id)}/ai`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
   });
   await handleResponse<{ ok: true }>(res);
 }

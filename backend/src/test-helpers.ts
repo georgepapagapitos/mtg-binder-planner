@@ -113,7 +113,8 @@ export async function createTestEnv(): Promise<TestEnv> {
       avatar_image_url TEXT,
       profile_hidden_at BIGINT,
       ai_opt_in BOOLEAN NOT NULL DEFAULT false,
-      ai_daily_limit INTEGER
+      ai_daily_limit INTEGER,
+      ai_access BOOLEAN NOT NULL DEFAULT false
     );
     CREATE UNIQUE INDEX users_email_idx ON users(email);
     CREATE TABLE ai_reviews (

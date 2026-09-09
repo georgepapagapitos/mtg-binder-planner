@@ -50,6 +50,8 @@ adminRouter.get('/users', requireAdmin, adminLimiter, async (_req: Request, res:
     display_name: string | null;
     bio: string | null;
     avatar_card_name: string | null;
+    ai_access: boolean;
+    ai_daily_limit: number | null;
   }>(`
     SELECT
       u.id,
@@ -59,6 +61,8 @@ adminRouter.get('/users', requireAdmin, adminLimiter, async (_req: Request, res:
       u.display_name,
       u.bio,
       u.avatar_card_name,
+      u.ai_access,
+      u.ai_daily_limit,
       COALESCE(ui.bytes, 0) + COALESCE(uc.bytes, 0) + COALESCE(ub.bytes, 0)
         + COALESCE(ud.bytes, 0) + COALESCE(ug.bytes, 0) + COALESCE(ul.bytes, 0)
         AS data_bytes
@@ -99,8 +103,47 @@ adminRouter.get('/users', requireAdmin, adminLimiter, async (_req: Request, res:
       displayName: r.display_name,
       bio: r.bio,
       avatarCardName: r.avatar_card_name,
+      aiAccess: r.ai_access,
+      aiDailyLimit: r.ai_daily_limit,
     })),
   });
+});
+
+/**
+ * PATCH /api/admin/users/:id/ai
+ * body `{ access?: boolean, dailyLimit?: number | null }` — grant or revoke
+ * the per-user AI unlock (T114) and/or override the daily quota (null =
+ * back to the app default). The user's own opt-in consent still applies;
+ * this only opens the door. Reversible, so no self-target guard.
+ */
+adminRouter.patch('/users/:id/ai', requireAdmin, adminLimiter, async (req, res) => {
+  const id = req.params.id;
+  if (typeof id !== 'string' || id.length === 0) {
+    return res.status(400).json({ error: 'Missing user id.' });
+  }
+  const { access, dailyLimit } = req.body as { access?: unknown; dailyLimit?: unknown };
+  const patch: { aiAccess?: boolean; aiDailyLimit?: number | null } = {};
+  if (access !== undefined) {
+    if (typeof access !== 'boolean')
+      return res.status(400).json({ error: 'access must be a boolean.' });
+    patch.aiAccess = access;
+  }
+  if (dailyLimit !== undefined) {
+    if (dailyLimit !== null && !(Number.isInteger(dailyLimit) && (dailyLimit as number) >= 0)) {
+      return res.status(400).json({ error: 'dailyLimit must be a whole number or null.' });
+    }
+    patch.aiDailyLimit = dailyLimit as number | null;
+  }
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: 'Nothing to change.' });
+  }
+  const updated = await getDb()
+    .update(users)
+    .set(patch)
+    .where(eq(users.id, id))
+    .returning({ aiAccess: users.aiAccess, aiDailyLimit: users.aiDailyLimit });
+  if (updated.length === 0) return res.status(404).json({ error: 'User not found.' });
+  res.json({ ok: true, ...updated[0] });
 });
 
 /**

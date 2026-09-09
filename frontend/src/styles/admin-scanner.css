@@ -1627,6 +1627,18 @@
   color: var(--accent);
 }
 
+/* AI access dialog (T114): consent checkbox + daily-limit field, stacked. */
+.admin-ai-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block: var(--space-3);
+}
+
+.admin-ai-fields input[type='number'] {
+  max-width: 10rem;
+}
+
 /* Shared button row for the admin table's confirm modals (delete, clear
    profile) — named generically since both destructive confirms reuse it. */
 .admin-modal-actions {
@@ -1647,6 +1659,12 @@
 .admin-profile-detail {
   max-width: 22rem;
   white-space: normal;
+}
+
+/* AI cell: the On pill plus an optional "N/day" caption. Without this the
+   column-flex wrapper stretches the pill to the cell width. */
+.admin-ai-cell {
+  align-items: flex-start;
 }
 
 /* Reports section: loading skeleton rows shown while GET /api/admin/reports

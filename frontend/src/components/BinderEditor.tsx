@@ -175,8 +175,13 @@ export function BinderEditor() {
   });
 
   // Set codes the user actually owns — used to populate the multi-select.
+  // Gated on `isOpen` like every other memo below: this component sits in the
+  // Layout on every signed-in route, and a closed editor must cost nothing
+  // (the ungated version walked and materialised the whole collection on
+  // every page load — E276).
   const ownedSets = useMemo(() => {
     const map = new Map<string, string>(); // code → name
+    if (!isOpen) return [];
     for (const c of cards) {
       const code = c.setCode.toUpperCase();
       if (!map.has(code)) map.set(code, c.setName || code);
@@ -184,7 +189,7 @@ export function BinderEditor() {
     return Array.from(map.entries())
       .map(([code, label]) => ({ code, label }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [cards]);
+  }, [cards, isOpen]);
 
   // Autocomplete suggestions for type-line and oracle-text chips.
   // Scryfall catalog data is fetched once and merged with tokens from the collection.
@@ -317,24 +322,25 @@ export function BinderEditor() {
   // count stuck at 0 until the tagger snapshot finished loading.
   const taggedCards = useCardsWithTags(cards, groupsUseTags(groups));
   const binderMatchCount = useMemo(() => {
-    if (fixedCapacity === null) return 0;
+    if (!isOpen || fixedCapacity === null) return 0;
     return countBinderMatches(taggedCards, groups, keepPrintingsTogether).total;
-  }, [taggedCards, groups, fixedCapacity, keepPrintingsTogether]);
+  }, [taggedCards, groups, fixedCapacity, keepPrintingsTogether, isOpen]);
 
   // Where the waterfall actually seats this binder's cards, not just how many
   // match its own rules — substitutes the draft into the real binder list (in
   // position order) so a binder placed behind a broader one shows the truth:
   // it may match plenty of cards and still land none of them. Skipped for
-  // manual-mode binders, which don't route by rules at all.
+  // manual-mode binders, which don't route by rules at all — and while closed,
+  // where it was a full binder materialisation on every signed-in page (E276).
   const effectiveLanding = useMemo(() => {
-    if (routingMode === 'manual') return null;
+    if (!isOpen || routingMode === 'manual') return null;
     return countEffectiveLanding(taggedCards, binders, {
       id: existing?.id ?? null,
       groups,
       keepPrintingsTogether,
       mode: routingMode,
     });
-  }, [taggedCards, binders, groups, keepPrintingsTogether, routingMode, existing?.id]);
+  }, [taggedCards, binders, groups, keepPrintingsTogether, routingMode, existing?.id, isOpen]);
 
   if (!isOpen) return null;
 

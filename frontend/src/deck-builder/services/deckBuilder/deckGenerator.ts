@@ -69,6 +69,8 @@ import {
   exceedsCmcCap,
   notPauperCommanderLegal,
   notLegalForFormat,
+  violatesUserCaps,
+  userCapsWithoutPrice,
 } from './deckFilters';
 import {
   calculateTargetCounts,
@@ -3334,10 +3336,13 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         )
           continue;
         if (exceedsMaxPrice(scryfallCard, shortagePriceCap, currency)) continue;
-        if (!isOwnedRarityExempt(edhrecCard.name, context.collectionNames, ignoreOwnedRarity)) {
-          if (exceedsMaxRarity(scryfallCard, maxRarity)) continue;
-        }
-        if (exceedsCmcCap(scryfallCard, maxCmc)) continue;
+        // Rarity / CMC / Arena / format legality via the shared gate (price is
+        // the relaxed shortage cap above). LIVE-CONFIRMED this fill was the
+        // last arenaOnly leak: it checked rarity and CMC inline but never Arena.
+        if (
+          violatesUserCaps(scryfallCard, userCapsWithoutPrice(state.cfg), context.collectionNames)
+        )
+          continue;
 
         // Prioritize cards that fill type deficits — bind type targets here too
         // (previously only did this when the user set explicit type
@@ -3392,10 +3397,10 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
           )
             continue;
           if (exceedsMaxPrice(scryfallCard, shortagePriceCap, currency)) continue;
-          if (!isOwnedRarityExempt(edhrecCard.name, context.collectionNames, ignoreOwnedRarity)) {
-            if (exceedsMaxRarity(scryfallCard, maxRarity)) continue;
-          }
-          if (exceedsCmcCap(scryfallCard, maxCmc)) continue;
+          if (
+            violatesUserCaps(scryfallCard, userCapsWithoutPrice(state.cfg), context.collectionNames)
+          )
+            continue;
 
           if (isOverRoleCap(scryfallCard, roleTargets, currentRoleCounts)) {
             if (!capSkippedNames.has(edhrecCard.name)) {

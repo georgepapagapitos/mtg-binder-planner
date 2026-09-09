@@ -1717,10 +1717,22 @@ const OFFLINE_READ_TIMEOUT_MS = 3000;
 /** Reject `p` if it hasn't settled within `ms` — used to bound a possibly-stalled
  *  offline read so resolution can fall back to live instead of hanging forever. */
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('offline-read-timeout')), ms)),
-  ]);
+  return new Promise<T>((resolve, reject) => {
+    // Cleared as soon as `p` settles — an uncleared timer here used to sit in
+    // the event loop for the full `ms` even after the race was long decided,
+    // outliving whatever test (or request) triggered the read.
+    const timer = setTimeout(() => reject(new Error('offline-read-timeout')), ms);
+    p.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
 }
 
 /**

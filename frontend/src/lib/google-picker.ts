@@ -179,9 +179,11 @@ async function getAccessToken(): Promise<string> {
   if (!isWarm()) await loadScript(GIS_SRC);
   return new Promise<string>((resolve, reject) => {
     let settled = false;
+    let popupClosedTimer: ReturnType<typeof setTimeout> | null = null;
     const finish = (fn: () => void) => {
       if (settled) return;
       settled = true;
+      if (popupClosedTimer) clearTimeout(popupClosedTimer);
       fn();
     };
 
@@ -207,7 +209,7 @@ async function getAccessToken(): Promise<string> {
         if (e?.type === 'popup_closed') {
           // Might be a cancel, might be a grant whose token is still in flight
           // — see POPUP_CLOSED_GRACE_MS. `settled` makes the late token win.
-          setTimeout(
+          popupClosedTimer = setTimeout(
             () =>
               finish(() => {
                 // Reaching here means the popup closed and no token EVER
@@ -275,12 +277,13 @@ const PICKER_LOAD_TIMEOUT_MS = 15_000;
 function showPicker(accessToken: string): Promise<PickedDoc[]> {
   return new Promise((resolve, reject) => {
     let loaded = false;
-    setTimeout(() => {
+    const loadTimer = setTimeout(() => {
       if (!loaded) reject(new Error("Google's file picker didn't finish loading."));
     }, PICKER_LOAD_TIMEOUT_MS);
 
     (window as Win).gapi!.load('picker', () => {
       loaded = true;
+      clearTimeout(loadTimer);
       try {
         const picker = g().picker;
         if (!picker?.PickerBuilder) {

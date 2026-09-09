@@ -33,6 +33,9 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  // Whichever test runs last may have scheduled the persist-flush debounce
+  // (persistCard) without flushing it — clear it so it doesn't outlive the run.
+  _resetCacheForTests();
 });
 
 describe('scryfall persistent card cache', () => {

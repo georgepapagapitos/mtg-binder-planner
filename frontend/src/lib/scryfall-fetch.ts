@@ -25,6 +25,21 @@ const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30_000; // ceiling on *computed* backoff; an explicit Retry-After is always honored in full
 const JITTER_MS = 250;
 
+// Every spacing/backoff wait below is multiplied by this. Under vitest it's 0
+// by default: dozens of component tests trigger this module in passing (a
+// catalog prefetch, a card-thumb batch) with zero interest in the delay
+// itself, and a real setTimeout outliving the synchronous test is exactly the
+// "component timer leaking past its test" class E272 fixed (416 leaks at
+// baseline, ~150 of them this rate limiter). Only this module's own test
+// suite verifies the actual magnitudes, and opts back into them explicitly.
+let timeScale = import.meta.env.MODE === 'test' ? 0 : 1;
+
+/** Test-only: restore real spacing/backoff magnitudes (or drop back to fast/0).
+ *  See scryfall-fetch.test.ts, the only suite that asserts on them. */
+export function setScryfallRealTimingForTests(real: boolean): void {
+  timeScale = real ? 1 : 0;
+}
+
 // Ceil: jitter makes the wait fractional, and a timer that fires a fraction of
 // a millisecond short of `cooldownUntil` sends processQueue round again for the
 // remainder — forever, since the clock can't advance by less than 1ms.
@@ -82,9 +97,10 @@ class RateLimiter {
         continue;
       }
 
+      const minDelay = MIN_REQUEST_DELAY * timeScale;
       const timeSinceLastRequest = now - this.lastRequestTime;
-      if (timeSinceLastRequest < MIN_REQUEST_DELAY) {
-        await sleep(MIN_REQUEST_DELAY - timeSinceLastRequest);
+      if (timeSinceLastRequest < minDelay) {
+        await sleep(minDelay - timeSinceLastRequest);
         // Re-check from the top: a 429 can land *while* we're spacing, and the
         // request we're about to release must be parked by it too.
         continue;
@@ -101,9 +117,12 @@ class RateLimiter {
 
 const rateLimiter = new RateLimiter();
 
-/** Test hook — see `RateLimiter.reset`. */
+/** Test hook — see `RateLimiter.reset`. Also drops any real-timing opt-in
+ *  (`setScryfallRealTimingForTests`) back to the fast/0 default, so it can't
+ *  leak from one test into the next. */
 export function resetScryfallRateLimit(): void {
   rateLimiter.reset();
+  timeScale = import.meta.env.MODE === 'test' ? 0 : 1;
 }
 
 /**
@@ -229,7 +248,8 @@ export async function scryfallRequest(path: string, init?: RequestInit): Promise
       opaqueFailures += 1;
       stats.blocked += 1;
       const waitMs =
-        Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS) + Math.random() * JITTER_MS;
+        (Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS) + Math.random() * JITTER_MS) *
+        timeScale;
       logger.warn(
         `[scryfall] opaque failure on ${path} — likely a CORS-blocked 429; cooling down ${Math.round(waitMs)}ms`
       );
@@ -246,10 +266,13 @@ export async function scryfallRequest(path: string, init?: RequestInit): Promise
       return response;
     }
 
-    const backoff = Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
+    const backoff = Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS) * timeScale;
     // Jitter so a throttled burst doesn't wake in lockstep and strike together.
+    // An explicit Retry-After is always honored in full — real seconds a
+    // server actually asked for — even under the fast test default.
     const waitMs =
-      (parseRetryAfter(response.headers.get('Retry-After')) ?? backoff) + Math.random() * JITTER_MS;
+      (parseRetryAfter(response.headers.get('Retry-After')) ?? backoff) +
+      Math.random() * JITTER_MS * timeScale;
     logger.warn(
       `[scryfall] ${response.status} on ${path} — cooling down ${Math.round(waitMs)}ms (attempt ${attempt + 1})`
     );

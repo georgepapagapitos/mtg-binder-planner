@@ -80,6 +80,14 @@ beforeEach(() => {
   store().setFreeMulligan(false);
 });
 
+// A dispatch anywhere below can schedule the module-level snapshot debounce
+// (store.ts's `usePlaytestStore.subscribe`); teardown() only skips scheduling
+// a NEW one, it doesn't clear an existing one. Whichever test runs last in
+// the file would otherwise leave that real setTimeout pending past the run.
+afterEach(() => {
+  flushPendingPlaytestSnapshot();
+});
+
 describe('playtest store — free mulligan variant (E226)', () => {
   function mulliganOnce() {
     store().init('deck-1', { library: threatLibrary(), seed: 42 });

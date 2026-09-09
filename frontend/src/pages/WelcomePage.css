@@ -217,7 +217,10 @@
 
 .welcome-disclaimer {
   margin: var(--space-3) 0 0;
-  font-size: var(--text-xs);
+  /* --text-sm, not --text-xs: at 0.72rem this paragraph is 11.5px, the one
+     block of sub-12px text on the landing and the thing Lighthouse's
+     legible-font-sizes audit flags on the marketing page. */
+  font-size: var(--text-sm);
   color: var(--text-muted);
   line-height: 1.5;
 }

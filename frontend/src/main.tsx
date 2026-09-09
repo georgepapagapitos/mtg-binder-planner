@@ -81,6 +81,7 @@ import { registerPwa } from './lib/register-pwa';
 import { tagPlatform, syncStatusBar, hideSplashWhenReady } from './lib/platform';
 import { initKeyboardLayer } from './lib/keyboard';
 import { installErrorReporting, startVitals } from './lib/analytics';
+import { hasEverVisited } from './lib/first-run';
 
 // First, so an exception anywhere in the boot below is counted too.
 installErrorReporting();
@@ -95,12 +96,21 @@ initKeyboardLayer();
 useThemeStore.subscribe(() => {
   void syncStatusBar();
 });
-// Kick off tagger data load eagerly so the deck generator can attach role
-// counts on the first build. Safe to call multiple times — the client caches.
-void loadTaggerData();
-// Likewise the EDHREC substitute index, so the Coach's substitute suggestions
-// rank by deck co-occurrence rather than the heuristic fallback. Cached/deduped.
-void loadCardSimilar();
+// Warm the two deck-builder corpora — the tagger role index and the EDHREC
+// substitute index — so the first deck build / Coach pass has them in hand.
+// Together they are ~500 KB gzipped, so they are NOT part of the boot: a
+// first-time visitor reading the landing page never pays for them (every
+// consumer loads on demand anyway — useTaggerReady, dataAcquisition), and a
+// returning user fetches them only after the app's own assets have loaded.
+// Both loaders cache and dedupe, so calling them again later is free.
+if (hasEverVisited()) {
+  const warm = () => {
+    void loadTaggerData();
+    void loadCardSimilar();
+  };
+  if (document.readyState === 'complete') warm();
+  else window.addEventListener('load', warm, { once: true });
+}
 // Register the service worker for installable / offline-capable behavior.
 // No-op in dev (devOptions.enabled = false in vite.config.ts).
 void registerPwa();

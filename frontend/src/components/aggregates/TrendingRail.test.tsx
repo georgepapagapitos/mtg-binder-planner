@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 
 const mockUseCardThumb = vi.hoisted(() => vi.fn(() => undefined as string | undefined));
 vi.mock('../../lib/card-thumbs', () => ({ useCardThumb: mockUseCardThumb }));
@@ -79,6 +79,9 @@ function renderRail(enabled = true) {
 }
 
 describe('TrendingRail', () => {
+  // The remembered rail shape is written from an effect that can land after a
+  // test's last await, so it is cleared at the START of each test, not the end.
+  beforeEach(() => localStorage.removeItem('sc-trending-shape'));
   afterEach(() => {
     vi.unstubAllGlobals();
     mockUseCardThumb.mockClear();
@@ -115,6 +118,30 @@ describe('TrendingRail', () => {
     renderRail();
     expect(screen.getByText('Loading trending decks')).toBeTruthy();
     expect(screen.queryByRole('status')).toBeTruthy();
+    // A first visit reserves a full section (the common production shape),
+    // so the browse grid beneath does not shift when data lands.
+    expect(document.querySelectorAll('.trending-tile-skeleton')).toHaveLength(10);
+  });
+
+  it('reserves the shape the rail had last time: its tile count, or nothing when it was empty', async () => {
+    stubFetchResolved({ risingCommanders: risingFixture });
+    const { unmount } = renderRail();
+    await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
+    await waitFor(() =>
+      expect(localStorage.getItem('sc-trending-shape')).toBe(String(risingFixture.length))
+    );
+    unmount();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {}))
+    );
+    renderRail();
+    expect(document.querySelectorAll('.trending-tile-skeleton')).toHaveLength(risingFixture.length);
+
+    localStorage.setItem('sc-trending-shape', '0');
+    const { container } = renderRail();
+    expect(container.querySelector('.trending-rail')).toBeNull();
   });
 
   it('shows the exact empty-both copy when neither sub-section has data', async () => {
@@ -192,9 +219,11 @@ describe('TrendingRail', () => {
       expect(screen.queryByText('12.4')).toBeNull();
       expect(document.body.textContent).not.toMatch(/41\.2|33\.7|12\.4/);
 
-      expect(mockUseCardThumb).toHaveBeenCalledWith('Meren of Clan Nel Toth', 'normal');
-      expect(mockUseCardThumb).toHaveBeenCalledWith('Thrasios, Triton Hero', 'normal');
-      expect(mockUseCardThumb).toHaveBeenCalledWith('Krenko, Mob Boss', 'normal');
+      // `small`, not `normal`: the tile art box is 2.6rem wide, and the
+      // landing page renders this rail — `normal` was ~100 KB per tile there.
+      expect(mockUseCardThumb).toHaveBeenCalledWith('Meren of Clan Nel Toth', 'small');
+      expect(mockUseCardThumb).toHaveBeenCalledWith('Thrasios, Triton Hero', 'small');
+      expect(mockUseCardThumb).toHaveBeenCalledWith('Krenko, Mob Boss', 'small');
     });
   });
 
@@ -210,7 +239,7 @@ describe('TrendingRail', () => {
       expect(link.getAttribute('href')).toBe('/decks/new');
       expect(screen.queryByRole('button', { name: /praetors/i })).toBeNull();
       expect(link.getAttribute('title')).toBeNull();
-      expect(mockUseCardThumb).toHaveBeenCalledWith("Atraxa, Praetors' Voice", 'normal');
+      expect(mockUseCardThumb).toHaveBeenCalledWith("Atraxa, Praetors' Voice", 'small');
     });
 
     it('clicking navigates to /decks/new (router test wrapper, not a real navigation)', async () => {

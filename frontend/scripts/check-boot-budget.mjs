@@ -1,0 +1,56 @@
+// Boot payload budget — what a cold visit downloads before the app can paint.
+//
+// Reads dist/index.html, sums the gzipped size of every `modulepreload`ed
+// script (the entry's whole static import graph: the browser fetches all of
+// it before the entry runs) and of the render-blocking stylesheet(s), and
+// fails when either exceeds its budget. Runs in CI after `npm run build`.
+//
+// Budgets are set a hair above the measured 2026-09-09 baseline (JS 396 KB,
+// CSS 170 KB gzipped, from https://spellcontrol.com) so growth is a decision,
+// not a drift. Raising one is fine — say why in the commit that raises it.
+// Lowering one when a split lands keeps the ratchet honest.
+import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export const BUDGET_KB = { js: 410, css: 175 };
+
+const dist = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+// Vite emits multi-line <link> tags; a line-based scan misses them.
+const html = readFileSync(resolve(dist, 'index.html'), 'utf8').replace(/\s+/g, ' ');
+
+const hrefs = (re) => [...html.matchAll(re)].map((m) => m[1]);
+const scripts = new Set([
+  ...hrefs(/<link[^>]*rel="modulepreload"[^>]*href="([^"]+)"/g),
+  ...hrefs(/<script[^>]*type="module"[^>]*src="([^"]+)"/g),
+]);
+const styles = hrefs(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g);
+
+const gz = (href) => gzipSync(readFileSync(resolve(dist, '.' + href))).length;
+const table = (list) =>
+  [...list].map((h) => ({ href: h, kb: gz(h) / 1024 })).sort((a, b) => b.kb - a.kb);
+
+const js = table(scripts);
+const css = table(styles);
+const total = (rows) => rows.reduce((n, r) => n + r.kb, 0);
+
+const report = (label, rows, budget) => {
+  const sum = total(rows);
+  const ok = sum <= budget;
+  console.log(
+    `${ok ? 'OK  ' : 'FAIL'} ${label}: ${sum.toFixed(0)} KB gzipped across ${rows.length} files (budget ${budget} KB)`
+  );
+  for (const r of rows.slice(0, 8)) console.log(`      ${r.kb.toFixed(1).padStart(6)} KB  ${r.href}`);
+  return ok;
+};
+
+const jsOk = report('boot JS (module preloads)', js, BUDGET_KB.js);
+const cssOk = report('render-blocking CSS', css, BUDGET_KB.css);
+if (!jsOk || !cssOk) {
+  console.error(
+    '\nBoot payload over budget. Either move the growth behind a lazy import / route chunk, ' +
+      'or raise BUDGET_KB in frontend/scripts/check-boot-budget.mjs and say why in the commit.'
+  );
+  process.exit(1);
+}

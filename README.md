@@ -256,7 +256,8 @@ npm run db:down           # stop dev Postgres
 npm run dev               # backend + frontend together
 npm test                  # vitest in both workspaces
 npm run typecheck         # tsc --noEmit in both
-npm run build             # production build for both
+npm run build             # production build for both (frontend postbuild writes a .br + .gz beside every text asset; the backend serves those)
+npm run build:budget --prefix frontend   # boot payload budget: gzipped module-preloaded JS + render-blocking CSS vs frontend/scripts/check-boot-budget.mjs ceilings (CI runs it after the build)
 npm run lint              # eslint + stylelint
 npm run lint:fix
 npm run format            # prettier --write

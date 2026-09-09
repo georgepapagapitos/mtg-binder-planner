@@ -8,19 +8,21 @@ const ORIGIN = 'https://example.test';
 
 function stubFetch(health: () => Promise<Response>) {
   const calls: string[] = [];
-  vi.stubGlobal('fetch', async (url: string) => {
+  const bodies: string[] = [];
+  vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     calls.push(url);
     if (url === `${ORIGIN}/health`) return health();
+    bodies.push(String(init?.body ?? ''));
     return new Response('OK');
   });
-  return calls;
+  return { calls, bodies };
 }
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('probeAndPing', () => {
   it('pings the success URL when the public /health answers ok:true', async () => {
-    const calls = stubFetch(async () => Response.json({ ok: true }));
+    const { calls } = stubFetch(async () => Response.json({ ok: true }));
     await expect(probeAndPing(PING, ORIGIN)).resolves.toBe(true);
     expect(calls).toEqual([`${ORIGIN}/health`, PING]);
   });
@@ -33,9 +35,27 @@ describe('probeAndPing', () => {
         throw new Error('ENOTFOUND');
       },
     ]) {
-      const calls = stubFetch(health);
+      const { calls } = stubFetch(health);
       await expect(probeAndPing(PING, ORIGIN)).resolves.toBe(false);
       expect(calls).toEqual([`${ORIGIN}/health`, `${PING}/fail`]);
+    }
+  });
+
+  it('reports a client-error burst as a failure with the count in the body', async () => {
+    const { calls, bodies } = stubFetch(async () => Response.json({ ok: true }));
+    const burst = { count: async () => 40, minutes: 15, threshold: 25 };
+    await expect(probeAndPing(PING, ORIGIN, burst)).resolves.toBe(false);
+    expect(calls).toEqual([`${ORIGIN}/health`, `${PING}/fail`]);
+    expect(bodies[0]).toMatch(/40 client errors in the last 15 min/);
+  });
+
+  it('stays green at or under the burst threshold, and when the count itself fails', async () => {
+    for (const count of [async () => 25, async () => Promise.reject(new Error('db down'))]) {
+      const { calls } = stubFetch(async () => Response.json({ ok: true }));
+      await expect(probeAndPing(PING, ORIGIN, { count, minutes: 15, threshold: 25 })).resolves.toBe(
+        true
+      );
+      expect(calls).toEqual([`${ORIGIN}/health`, PING]);
     }
   });
 

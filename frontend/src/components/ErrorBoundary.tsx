@@ -1,3 +1,4 @@
+import { reportError } from '@/lib/analytics';
 import { logger } from '@/lib/logger';
 import { Component, type ReactNode } from 'react';
 import { BrandMark } from './shared/BrandMark';
@@ -19,6 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     logger.error('[ErrorBoundary]', error, info.componentStack);
+    reportError('render', error);
   }
 
   render() {

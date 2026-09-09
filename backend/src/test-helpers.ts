@@ -540,6 +540,25 @@ export async function createTestEnv(): Promise<TestEnv> {
       count INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (day, name, path)
     );
+    CREATE TABLE error_counts (
+      day DATE NOT NULL,
+      path TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      message TEXT NOT NULL,
+      frame TEXT NOT NULL DEFAULT '',
+      count INTEGER NOT NULL DEFAULT 0,
+      last_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (day, path, kind, message, frame)
+    );
+    CREATE INDEX error_counts_last_seen_idx ON error_counts(last_seen);
+    CREATE TABLE vital_counts (
+      day DATE NOT NULL,
+      path TEXT NOT NULL,
+      metric TEXT NOT NULL,
+      rating TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, path, metric, rating)
+    );
     CREATE INDEX deck_stat_snapshots_day_idx ON deck_stat_snapshots(day);
   `);
 

@@ -23,21 +23,39 @@ const adminLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
 /**
  * GET /api/admin/events?days=30
  * Raw (day, name, path, count) rows from the first-party beacon for the last
- * N days (default 30, max 365). The admin page aggregates client-side.
+ * N days (default 30, max 365), plus the client-error and web-vital rows the
+ * same beacon counts. The admin page aggregates client-side.
  */
 adminRouter.get('/events', requireAdmin, adminLimiter, async (req: Request, res: Response) => {
   const days = Math.min(365, Math.max(1, Number(req.query.days) || 30));
-  const { rows } = await getPool().query<{
-    day: string;
-    name: string;
-    path: string;
-    count: number;
-  }>(
-    `SELECT day::text AS day, name, path, count FROM event_counts
-      WHERE day >= CURRENT_DATE - ($1::int - 1) ORDER BY day DESC, count DESC`,
-    [days]
-  );
-  res.json({ events: rows });
+  const pool = getPool();
+  const [events, errors, vitals] = await Promise.all([
+    pool.query<{ day: string; name: string; path: string; count: number }>(
+      `SELECT day::text AS day, name, path, count FROM event_counts
+        WHERE day >= CURRENT_DATE - ($1::int - 1) ORDER BY day DESC, count DESC`,
+      [days]
+    ),
+    pool.query<{
+      day: string;
+      path: string;
+      kind: string;
+      message: string;
+      frame: string;
+      count: number;
+      last_seen: string;
+    }>(
+      `SELECT day::text AS day, path, kind, message, frame, count, last_seen::text AS last_seen
+         FROM error_counts
+        WHERE day >= CURRENT_DATE - ($1::int - 1) ORDER BY count DESC, last_seen DESC`,
+      [days]
+    ),
+    pool.query<{ day: string; path: string; metric: string; rating: string; count: number }>(
+      `SELECT day::text AS day, path, metric, rating, count FROM vital_counts
+        WHERE day >= CURRENT_DATE - ($1::int - 1)`,
+      [days]
+    ),
+  ]);
+  res.json({ events: events.rows, errors: errors.rows, vitals: vitals.rows });
 });
 
 adminRouter.get('/users', requireAdmin, adminLimiter, async (_req: Request, res: Response) => {

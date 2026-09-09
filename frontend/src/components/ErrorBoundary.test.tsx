@@ -3,6 +3,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary';
 
+const reportError = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/analytics', () => ({ reportError }));
+
 function Bomb({ shouldThrow }: { shouldThrow: boolean }) {
   if (shouldThrow) throw new Error('boom: some cryptic internal exception');
   return <div>All good</div>;
@@ -34,6 +37,12 @@ describe('ErrorBoundary', () => {
     // The real message still reaches logger.error (console.error) for
     // diagnostics — it just never becomes user-facing copy.
     expect(screen.queryByText(/cryptic internal exception/)).toBeNull();
+    // ...and the first-party beacon, so a render crash in production is
+    // counted rather than invisible.
+    expect(reportError).toHaveBeenCalledWith(
+      'render',
+      expect.objectContaining({ message: 'boom: some cryptic internal exception' })
+    );
   });
 
   it('offers both a retry and a reload action, each with real button semantics', () => {

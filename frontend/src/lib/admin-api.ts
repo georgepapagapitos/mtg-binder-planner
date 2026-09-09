@@ -75,9 +75,33 @@ export interface EventCountRow {
   count: number;
 }
 
+export interface ErrorCountRow {
+  day: string;
+  path: string;
+  kind: 'error' | 'rejection' | 'render';
+  message: string;
+  frame: string;
+  count: number;
+  /** Postgres timestamptz text. */
+  last_seen: string;
+}
+
+export interface VitalCountRow {
+  day: string;
+  path: string;
+  metric: 'LCP' | 'CLS' | 'INP';
+  rating: 'good' | 'needs-improvement' | 'poor';
+  count: number;
+}
+
+export interface BeaconRows {
+  events: EventCountRow[];
+  errors: ErrorCountRow[];
+  vitals: VitalCountRow[];
+}
+
 /** First-party beacon counters for the last `days` days (raw daily rows). */
-export async function listEvents(days = 30): Promise<EventCountRow[]> {
+export async function listEvents(days = 30): Promise<BeaconRows> {
   const res = await authedFetch(`/api/admin/events?days=${days}`);
-  const data = await handleResponse<{ events: EventCountRow[] }>(res);
-  return data.events;
+  return handleResponse<BeaconRows>(res);
 }

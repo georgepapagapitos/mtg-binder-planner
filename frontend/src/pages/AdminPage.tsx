@@ -14,7 +14,14 @@ import {
   useCollectionByCopyId,
 } from '../lib/allocations';
 import type { EnrichedCard } from '../types';
-import { listEvents, type EventCountRow } from '../lib/admin-api';
+import {
+  listEvents,
+  type BeaconRows,
+  type ErrorCountRow,
+  type EventCountRow,
+  type VitalCountRow,
+} from '../lib/admin-api';
+import { formatRelativeTime } from '../lib/format-time';
 import { userMessage } from '../lib/user-error';
 
 type Tab =
@@ -51,7 +58,7 @@ export function AdminPage() {
   const [tab, setTab] = useState<Tab>('overview');
   // First-party beacon counters (lib/analytics + /api/admin/events), fetched
   // once when the tab is first opened. null = not loaded yet.
-  const [events, setEvents] = useState<EventCountRow[] | null>(null);
+  const [events, setEvents] = useState<BeaconRows | null>(null);
   const [eventsError, setEventsError] = useState<string | null>(null);
   useEffect(() => {
     if (tab !== 'analytics' || events !== null) return;
@@ -1093,10 +1100,12 @@ function CountTable({ caption, rows }: { caption: string; rows: [string, number]
 
 /**
  * Last-30-day view of the first-party beacon: totals per event, page views
- * per (normalized) path, and page views per day. Aggregates client-side from
- * the raw daily rows so the API stays one trivial query.
+ * per (normalized) path, page views per day, then the two quality signals the
+ * same beacon counts — client errors by (message, frame) and Core Web Vitals
+ * by band. Aggregates client-side from the raw daily rows so the API stays
+ * one trivial query per table.
  */
-function AnalyticsTab({ events, error }: { events: EventCountRow[] | null; error: string | null }) {
+function AnalyticsTab({ events, error }: { events: BeaconRows | null; error: string | null }) {
   if (error) {
     return (
       <p className="admin-warn" role="alert">
@@ -1105,19 +1114,158 @@ function AnalyticsTab({ events, error }: { events: EventCountRow[] | null; error
     );
   }
   if (events === null) return <p className="admin-sub">Loading usage counters…</p>;
-  const views = events.filter((r) => r.name === 'pageview');
+  const views = events.events.filter((r) => r.name === 'pageview');
   return (
     <section className="admin-section">
       <h2>Analytics (last 30 days)</h2>
       <p className="admin-sub">
         Aggregate counters only: a day, an event name, and a path. Nothing per person is stored.
       </p>
-      <CountTable caption="Events" rows={sumBy(events, (r) => r.name)} />
+      <CountTable caption="Events" rows={sumBy(events.events, (r) => r.name)} />
       <CountTable caption="Page views by path" rows={sumBy(views, (r) => r.path).slice(0, 25)} />
       <CountTable
         caption="Page views by day"
         rows={sumBy(views, (r) => r.day).sort((a, b) => (a[0] < b[0] ? 1 : -1))}
       />
+      <ErrorTable rows={events.errors} />
+      <VitalsTable rows={events.vitals} />
     </section>
+  );
+}
+
+/** Distinct client errors, summed across days, most frequent first. */
+export function groupErrors(rows: ErrorCountRow[]): (ErrorCountRow & { days: number })[] {
+  const m = new Map<string, ErrorCountRow & { days: number }>();
+  for (const r of rows) {
+    const k = `${r.kind}|${r.path}|${r.message}|${r.frame}`;
+    const prev = m.get(k);
+    if (prev) {
+      prev.count += r.count;
+      prev.days++;
+      if (r.last_seen > prev.last_seen) prev.last_seen = r.last_seen;
+    } else m.set(k, { ...r, days: 1 });
+  }
+  return [...m.values()].sort((a, b) => b.count - a.count);
+}
+
+function ErrorTable({ rows }: { rows: ErrorCountRow[] }) {
+  const grouped = groupErrors(rows).slice(0, 50);
+  const total = rows.reduce((n, r) => n + r.count, 0);
+  return (
+    <table className="admin-table admin-table--dense">
+      <caption>
+        Client errors ({total.toLocaleString()} in 30 days, {grouped.length} distinct)
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Count</th>
+          <th scope="col">Kind</th>
+          <th scope="col">Path</th>
+          <th scope="col">Message</th>
+          <th scope="col">Frame</th>
+          <th scope="col">Last seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {grouped.length === 0 && (
+          <tr>
+            <td colSpan={6}>No errors reported.</td>
+          </tr>
+        )}
+        {grouped.map((r) => (
+          <tr key={`${r.kind}|${r.path}|${r.message}|${r.frame}`}>
+            <td>{r.count.toLocaleString()}</td>
+            <td>{r.kind}</td>
+            <td className="admin-mono">{r.path}</td>
+            <td>{r.message}</td>
+            <td className="admin-mono">{r.frame || '—'}</td>
+            <td>{formatRelativeTime(new Date(r.last_seen).getTime())}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export interface VitalSummary {
+  metric: VitalCountRow['metric'];
+  path: string;
+  samples: number;
+  good: number;
+  needs: number;
+  poor: number;
+  passes: boolean;
+}
+
+/**
+ * One row per (metric, path): sample count, share in each band, and the p75
+ * verdict — a metric passes at p75 when at least 75% of its samples are good,
+ * which is the Core Web Vitals definition without storing a single timing.
+ */
+export function summarizeVitals(rows: VitalCountRow[]): VitalSummary[] {
+  const m = new Map<string, VitalSummary>();
+  for (const r of rows) {
+    const k = `${r.metric}|${r.path}`;
+    const row = m.get(k) ?? {
+      metric: r.metric,
+      path: r.path,
+      samples: 0,
+      good: 0,
+      needs: 0,
+      poor: 0,
+      passes: false,
+    };
+    row.samples += r.count;
+    if (r.rating === 'good') row.good += r.count;
+    else if (r.rating === 'needs-improvement') row.needs += r.count;
+    else row.poor += r.count;
+    m.set(k, row);
+  }
+  const out = [...m.values()];
+  for (const row of out) row.passes = row.good / row.samples >= 0.75;
+  return out.sort(
+    (a, b) =>
+      Number(a.passes) - Number(b.passes) ||
+      b.samples - a.samples ||
+      a.metric.localeCompare(b.metric)
+  );
+}
+
+function VitalsTable({ rows }: { rows: VitalCountRow[] }) {
+  const summary = summarizeVitals(rows);
+  const pct = (n: number, of: number) => `${Math.round((n / of) * 100)}%`;
+  return (
+    <table className="admin-table admin-table--dense">
+      <caption>Web vitals by path (failing at p75 first)</caption>
+      <thead>
+        <tr>
+          <th scope="col">Metric</th>
+          <th scope="col">Path</th>
+          <th scope="col">Samples</th>
+          <th scope="col">Good</th>
+          <th scope="col">Needs work</th>
+          <th scope="col">Poor</th>
+          <th scope="col">p75</th>
+        </tr>
+      </thead>
+      <tbody>
+        {summary.length === 0 && (
+          <tr>
+            <td colSpan={7}>No timings reported.</td>
+          </tr>
+        )}
+        {summary.map((r) => (
+          <tr key={`${r.metric}|${r.path}`} className={r.passes ? undefined : 'admin-row--err'}>
+            <td>{r.metric}</td>
+            <td className="admin-mono">{r.path}</td>
+            <td>{r.samples.toLocaleString()}</td>
+            <td>{pct(r.good, r.samples)}</td>
+            <td>{pct(r.needs, r.samples)}</td>
+            <td>{pct(r.poor, r.samples)}</td>
+            <td>{r.passes ? 'Good' : <span className="admin-err">Failing</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

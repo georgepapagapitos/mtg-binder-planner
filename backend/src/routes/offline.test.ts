@@ -150,6 +150,20 @@ describe('GET /api/offline/combos', () => {
     expect(res.headers['etag']).toMatch(/^".+"$/);
   });
 
+  it('serves gzipped NDJSON when asked for it, with its own ETag and Vary: Accept', async () => {
+    const json = await request(app).get('/api/offline/combos').buffer(true);
+    const nd = await request(app)
+      .get('/api/offline/combos')
+      .set('Accept', 'application/x-ndjson, application/json;q=0.9')
+      .buffer(true);
+    expect(nd.status).toBe(200);
+    expect(nd.headers['content-type']).toMatch(/application\/x-ndjson/);
+    expect(nd.headers['content-encoding']).toBe('gzip');
+    expect(nd.headers['vary']).toBe('Accept');
+    expect(nd.headers['etag']).not.toBe(json.headers['etag']);
+    expect(nd.headers['x-offline-version']).toBe(json.headers['x-offline-version']);
+  });
+
   it('returns 304 when If-None-Match matches', async () => {
     const first = await request(app).get('/api/offline/combos');
     const second = await request(app)

@@ -3,7 +3,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { OfflineCombo } from './types';
 
 const combos: OfflineCombo[] = [];
-vi.mock('./db', () => ({ getAllCombos: async () => combos }));
+vi.mock('./db', () => ({
+  // The matcher scans the store page by page; one page holding everything.
+  iterateComboPages: async function* () {
+    yield combos;
+  },
+}));
 
 const { searchCombosLocal } = await import('./match-combos');
 

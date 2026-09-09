@@ -35,6 +35,7 @@ export async function matchCombos(req: MatchRequest): Promise<ComboMatchResponse
   // reference data, lazily cached on first use. We only fall back to the authed
   // server endpoint when the dataset can't be cached (e.g. offline + empty
   // cache on first run) — for a logged-in user that still works.
+  let localFailed = false;
   if (await ensureCombosCached()) {
     try {
       const local = await matchCombosLocal({
@@ -50,6 +51,7 @@ export async function matchCombos(req: MatchRequest): Promise<ComboMatchResponse
       // used" is exactly the case the server fallback below exists for, so
       // take it rather than surfacing the raw exception on the deck panel.
       logger.warn('[combos] local matcher failed, falling back to the server', err);
+      localFailed = true;
     }
   }
   // Fallback path — device-local cache couldn't be used. `/api/combos/match`
@@ -60,6 +62,14 @@ export async function matchCombos(req: MatchRequest): Promise<ComboMatchResponse
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
+  }).catch((err: Error & { status?: number }) => {
+    // Signed out AND the device-local matcher just failed: the server's
+    // "Sign in to continue." is accurate but names the wrong problem — the
+    // user did nothing auth-shaped, their browser storage did. Say that.
+    if (localFailed && err.status === 401) {
+      throw new Error("Couldn't load combos on this device. Try again in a moment.");
+    }
+    throw err;
   });
   return { ...server, source: 'server' };
 }

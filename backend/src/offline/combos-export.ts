@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { gzipSync } from 'node:zlib';
-import { desc } from 'drizzle-orm';
+import { once } from 'node:events';
+import { createGzip } from 'node:zlib';
+import { asc, desc } from 'drizzle-orm';
 import { getDb } from '../db';
 import { combos, comboCards } from '../db/schema';
 import type { OfflineCombo, OfflineComboCard } from './types';
@@ -13,7 +14,51 @@ interface CombosPayload {
   rawBytes: number;
   gzippedBytes: number;
   updatedAt: number;
+  /** The dataset as one gzipped JSON array — the legacy shape. */
   gzipped: Buffer;
+  /**
+   * The same rows as gzipped NDJSON (one combo per line). Clients read this
+   * incrementally and insert as rows arrive, so a 107k-row dataset never has
+   * to exist as a single 160 MB string (or array) in a WebView's heap.
+   */
+  gzippedNdjson: Buffer;
+}
+
+/**
+ * Gzip a sequence of string parts without ever materializing the joined text:
+ * each part is hashed, counted and written to the compressor as it is produced,
+ * honouring backpressure. Keeps the six-hourly rebuild's peak at "rows in
+ * memory + ~18 MB of gzip" instead of "rows + 160 MB string + 160 MB buffer".
+ */
+async function gzipParts(
+  parts: Iterable<string>
+): Promise<{ gz: Buffer; rawBytes: number; sha1: string }> {
+  const hash = createHash('sha1');
+  const chunks: Buffer[] = [];
+  let rawBytes = 0;
+  const gz = createGzip();
+  gz.on('data', (c: Buffer) => chunks.push(c));
+  const ended = once(gz, 'end');
+  for (const part of parts) {
+    const b = Buffer.from(part, 'utf-8');
+    rawBytes += b.byteLength;
+    hash.update(b);
+    if (!gz.write(b)) await once(gz, 'drain');
+  }
+  gz.end();
+  await ended;
+  return { gz: Buffer.concat(chunks), rawBytes, sha1: hash.digest('hex') };
+}
+
+/** `[row,row,…]` — byte-identical to `JSON.stringify(rows)`, so the version hash is unchanged. */
+function* jsonArrayParts(lines: string[]): Iterable<string> {
+  yield '[';
+  for (let i = 0; i < lines.length; i++) yield i === 0 ? lines[i] : `,${lines[i]}`;
+  yield ']';
+}
+
+function* ndjsonParts(lines: string[]): Iterable<string> {
+  for (const line of lines) yield `${line}\n`;
 }
 
 let current: CombosPayload | null = null;
@@ -23,7 +68,10 @@ let lastBuiltAt = 0;
 async function buildPayload(): Promise<CombosPayload> {
   const db = getDb();
 
-  const comboRows = await db.select().from(combos).orderBy(desc(combos.popularity));
+  // Popularity ties are common; without a total order the row sequence — and
+  // so the payload hash — could change between rebuilds, and every client
+  // would re-download an identical dataset. The id tiebreak makes it stable.
+  const comboRows = await db.select().from(combos).orderBy(desc(combos.popularity), asc(combos.id));
   const cardRows = await db.select().from(comboCards);
 
   const cardsByCombo = new Map<string, OfflineComboCard[]>();
@@ -61,18 +109,19 @@ async function buildPayload(): Promise<CombosPayload> {
     });
   }
 
-  const json = JSON.stringify(out);
-  const raw = Buffer.from(json, 'utf-8');
-  const gz = gzipSync(raw);
-  const version = createHash('sha1').update(raw).digest('hex').slice(0, 16);
+  // One JSON.stringify per row, shared by both encodings.
+  const lines = out.map((c) => JSON.stringify(c));
+  const array = await gzipParts(jsonArrayParts(lines));
+  const ndjson = await gzipParts(ndjsonParts(lines));
 
   return {
-    version,
+    version: array.sha1.slice(0, 16),
     comboCount: out.length,
-    rawBytes: raw.byteLength,
-    gzippedBytes: gz.byteLength,
+    rawBytes: array.rawBytes,
+    gzippedBytes: array.gz.byteLength,
     updatedAt: Date.now(),
-    gzipped: gz,
+    gzipped: array.gz,
+    gzippedNdjson: ndjson.gz,
   };
 }
 

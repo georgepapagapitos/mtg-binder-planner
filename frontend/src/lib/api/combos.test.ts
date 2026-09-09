@@ -117,6 +117,29 @@ describe('matchCombos (client-side)', () => {
   });
 });
 
+describe('matchCombos (local failure + signed out)', () => {
+  it('names the device, not sign-in, when the local matcher failed and the server says 401', async () => {
+    vi.mocked(ensureCombosCached).mockResolvedValue(true);
+    vi.mocked(matchCombosLocal).mockRejectedValue(new Error('IndexedDB is not available.'));
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ error: 'Sign in to continue.' }, { status: 401 })
+    );
+
+    await expect(matchCombos({ ownedOracleIds: ['a'] })).rejects.toThrow(
+      /couldn't load combos on this device/i
+    );
+  });
+
+  it('keeps the server message for a 401 when the local matcher was never tried', async () => {
+    vi.mocked(ensureCombosCached).mockResolvedValue(false);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ error: 'Sign in to continue.' }, { status: 401 })
+    );
+
+    await expect(matchCombos({ ownedOracleIds: ['a'] })).rejects.toThrow(/sign in to continue/i);
+  });
+});
+
 describe('getCombo', () => {
   it('GETs /api/combos/:id with URL-encoded id and returns the body', async () => {
     const fetchSpy = vi

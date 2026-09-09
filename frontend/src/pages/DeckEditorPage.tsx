@@ -1050,6 +1050,22 @@ export function DeckEditorPage() {
   // For each EDHREC staple the deck wants but doesn't own, find an owned card
   // filling the same role within color identity. Pure + cheap → recompute on
   // change rather than persist.
+  // One candidate per NAME, not per physical copy: the finder ranks by name
+  // (role, identity, similarity are all per card, not per copy), so 11.5k
+  // copies collapse to ~4.4k names — and the pool survives deck edits (E276).
+  const ownedPool = useMemo(() => {
+    const byName = new Map<string, SubstituteCandidate>();
+    for (const c of collectionCards) {
+      if (byName.has(c.name)) continue;
+      byName.set(c.name, {
+        name: c.name,
+        colorIdentity: c.colorIdentity ?? [],
+        cmc: c.cmc,
+        typeLine: c.typeLine,
+      });
+    }
+    return [...byName.values()];
+  }, [collectionCards]);
   const substitutionPlan = useMemo(() => {
     if (!deck || !DECK_FORMAT_CONFIGS[deck.format].hasCommander) return null;
     const gap = deck.gapAnalysis;
@@ -1059,12 +1075,6 @@ export function DeckEditorPage() {
     const missingStaples = gap.filter((g) => g.role && !ownedNames.has(g.name));
     if (missingStaples.length === 0) return null;
 
-    const ownedPool: SubstituteCandidate[] = collectionCards.map((c) => ({
-      name: c.name,
-      colorIdentity: c.colorIdentity ?? [],
-      cmc: c.cmc,
-      typeLine: c.typeLine,
-    }));
     const deckNames = new Set(deck.cards.map((c) => c.card.name));
     const inclusionByName = new Map<string, number>(Object.entries(deck.cardInclusionMap ?? {}));
     // Options variant: each primary carries ranked owned alternatives for the
@@ -1073,7 +1083,7 @@ export function DeckEditorPage() {
     return buildSubstitutionOptions(missingStaples, ownedPool, deckNames, commanderColorIdentity, {
       inclusionByName,
     });
-  }, [deck, ownedNames, collectionCards, commanderColorIdentity]);
+  }, [deck, ownedNames, ownedPool, commanderColorIdentity]);
 
   // Strong on-color duals for the deck's colors, fetched live for the
   // "Re-analyze lands" tool's acquire rows (duals worth getting, not just ones

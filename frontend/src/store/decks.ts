@@ -1300,11 +1300,15 @@ export const useDecksStore = create<DecksState>()(
 
           // Pass 4 — fresh pick: anything left has no usable current binding
           // and no preferred printing available; fall back to pickCollectionCopy's
-          // name-only heuristic (cheapest non-foil).
+          // name-only heuristic (cheapest non-foil). Fed from the free index, not
+          // the whole collection: every UNOWNED slot lands here on every boot,
+          // and scanning 11.5k cards per slot was ~1 s of the hydrate long task
+          // at a phone's CPU (E276). Same candidates, same preference order.
           for (const slot of needsFreshPick) {
+            const freeOfName = [...(freeByNameByPrinting.get(slot.cardName)?.values() ?? [])];
             const pick = pickCollectionCopy(
               slot.cardName,
-              newCollection,
+              freeOfName.flat(),
               allocated,
               slot.scryfallId
             );

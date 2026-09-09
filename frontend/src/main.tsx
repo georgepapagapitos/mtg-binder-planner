@@ -31,46 +31,37 @@ import './styles/collection.css';
 import './styles/auth.css';
 import './styles/settings-sync.css';
 import './styles/binder-card-management.css';
-import './styles/admin-scanner.css';
 import './styles/holographic.css';
 import './styles/themes.css';
 import './styles/typesets.css';
 // Split from the former styles/deck-builder.css — imported in original cascade order (byte-identical).
+// Page-only families live with the page that renders them (E265): the play
+// table's eight sheets in PlayPage, the editor-only / new-deck-only /
+// combos-list / import-dialog sheets in those pages, the scanner + admin
+// sheet in CardScanner / AdminPage / YouPage. A sheet stays here only while
+// a class of it is rendered from the entry chunk or from several hubs —
+// `src/styles/css-chunk-ownership.test.ts` is the guard.
 import './styles/deck-builder-page.css';
 import './styles/deck-builder-commander.css';
+// Stays global: deck-builder-responsive.css (below) overrides its
+// .deck-builder-options / .deck-builder-field at ≤1024px by ORDER, and a page
+// chunk's sheet would load after it and win.
 import './styles/deck-builder-settings.css';
 import './styles/deck-builder-display.css';
 import './styles/deck-builder-card-list.css';
 import './styles/deck-builder-analysis.css';
 import './styles/deck-builder-decks-index.css';
-import './styles/deck-builder-editor.css';
-import './styles/deck-builder-customizer.css';
 import './styles/deck-builder-export.css';
 import './styles/deck-builder-card-search.css';
-import './styles/deck-builder-test-hand.css';
 import './styles/deck-builder-combos.css';
 import './styles/deck-builder-tabs.css';
-import './styles/deck-builder-combos-list.css';
-import './styles/deck-builder-row-qty.css';
 import './styles/deck-builder-toast.css';
 import './styles/deck-builder-binder-slot.css';
 import './styles/deck-builder-responsive.css';
-import './styles/deck-builder-import-dialog.css';
 import './styles/deck-builder-deck-extras.css';
 import './styles/deck-builder-binders-index.css';
-import './styles/deck-builder-analysis-panel.css';
-import './styles/deck-builder-commander-profile.css';
 import './styles/deck-builder-guided.css';
 import './styles/deck-builder-skeleton.css';
-// Split from the former styles/play.css — imported in original cascade order.
-import './styles/play-setup.css';
-import './styles/play-board.css';
-import './styles/play-panel-menus.css';
-import './styles/play-history-inline.css';
-import './styles/play-effects.css';
-import './styles/play-enhancements.css';
-import './styles/play-layout-editor.css';
-import './styles/play-counters-panel.css';
 import './styles/social-shared.css';
 import './styles/shared.css';
 import { bootstrapTheme, useThemeStore } from './store/theme';

@@ -782,3 +782,51 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ── Active-game indicators in app chrome ────────────────────────────────
+   Rendered by the Layout's nav on every route, so they live with the nav —
+   not with the play table's sheets, which only load on /play (E265). */
+
+.site-nav-game-dot,
+.mobile-tab-bar-game-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  /* Brass, not --warn-text: both dots live on the always-dark leather
+     chrome, where the light schemes' dark-brown warn override vanishes.
+     The seal gold is theme-invariant and reads on leather + accent fills. */
+  background: var(--brand-seal-gold);
+  display: inline-block;
+  box-shadow: 0 0 6px var(--brand-seal-gold);
+  animation: play-pulse 1.8s ease-in-out infinite;
+}
+
+.site-nav-game-dot {
+  margin-left: 0.35rem;
+}
+
+/* Sits on the upper-right of the heart icon in the mobile bar. */
+.mobile-tab-bar-game-dot {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+}
+
+@keyframes play-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The global reduced-motion backstop only shortens animation-duration; on an
+   infinite loop that turns play-pulse into a ~1kHz strobe. Stop it outright. */
+@media (prefers-reduced-motion: reduce) {
+  .site-nav-game-dot,
+  .mobile-tab-bar-game-dot {
+    animation: none;
+  }
+}

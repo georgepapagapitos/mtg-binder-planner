@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom';
 import { useMenuKeyboard } from '@/lib/use-menu-keyboard';
 import { computePopoverPlacement, getSafeViewport } from '@/lib/popover-placement';
+import './OverflowMenu.css';
 
 export interface OverflowMenuItem {
   label: string;

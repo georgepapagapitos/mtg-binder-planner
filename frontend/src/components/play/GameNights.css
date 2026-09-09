@@ -1,6 +1,32 @@
 /* Game nights tab on the Play page. Cards are container surfaces
    (--radius-lg); all buttons are rects per the shape rules. */
 
+/* ── Setup header (title + help) ─────────────────────────────────────────
+   Rendered by this component on Home, a friend hub and /play, and by the
+   play page's own setup form. Lives here so every chunk that mounts the
+   component carries it; the play table's sheets only load on /play (E265).
+   FIRST in the file on purpose: `.game-nights-header` below overrides the
+   header's gap at equal specificity by order, exactly as it did when these
+   rules came from main.tsx's play-setup.css. */
+.play-setup-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.play-setup-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0;
+}
+
+.play-setup-help {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
 .game-nights {
   display: flex;
   flex-direction: column;

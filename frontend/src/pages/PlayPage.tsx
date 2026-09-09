@@ -1,3 +1,13 @@
+// The play table's stylesheets ship with this chunk, not the boot payload
+// (E265) — same relative order as the former main.tsx block.
+import '@/styles/play-setup.css';
+import '@/styles/play-board.css';
+import '@/styles/play-panel-menus.css';
+import '@/styles/play-history-inline.css';
+import '@/styles/play-effects.css';
+import '@/styles/play-enhancements.css';
+import '@/styles/play-layout-editor.css';
+import '@/styles/play-counters-panel.css';
 import { EmptyStateMark } from '../components/shared/EmptyStateMark';
 import { BookOpen, Check, Copy, Swords, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';

@@ -1,6 +1,8 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+// Admin + scanner sheet: shared with AdminPage and CardScanner, off the boot payload (E265).
+import '@/styles/admin-scanner.css';
 import { useSignInPath } from '../lib/sign-in-path';
 import { Browser } from '@capacitor/browser';
 import { useAuth } from '../store/auth';

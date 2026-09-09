@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+// Shared with the deck editor; ships with the two chunks, not the boot payload (E265).
+import '@/styles/deck-builder-combos-list.css';
 import type { ComboMatch } from '../types/combos';
 import { useCollectionStore } from '../store/collection';
 import { useAuth } from '../store/auth';

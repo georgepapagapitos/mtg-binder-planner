@@ -1,6 +1,8 @@
 import { logger } from '@/lib/logger';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+// Scanner + admin sheet ships with this lazy chunk (and AdminPage / YouPage), not the boot payload (E265).
+import '@/styles/admin-scanner.css';
 import {
   ChevronRight,
   Flashlight,

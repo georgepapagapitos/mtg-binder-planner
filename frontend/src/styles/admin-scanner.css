@@ -215,23 +215,6 @@
   width: 100%;
 }
 
-/* Top-of-panel progress slot used by UploadPanel while a collection
-   import / backup restore runs. Same vertical rhythm as the success
-   / unresolved banners that follow it so the panel doesn't jump
-   when the bar appears. */
-.upload-progress {
-  margin-bottom: var(--space-3);
-}
-
-/* The track/fill (incl. the indeterminate sweep) is the shared <MeterBar>
-   primitive (components/shared/MeterBar.tsx) at size="md". */
-
-.progress-bar-msg {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  margin-top: 0.35rem;
-}
-
 /* ── Card scanner (camera-based import) ────────────────────────────────────
  * Full-viewport overlay; video fills behind a card-shaped viewfinder.
  * Mobile-first: the layout assumes a portrait phone but degrades cleanly
@@ -1493,53 +1476,6 @@
   gap: 0.3rem;
 }
 
-/* ---------- List entries grid view ---------- */
-
-.list-entries-grid {
-  display: grid;
-
-  /* Zoom-driven min column width — ListDetailView sets both vars inline per
-     zoom step (lib/grid-zoom.ts ladders); the mobile ladder takes over
-     ≤1024px. min(…, 100%) keeps a big step from overflowing a narrow
-     container (it clamps to one full-width column instead). Same pattern as
-     .deck-card-grid / the collection grid. */
-  --card-min: var(--card-min-desktop, 150px);
-  grid-template-columns: repeat(auto-fill, minmax(min(var(--card-min), 100%), 1fr));
-  /* Shared with the collection grid's JS column math — see --card-grid-gap. */
-  gap: var(--card-grid-gap);
-  padding-bottom: var(--space-4);
-}
-
-@media (max-width: 1024px) {
-  .list-entries-grid {
-    --card-min: var(--card-min-mobile, 110px);
-  }
-}
-
-/* Placeholder tile while entries resolve — the shared .collection-grid-item
-   geometry (aspect-ratio/radius) plus a pulse. */
-.list-entries-grid-cell--skeleton {
-  cursor: default;
-  animation: skeleton-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
-}
-
-/* Infinite loop: the global 0.001ms backstop would strobe it (~714Hz). Gate it. */
-@media (prefers-reduced-motion: reduce) {
-  .list-entries-grid-cell--skeleton {
-    animation: none;
-  }
-}
-
 /* ---------- Admin panel (Settings page, role=admin only) ---------- */
 
 /* Horizontal scroll fallback so the actions column stays reachable on narrow
@@ -1703,26 +1639,6 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-report-skeleton-bar {
     animation: none;
-  }
-}
-
-/* ── Reduced motion: press-feedback buttons (UX-206) ─────────────────────────
-   The press still snaps to scale(0.97) — positional feedback, not motion —
-   but nothing eases. Explicit gate per STYLE_GUIDE (the global 0.001ms kill
-   is a backstop, not the mechanism). Lives at the end of the file so it wins
-   the equal-specificity cascade against every base rule above. */
-@media (prefers-reduced-motion: reduce) {
-  .pill-btn,
-  .btn,
-  .btn-link,
-  .btn-link-danger,
-  .btn-add-group,
-  .filter-popover-btn,
-  .sort-popover-btn,
-  .collection-toolbar-stats-btn,
-  .pagination-btn,
-  .color-filter-btn {
-    transition: none;
   }
 }
 

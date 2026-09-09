@@ -43,7 +43,7 @@ const createLimiter = testAwareLimiter({ windowMs: 60_000, max: 20 });
  * to its still-open stream; a long-poll subscriber resolves its held request
  * once and is removed — see GET /:code/poll.
  *
- * Single-machine by construction — and so is the rest of the backend: the
+ * ponytail: single-machine by construction — and so is the rest of the backend: the
  * Scryfall cache is SQLite on the Fly volume (`fly.toml [mounts]`), which is
  * pinned to one machine, so a second machine is not a scaling option anyone
  * can take casually. This registry, `boards`, `requests` and `lastSeen` are
@@ -53,6 +53,10 @@ const createLimiter = testAwareLimiter({ windowMs: 60_000, max: 20 });
  * split-brain. `warnIfMultiMachine` (../fly-topology.ts) makes that loud at
  * boot and every few minutes. Upgrade path, if multi-machine ever matters:
  * Postgres LISTEN/NOTIFY fan-out plus tables for boards/requests/presence.
+ *
+ * This and every other ceiling the table knowingly runs under — with its
+ * failure mode and upgrade path — is listed in README § "Online table:
+ * accepted ceilings". A limit that isn't on that ledger is a bug.
  */
 interface Subscriber {
   /** Authenticated caller this subscriber was opened by — see `broadcastGameState`'s eviction check and `isSeatPresent` below. */

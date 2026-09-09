@@ -56,11 +56,11 @@ jobs:
       # lfs: true so card-embeddings.bin checks out as the real binary (not a
       # pointer) and Git LFS is initialized — the regenerated DB must commit
       # back through the LFS filter, and the size report needs real bytes.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -119,14 +119,14 @@ jobs:
       # (a GitHub App installed on this repo with Contents + Pull requests: write).
       - name: Generate app token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.SCANNER_BOT_APP_ID }}
           private-key: ${{ secrets.SCANNER_BOT_PRIVATE_KEY }}
 
       - name: Open refresh PR
         id: cpr
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ steps.app-token.outputs.token }}
           branch: chore/scanner-ingest-refresh

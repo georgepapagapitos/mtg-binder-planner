@@ -20,7 +20,14 @@ android {
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
-            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            // `!*.gz:!*.br` — the frontend's `postbuild` (scripts/precompress-dist.mjs)
+            // writes a .br + .gz beside every text asset in dist/ for the backend to
+            // serve; `cap sync` copies them here too. Two things go wrong if they
+            // reach the APK: the asset merger rejects `x.js` + `x.js.gz` as duplicate
+            // resources and the build fails (the v0.12.4 cut hit this first), and
+            // even if it didn't, Capacitor's local server never content-negotiates,
+            // so they would be dead weight that roughly doubles the bundle.
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.gz:!*.br'
         }
     }
 

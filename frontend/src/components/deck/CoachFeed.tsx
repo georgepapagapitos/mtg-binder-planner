@@ -916,6 +916,14 @@ export function CoachFeed({
                         commanderName={commanderName}
                         peekName={change.name}
                         onPreview={() => carousel.open(previewEntries, change.name)}
+                        onPreviewOut={(c) =>
+                          // The card being cut opens as a two-card trade: cut → incoming,
+                          // so a swipe compares exactly what the swap exchanges.
+                          carousel.open(
+                            [{ name: c.inName!, label: `Cut for ${c.name}` }, entryFor(c)],
+                            c.inName!
+                          )
+                        }
                         onAct={(c) => handleApplyWithLeave(c)}
                         acting={
                           busy.has(change.name) || (change.inName ? busy.has(change.inName) : false)

@@ -588,8 +588,9 @@ async function fetchCheapestPrintingByName(
     }
 
     // No Arena-legal printing exists (or the query 404'd) — retry as a plain
-    // cheapest-paper search rather than giving up.
-    if (arenaOnly) return fetchCheapestPrintingByName(name, false);
+    // cheapest-paper search rather than giving up, and remember the answer
+    // under the arena key too so the next arenaOnly ask doesn't re-search.
+    if (arenaOnly) return fetchPlainAndRememberForArena(name);
 
     // Fallback to /cards/named if search returned no results (name mismatch, etc.)
     if (response.status === 404) {
@@ -603,8 +604,14 @@ async function fetchCheapestPrintingByName(
 
     return null;
   } catch {
-    return arenaOnly ? fetchCheapestPrintingByName(name, false) : null;
+    return arenaOnly ? fetchPlainAndRememberForArena(name) : null;
   }
+}
+
+async function fetchPlainAndRememberForArena(name: string): Promise<ScryfallCard | null> {
+  const card = await fetchCheapestPrintingByName(name, false);
+  if (card) cardCache.set(cacheKeyFor(name, undefined, true), card);
+  return card;
 }
 
 /** Split requested names into already-cached results and the names still to fetch. */

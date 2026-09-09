@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { scheduleHeartbeat } from './heartbeat';
 import cookieParser from 'cookie-parser';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
@@ -1422,6 +1423,19 @@ async function start() {
     // Comprehensive Rules for the AI rules Q&A (E261) — ~1MB text, quarterly
     // updates, skipped entirely when the published URL hasn't moved.
     afterBoot('rules ingest', 45_000, scheduleRulesIngest);
+  }
+
+  // Passive uptime monitor (E266): only armed when the ping URL secret is set.
+  // The probe origin is overridable so a local run can point at a bogus host
+  // and watch /fail land, without touching prod's check.
+  const heartbeatUrl = process.env.HEALTHCHECKS_PING_URL;
+  if (heartbeatUrl && process.env.UPTIME_HEARTBEAT_DISABLED !== '1') {
+    afterBoot('uptime heartbeat', 0, () =>
+      scheduleHeartbeat(
+        heartbeatUrl,
+        process.env.HEALTHCHECKS_PROBE_ORIGIN ?? 'https://spellcontrol.com'
+      )
+    );
   }
 
   if (process.env.SCRYFALL_BULK_INGEST_DISABLED !== '1') {

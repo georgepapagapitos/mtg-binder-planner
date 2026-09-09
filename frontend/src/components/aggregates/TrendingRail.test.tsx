@@ -70,6 +70,12 @@ function stubFetchResolved(body: unknown, status = 200) {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(body, status)));
 }
 
+/** The skeleton renders the section headings too, so "Rising commanders"
+ *  being on screen says nothing about the fetch — wait for the loading
+ *  status to leave instead (E272: a wait on skeleton text let the tile
+ *  assertions run before the stubbed fetch settled, under suite load). */
+const loaded = () => waitFor(() => expect(screen.queryByText('Loading trending decks')).toBeNull());
+
 function renderRail(enabled = true) {
   return render(
     <MemoryRouter>
@@ -126,7 +132,8 @@ describe('TrendingRail', () => {
   it('reserves the shape the rail had last time: its tile count, or nothing when it was empty', async () => {
     stubFetchResolved({ risingCommanders: risingFixture });
     const { unmount } = renderRail();
-    await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
+    await loaded();
+    expect(screen.getByText('Rising commanders')).toBeTruthy();
     await waitFor(() =>
       expect(localStorage.getItem('sc-trending-shape')).toBe(String(risingFixture.length))
     );
@@ -166,7 +173,8 @@ describe('TrendingRail', () => {
   it('renders only the rising sub-section when topCopiedDecks is absent', async () => {
     stubFetchResolved({ risingCommanders: risingFixture });
     renderRail();
-    await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
+    await loaded();
+    expect(screen.getByText('Rising commanders')).toBeTruthy();
     expect(screen.queryByText('Most copied decks')).toBeNull();
     expect(screen.getByText(`Build with ${risingFixture[0].commanderName}`)).toBeTruthy();
   });
@@ -174,7 +182,8 @@ describe('TrendingRail', () => {
   it('renders both sub-sections when both are present', async () => {
     stubFetchResolved({ risingCommanders: risingFixture, topCopiedDecks: topCopiedDecksFixture });
     renderRail();
-    await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
+    await loaded();
+    expect(screen.getByText('Rising commanders')).toBeTruthy();
     expect(screen.getByText('Most copied decks')).toBeTruthy();
   });
 
@@ -191,7 +200,8 @@ describe('TrendingRail', () => {
       vi.fn().mockResolvedValueOnce(jsonResponse({ risingCommanders: risingFixture }))
     );
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
-    await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
+    await loaded();
+    expect(screen.getByText('Rising commanders')).toBeTruthy();
   });
 
   describe('most-copied sub-section (independently testable from rising commanders)', () => {
@@ -231,7 +241,8 @@ describe('TrendingRail', () => {
     it('renders as a real anchor, never a button, with honest non-prefill-claiming copy', async () => {
       stubFetchResolved({ risingCommanders: risingFixture });
       renderRail();
-      await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
+      await loaded();
+      expect(screen.getByText('Rising commanders')).toBeTruthy();
 
       const link = screen.getByRole('link', {
         name: `Build a deck with ${risingFixture[0].commanderName}`,
@@ -252,7 +263,8 @@ describe('TrendingRail', () => {
           </Routes>
         </MemoryRouter>
       );
-      await waitFor(() => expect(screen.getByText('Rising commanders')).toBeTruthy());
+      await loaded();
+      expect(screen.getByText('Rising commanders')).toBeTruthy();
       fireEvent.click(screen.getAllByRole('link', { name: /build a deck with/i })[0]);
       await waitFor(() => expect(screen.getByText('New deck sentinel')).toBeTruthy());
     });

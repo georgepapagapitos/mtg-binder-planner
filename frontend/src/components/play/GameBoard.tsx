@@ -17,7 +17,6 @@ import { scryfallArtCrop } from '../../lib/offline/slim-to-scryfall';
 import { cmdDamageFillRatio, cmdDamageToLethal } from '../../lib/cmd-damage';
 import { useTapAndHold } from '../../lib/tap-and-hold';
 import { LifeKeypad } from './LifeKeypad';
-import { ShareDialog } from '../ShareDialog';
 import { SeatMenu } from './SeatMenu';
 import { GameMenu } from './GameMenu';
 import { GameRecap } from './GameRecap';
@@ -75,7 +74,6 @@ export function GameBoard({
   // layout ids fall back to the count's default.
   const board = resolveLayout(total, game.layout);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   // Commander-damage focus mode: the seat currently asking "how much has each
   // of you hit me for?". Null = normal board. Held here (not per panel)
   // because entering it changes every OTHER panel's meaning.
@@ -282,16 +280,6 @@ export function GameBoard({
           onUndo={onUndo}
           undoLabel={undoLabel}
           dispatch={dispatchTracked}
-          onShare={() => setShareOpen(true)}
-        />
-      )}
-
-      {shareOpen && (
-        <ShareDialog
-          kind="game-result"
-          resourceId={game.id}
-          resourceLabel="this game"
-          onClose={() => setShareOpen(false)}
         />
       )}
     </div>

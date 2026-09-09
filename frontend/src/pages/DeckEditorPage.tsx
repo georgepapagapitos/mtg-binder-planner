@@ -60,7 +60,7 @@ import { DeckAnalysisPanel } from '../components/deck/DeckAnalysisPanel';
 import { DeckAiReview } from '../components/deck/DeckAiReview';
 import { DeckAiRefine } from '../components/deck/DeckAiRefine';
 import { AiSourcesControl } from '../components/deck/AiSourcesControl';
-import type { AiScope } from '../lib/ai-scope';
+import { isCollectionScope, type AiScope } from '../lib/ai-scope';
 import { buildRefinePool } from '../lib/ai-refine';
 import { buildAlternativeIndex } from '../lib/refine-alternatives';
 import { constrainsToCollection } from '@/deck-builder/services/deckBuilder/deckFilters';
@@ -1176,7 +1176,7 @@ export function DeckEditorPage() {
             hiddenGems: deck.hiddenGems ?? [],
             landUpgrades,
             deckNames: deckCardNames,
-            ownedNames: aiScope !== 'any' ? ownedNames : undefined,
+            ownedNames: isCollectionScope(aiScope) ? ownedNames : undefined,
           })
         : [],
     [deck, substitutionPlan, landUpgrades, deckCardNames, aiScope, ownedNames]

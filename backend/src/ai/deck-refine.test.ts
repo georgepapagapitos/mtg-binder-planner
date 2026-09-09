@@ -247,6 +247,24 @@ describe('parseRefineRequest', () => {
     );
   });
 
+  it('budget is a price scope, not a collection one: ownedOnly stays false, its own key', () => {
+    const budget = parseRefineRequest({
+      deckId: 'd1',
+      commander: 'Kaalia of the Vast',
+      cards: [card('Sol Ring')],
+      pool: [],
+      analysis: {},
+      scope: 'budget',
+    });
+    expect(budget.ok && budget.value).toMatchObject({ scope: 'budget', ownedOnly: false });
+    // `any` readings keep their key; budget is a different question.
+    expect(hashRefineInput(REQ)).toBe(hashRefineInput({ ...REQ, scope: undefined as never }));
+    expect(hashRefineInput({ ...REQ, scope: 'budget' })).not.toBe(hashRefineInput(REQ));
+    const msg = buildRefineMessage({ ...REQ, scope: 'budget' }, []);
+    expect(msg).toMatch(/ENGINE SUGGESTIONS — BUDGET .*under \$5/);
+    expect(msg).not.toMatch(/OWNED ONLY/);
+  });
+
   it('accepts a well-formed body and defaults ownedOnly to false', () => {
     const res = parseRefineRequest(body());
     expect(res.ok).toBe(true);

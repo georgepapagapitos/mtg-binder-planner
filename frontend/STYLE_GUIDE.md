@@ -4739,7 +4739,8 @@ Model-written text always says so. The rulings:
   idle state with the AI button waiting — it does not auto-run the thing the
   user just permitted.
 - **One sources contract per deck, one control (T112).** Where the AI may draw
-  candidates from (any card / cards you own / free copies you own) is a deck
+  candidates from (any card / cards you own / free copies you own / budget
+  picks, a fixed per-card USD ceiling by cheapest printing) is a deck
   field (`deck.aiScope`), read identically by every AI surface on that deck and
   set in exactly one place: the `AiSourcesControl` fieldset above the Coach
   tab's AI panels. Native radios, options are rects (§ segmented controls), and

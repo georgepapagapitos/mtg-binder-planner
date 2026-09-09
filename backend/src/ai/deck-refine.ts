@@ -1,5 +1,12 @@
 import crypto from 'node:crypto';
-import { parseAiScope, renderAnalysis, type AiScope, type OracleEntry } from './deck-review';
+import {
+  BUDGET_CEILING_USD,
+  isCollectionScope,
+  parseAiScope,
+  renderAnalysis,
+  type AiScope,
+  type OracleEntry,
+} from './deck-review';
 
 /**
  * The post-generation refine step (T102 slice 4). The deterministic generator
@@ -261,7 +268,7 @@ export function parseRefineRequest(
       cards: cards.value,
       pool: pool.value,
       scope,
-      ownedOnly: scope !== 'any',
+      ownedOnly: isCollectionScope(scope),
       analysis: b.analysis as Record<string, unknown>,
     },
   };
@@ -297,9 +304,9 @@ export function hashRefineInput(req: RefineRequest): string {
         cards: [...req.cards].sort(byName),
         pool: [...req.pool].sort(byName).map((c) => c.name),
         ownedOnly: req.ownedOnly,
-        // Only the scope the boolean cannot express — `owned` readings keep
+        // Only the scopes the boolean cannot express — `owned` readings keep
         // the key they were written under.
-        scope: req.scope === 'uncommitted' ? req.scope : undefined,
+        scope: req.scope === 'uncommitted' || req.scope === 'budget' ? req.scope : undefined,
         analysis: req.analysis,
       })
     )
@@ -453,7 +460,9 @@ export function buildRefineMessage(req: RefineRequest, oracle: OracleEntry[]): s
       ? '## ENGINE SUGGESTIONS — OWNED ONLY (the player physically owns every card here, with a copy not already in another of their decks)'
       : req.ownedOnly
         ? '## ENGINE SUGGESTIONS — OWNED ONLY (the player physically owns every card here)'
-        : "## ENGINE SUGGESTIONS (the app's own analysis flagged these for this deck)";
+        : req.scope === 'budget'
+          ? `## ENGINE SUGGESTIONS — BUDGET (every card here is under $${BUDGET_CEILING_USD} today)`
+          : "## ENGINE SUGGESTIONS (the app's own analysis flagged these for this deck)";
   const parts = [
     `Commander: ${req.commander}`,
     `## Decklist (${req.cards.reduce((n, c) => n + c.qty, 0)})\n\n${decklist}`,

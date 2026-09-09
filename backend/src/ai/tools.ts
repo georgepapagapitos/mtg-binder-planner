@@ -74,9 +74,12 @@ export function lookupCardsTool(
      * suggestion at all.
      */
     ownedNames?: readonly string[];
+    /** When set, every result costs at most this in USD (cheapest fresh printing). */
+    maxUsd?: number;
   }
 ): AiTool {
   const ownedOnly = context.ownedNames !== undefined;
+  const budget = context.maxUsd !== undefined;
   return {
     definition: {
       name: 'lookup_cards',
@@ -97,6 +100,14 @@ export function lookupCardsTool(
               'building from their own collection. Every card returned is one they can physically',
               'put in the deck today, and a card that does NOT come back from this tool is not',
               'available to them however strong it would be.',
+            ]
+          : []),
+        ...(budget
+          ? [
+              '',
+              `Results are further restricted to cards costing at most $${context.maxUsd} USD, because`,
+              'the player is building on a budget. A card that does NOT come back from this tool is',
+              'over their ceiling however strong it would be.',
             ]
           : []),
         '',
@@ -141,6 +152,7 @@ export function lookupCardsTool(
         commanderLegalOnly: true,
         exclude: context.exclude,
         ownedNames: context.ownedNames,
+        maxUsd: context.maxUsd,
         limit: Math.min(Math.max(1, Math.trunc(limitRaw)), LOOKUP_LIMIT_MAX),
       });
 
@@ -148,7 +160,9 @@ export function lookupCardsTool(
         return {
           text: ownedOnly
             ? `Nothing this player owns matched "${query}". Try different rules wording, or accept that their collection has no answer to this and look for a different improvement.`
-            : `No cards matched "${query}". Try describing the effect in different rules wording.`,
+            : budget
+              ? `Nothing under $${context.maxUsd} matched "${query}". Try different rules wording, or accept that nothing in budget does this and look for a different improvement.`
+              : `No cards matched "${query}". Try describing the effect in different rules wording.`,
           fetched: [],
         };
       }
@@ -176,6 +190,18 @@ export function lookupCardsTool(
 const ORACLE_MAX_AGE_MS = Number.MAX_SAFE_INTEGER;
 
 /**
+ * Whether a card's cheapest FRESH USD printing is at or under `maxUsd`. Reads
+ * the default-TTL lookup on purpose: a price older than the ingest window is
+ * not a price. No price at all fails too — see `CardSearchOptions.maxUsd`.
+ */
+export function withinBudget(cache: ScryfallCache, name: string, maxUsd: number): boolean {
+  const raw = cache.getCheapestByName(name)?.prices?.usd;
+  if (raw == null || raw === '') return false;
+  const usd = Number(raw);
+  return Number.isFinite(usd) && usd <= maxUsd;
+}
+
+/**
  * Resolve a card name the model proposed into a card this deck may actually
  * add — returning its canonical spelling, or null to reject it.
  *
@@ -198,6 +224,7 @@ export function makeCandidateResolver(
     colorIdentity?: readonly string[];
     exclude?: readonly string[];
     ownedNames?: readonly string[];
+    maxUsd?: number;
   }
 ): (name: string) => string | null {
   const identity = context.colorIdentity ? new Set(context.colorIdentity) : null;
@@ -217,6 +244,8 @@ export function makeCandidateResolver(
     if (card.legalities?.commander !== 'legal') return null;
     if (identity && (card.color_identity ?? []).some((c) => !identity.has(c))) return null;
     if (owned && !owned.has(key)) return null;
+    if (context.maxUsd !== undefined && !withinBudget(cache, canonical, context.maxUsd))
+      return null;
     return canonical;
   };
 }

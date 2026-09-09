@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // T112 — the AI sources contract control: one fieldset every AI surface on the
-// deck reads. Self-hiding without consent, three real radios with it.
+// deck reads. Self-hiding without consent, four real radios with it.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -33,15 +33,19 @@ describe('AiSourcesControl', () => {
     expect(container.querySelector('.ai-sources')).toBeNull();
   });
 
-  it('offers the three scopes as radios and reports a change', async () => {
+  it('offers the four scopes as radios and reports a change', async () => {
     stubStatus(true);
     const onChange = vi.fn();
     render(<AiSourcesControl value="any" onChange={onChange} />);
     const radios = await screen.findAllByRole('radio');
-    expect(radios).toHaveLength(3);
+    expect(radios).toHaveLength(4);
     expect(screen.getByRole('radio', { name: /Any card/ })).toHaveProperty('checked', true);
     fireEvent.click(screen.getByRole('radio', { name: /Cards you own/ }));
     expect(onChange).toHaveBeenCalledWith('owned');
+    fireEvent.click(screen.getByRole('radio', { name: /Budget picks/ }));
+    expect(onChange).toHaveBeenCalledWith('budget');
+    // The ceiling is stated on the option, never left for the reading to reveal.
+    expect(screen.getByText(/under \$5/)).toBeTruthy();
     // The cost of a change is stated on the control, with the real cap.
     expect(screen.getByText(/counts toward today's 10/)).toBeTruthy();
   });
@@ -58,5 +62,7 @@ describe('AiSourcesControl', () => {
       true
     );
     expect(screen.getByRole('radio', { name: /Any card/ })).toHaveProperty('disabled', false);
+    // Budget needs no collection — it reads prices, not ownership.
+    expect(screen.getByRole('radio', { name: /Budget picks/ })).toHaveProperty('disabled', false);
   });
 });

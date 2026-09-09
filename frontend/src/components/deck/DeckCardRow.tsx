@@ -4,7 +4,7 @@ import { ArrowLeftRight, ArrowRight, Loader2, Minus, Plus } from 'lucide-react';
 import { OwnershipBadge } from './OwnershipBadge';
 import { VerdictBadge, type VerdictTone } from './VerdictBadge';
 import { WhyBreakdown } from './WhyBreakdown';
-import { AiMarker } from './DeckAiConsent';
+import { AiMarker } from './AiMarker';
 import type { Change } from '@/lib/deck-change';
 
 /** Budget-swap confidence tier → badge tone + word (STYLE_GUIDE: success/info/warn).

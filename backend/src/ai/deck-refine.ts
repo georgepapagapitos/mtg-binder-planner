@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { renderAnalysis, type OracleEntry } from './deck-review';
+import { parseAiScope, renderAnalysis, type AiScope, type OracleEntry } from './deck-review';
 
 /**
  * The post-generation refine step (T102 slice 4). The deterministic generator
@@ -192,7 +192,10 @@ export interface RefineRequest {
   cards: RefineCard[];
   /** Engine-supplied candidates — the ONLY cards the model may propose. */
   pool: RefineCard[];
-  /** True when generation was constrained to the player's collection. */
+  /** The deck's AI sources contract (T112) — see `AiScope`. */
+  scope: AiScope;
+  /** Derived: `scope !== 'any'`. Kept as the prompt's OWNED ONLY marker and the
+   *  hash field, so readings written under the boolean keep their keys. */
   ownedOnly: boolean;
   analysis: Record<string, unknown>;
 }
@@ -249,6 +252,7 @@ export function parseRefineRequest(
   if (JSON.stringify(b.analysis).length > MAX_ANALYSIS_JSON_BYTES) {
     return { ok: false, error: 'analysis is too large.' };
   }
+  const scope = parseAiScope(b.scope, b.ownedOnly);
   return {
     ok: true,
     value: {
@@ -256,7 +260,8 @@ export function parseRefineRequest(
       commander: (b.commander as string).trim(),
       cards: cards.value,
       pool: pool.value,
-      ownedOnly: b.ownedOnly === true,
+      scope,
+      ownedOnly: scope !== 'any',
       analysis: b.analysis as Record<string, unknown>,
     },
   };
@@ -292,6 +297,9 @@ export function hashRefineInput(req: RefineRequest): string {
         cards: [...req.cards].sort(byName),
         pool: [...req.pool].sort(byName).map((c) => c.name),
         ownedOnly: req.ownedOnly,
+        // Only the scope the boolean cannot express — `owned` readings keep
+        // the key they were written under.
+        scope: req.scope === 'uncommitted' ? req.scope : undefined,
         analysis: req.analysis,
       })
     )
@@ -409,9 +417,12 @@ export function parseRefineOutput(
 /** Assemble the user message: decklist + stats + the pool the model may use. */
 export function buildRefineMessage(req: RefineRequest, oracle: OracleEntry[]): string {
   const decklist = req.cards.map((c) => `${c.qty} ${c.name}`).join('\n');
-  const poolHeader = req.ownedOnly
-    ? '## ENGINE SUGGESTIONS — OWNED ONLY (the player physically owns every card here)'
-    : "## ENGINE SUGGESTIONS (the app's own analysis flagged these for this deck)";
+  const poolHeader =
+    req.scope === 'uncommitted'
+      ? '## ENGINE SUGGESTIONS — OWNED ONLY (the player physically owns every card here, with a copy not already in another of their decks)'
+      : req.ownedOnly
+        ? '## ENGINE SUGGESTIONS — OWNED ONLY (the player physically owns every card here)'
+        : "## ENGINE SUGGESTIONS (the app's own analysis flagged these for this deck)";
   const parts = [
     `Commander: ${req.commander}`,
     `## Decklist (${req.cards.reduce((n, c) => n + c.qty, 0)})\n\n${decklist}`,

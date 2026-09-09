@@ -116,6 +116,13 @@ export interface Change {
    *  tone-tagged factors, rendered as the tappable <WhyBreakdown> disclosure.
    *  Every lane adapter populates it from its engine's own signals. */
   whyFactors?: WhyFactor[];
+  /**
+   * The AI refine reading's one-sentence case for this same card, when a live
+   * reading on the Coach tab proposes it too (E274). Display-only join over
+   * output already in the browser — never sent anywhere, never the engine's
+   * `reason`, and dropped the moment the tweak is dismissed or re-rolled.
+   */
+  aiWhy?: string;
   /** Collection lane only — other owned cards that fill the same missing staple,
    *  ranked, for the "N other owned options" expander. Each is a full add Change.
    *  Nested (not in the merged feed), so applying one is independent. */

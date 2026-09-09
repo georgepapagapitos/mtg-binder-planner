@@ -17,6 +17,7 @@ import {
   tokenizeCardNames,
   type ReviewReading,
 } from '../../lib/ai-review';
+import type { AiScope } from '../../lib/ai-scope';
 import { noteAiExhausted, noteAiSpend, useAiStatus } from '../../lib/use-ai-status';
 import { AiMarker, DeckAiConsent, isAiInviteDismissed } from './DeckAiConsent';
 import { useCardCarousel } from './useCardCarousel';
@@ -33,6 +34,8 @@ interface DeckAiReviewProps {
   bracketTarget?: number | null;
   /** The app's current-power estimate (`deck.bracketEstimation?.bracket`), if computed. */
   bracketEstimate?: number | null;
+  /** The deck's AI sources contract (T112). Part of the staleness key. */
+  scope?: AiScope;
 }
 
 interface HeldReview {
@@ -70,6 +73,7 @@ export function DeckAiReview({
   mainboard,
   bracketTarget = null,
   bracketEstimate = null,
+  scope = 'any',
 }: DeckAiReviewProps) {
   const taggerReady = useTaggerReady();
   const status = useAiStatus();
@@ -132,7 +136,12 @@ export function DeckAiReview({
     : commander.name;
 
   const cards = useMemo(() => buildDeckReviewCards(mainboard), [mainboard]);
-  const currentKey = useMemo(() => deckContentKey(commanderName, cards), [commanderName, cards]);
+  // The scope is in the key: a reading written against the whole card pool is
+  // stale once the deck says "cards I own", the same way an edited list is.
+  const currentKey = useMemo(
+    () => `${scope}::${deckContentKey(commanderName, cards)}`,
+    [scope, commanderName, cards]
+  );
 
   /** Every card the prose may name, mapped to the printing this deck holds so
    *  chips open the player's own copy. Basics are excluded: "your Swamps" is a
@@ -160,7 +169,7 @@ export function DeckAiReview({
       analyzeDeck({ format, commander, partnerCommander, mainboard }, taggerReady),
       { target: bracketTarget, estimate: bracketEstimate }
     );
-    requestDeckReview({ deckId, commander: commanderName, cards, analysis }, setStreamed)
+    requestDeckReview({ deckId, commander: commanderName, cards, scope, analysis }, setStreamed)
       .then((result) => {
         setReview({ content: result.content, key: requestKey, fetched: result.fetched });
         setStreamed('');
@@ -224,7 +233,7 @@ export function DeckAiReview({
         <div aria-live="polite">
           {stale && (
             <div className="deck-ai-stale" role="status">
-              <span>Your deck has changed since this was written.</span>
+              <span>Your deck or its AI sources have changed since this was written.</span>
               <button type="button" className="btn" onClick={read} disabled={phase === 'reading'}>
                 Read again
               </button>
@@ -328,6 +337,11 @@ export function DeckAiReview({
         <div className="deck-ai-idle">
           <p className="deck-ai-idle-text">
             What is this deck trying to do, and where does it break? Written for this exact list.
+            {scope === 'owned'
+              ? ' Fixes come from cards you own.'
+              : scope === 'uncommitted'
+                ? ' Fixes come from copies you own that no other deck uses.'
+                : ''}{' '}
             Nothing is sent until you ask.
           </p>
           <div className="deck-ai-idle-actions">

@@ -135,6 +135,48 @@ async function expandStrip() {
   fireEvent.click(await screen.findByRole('button', { expanded: false }));
 }
 
+describe('AI sources contract (T112)', () => {
+  it('sends the deck scope and keys staleness on it', async () => {
+    stubApi(true);
+    const { rerender } = render(
+      <MemoryRouter initialEntries={[{ pathname: '/decks/d1', state: { openAiReview: true } }]}>
+        <DeckAiReview
+          deckId="d1"
+          format="commander"
+          commander={card('Kaalia of the Vast')}
+          partnerCommander={null}
+          mainboard={[{ slotId: 's1', card: card('Sol Ring') }]}
+          scope="owned"
+        />
+      </MemoryRouter>
+    );
+    // The idle copy names the scope before anything is spent.
+    expect(await screen.findByText(/Fixes come from cards you own/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Read the deck' }));
+    await screen.findByText(/It wins by connecting/);
+
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    const call = fetchMock.mock.calls.find((c) => c[0] === '/api/ai/deck-review')!;
+    expect(JSON.parse((call[1] as RequestInit).body as string).scope).toBe('owned');
+    expect(screen.queryByText(/have changed since this was written/)).toBeNull();
+
+    // Same list, different scope: the reading is now stale, like an edit.
+    rerender(
+      <MemoryRouter initialEntries={[{ pathname: '/decks/d1', state: { openAiReview: true } }]}>
+        <DeckAiReview
+          deckId="d1"
+          format="commander"
+          commander={card('Kaalia of the Vast')}
+          partnerCommander={null}
+          mainboard={[{ slotId: 's1', card: card('Sol Ring') }]}
+          scope="any"
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(/have changed since this was written/)).toBeTruthy();
+  });
+});
+
 describe('insight-strip posture (E244)', () => {
   it('starts as a compact strip and expands in place without spending anything', async () => {
     const calls = stubApi(true);

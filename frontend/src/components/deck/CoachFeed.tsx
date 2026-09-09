@@ -185,6 +185,13 @@ export interface CoachFeedProps {
    *  (built upstream) respects the same filter as the feed. */
   ownedOnly: boolean;
   onOwnedOnlyChange: (ownedOnly: boolean) => void;
+  /**
+   * E274: the live AI refine reading's picks, incoming-card name → its why.
+   * A feed row for the same card gets the "AI agrees" line. Display-only
+   * join over output already in the browser — never changes what the model
+   * sees, so it costs nothing (see `hashRefineInput`).
+   */
+  aiAgrees?: ReadonlyMap<string, string>;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -232,6 +239,7 @@ export function CoachFeed({
   onNbmApply,
   ownedOnly,
   onOwnedOnlyChange,
+  aiAgrees,
 }: CoachFeedProps): JSX.Element {
   const busy = busyNames ?? new Set<string>();
   const carousel = useCardCarousel('Coach');
@@ -902,6 +910,7 @@ export function CoachFeed({
                 {(showAllRows ? filteredRows : filteredRows.slice(0, ROW_CAP)).map(({ change }) => {
                   const isLeaving = leavingIds.has(change.id);
                   const showFit = onPreviewFit && change.type !== 'cut';
+                  const aiWhy = change.type === 'cut' ? undefined : aiAgrees?.get(change.name);
                   return (
                     <li
                       key={change.id}
@@ -912,7 +921,7 @@ export function CoachFeed({
                     >
                       <DeckCardRow
                         as="div"
-                        change={change}
+                        change={aiWhy ? { ...change, aiWhy } : change}
                         commanderName={commanderName}
                         peekName={change.name}
                         onPreview={() => carousel.open(previewEntries, change.name)}

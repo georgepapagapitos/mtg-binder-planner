@@ -112,6 +112,16 @@ describe('CoachFeed', () => {
     expect(chips.textContent).toContain('Combos');
   });
 
+  it('marks a row the live AI reading also picked, with its own sentence (E274)', () => {
+    render(
+      <CoachFeed {...makeProps({ aiAgrees: new Map([['Cultivate', 'Ramp that also fixes.']]) })} />
+    );
+    expect(screen.getByText('AI agrees')).toBeTruthy();
+    expect(screen.getByText(/Ramp that also fixes\./)).toBeTruthy();
+    // Only the matching row: the budget swap carries no AI line.
+    expect(screen.getAllByText('AI agrees')).toHaveLength(1);
+  });
+
   it('filter chip narrows the feed to one lane', () => {
     render(<CoachFeed {...makeProps()} />);
     fireEvent.click(screen.getByRole('button', { name: /Combos/ }));

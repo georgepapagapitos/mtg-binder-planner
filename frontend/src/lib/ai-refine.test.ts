@@ -113,7 +113,7 @@ describe('requestDeckRefine', () => {
     commander: 'Meren',
     cards: [{ name: 'Swamp', oracleId: 'o', qty: 1 }],
     pool: [{ name: 'Sol Ring', oracleId: 'o', qty: 1 }],
-    ownedOnly: false,
+    scope: 'any' as const,
     analysis: {} as never,
   };
 

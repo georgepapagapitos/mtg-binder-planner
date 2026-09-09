@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { isApplyingServer } from '../lib/applying-server';
 import { isApplyingAnalysis } from '../lib/applying-analysis';
+import type { AiScope } from '../lib/ai-scope';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   ScryfallCard,
@@ -242,6 +243,14 @@ export interface Deck {
    * kept and shown as a secondary reference. `null`/absent means "use auto".
    */
   bracketOverride?: 1 | 2 | 3 | 4 | 5 | null;
+  /**
+   * Where the deck's AI features may draw candidates from (T112): `any`,
+   * `owned`, or `uncommitted` (owned copies no other deck uses). One answer
+   * shared by Read the deck and Refine. Absent means "not chosen yet" — the
+   * editor defaults it from ownership (a mostly-owned deck reads as `owned`)
+   * until the player picks. Whole-row-synced like every other deck field.
+   */
+  aiScope?: AiScope | null;
   /**
    * User-pinned archetype for the identity headline. When set it wins over
    * both the persisted generation archetype (`buildReport.archetype`) and the

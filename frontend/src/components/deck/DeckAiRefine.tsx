@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react';
 import type { ScryfallCard, DeckFormat } from '@/deck-builder/types';
 import type { Change } from '@/lib/deck-change';
@@ -12,6 +12,7 @@ import {
   tokenizeCardNames,
 } from '../../lib/ai-review';
 import { requestDeckRefine, type RefineCard, type RefineTweak } from '../../lib/ai-refine';
+import type { AiScope } from '../../lib/ai-scope';
 import { noteAiExhausted, noteAiSpend, useAiStatus } from '../../lib/use-ai-status';
 import { AiMarker, DeckAiConsent, isAiInviteDismissed } from './DeckAiConsent';
 import { useCardCarousel } from './useCardCarousel';
@@ -26,7 +27,8 @@ interface DeckAiRefineProps {
   mainboard: { slotId: string; card: ScryfallCard }[];
   /** Engine-supplied candidates — the only cards the model may propose. */
   pool: RefineCard[];
-  ownedOnly: boolean;
+  /** The deck's AI sources contract (T112) — restricts the server-side search. */
+  scope: AiScope;
   /** The owner's target bracket (`deck.bracketOverride`), if set. */
   bracketTarget?: number | null;
   /** The app's current-power estimate (`deck.bracketEstimation?.bracket`), if computed. */
@@ -62,6 +64,14 @@ interface DeckAiRefineProps {
    * Absent ⇒ render no bulk control.
    */
   onApplyAll?: (swaps: Array<{ removeName: string; addName: string }>) => void;
+  /**
+   * E274: the live reading's proposals, `add` name → the model's one-sentence
+   * why, so the Coach feed can mark engine rows the AI also picked. Emitted on
+   * every change and re-emitted as the player dismisses, re-rolls or applies
+   * (those rows drop out — a re-rolled card was never evaluated by the model);
+   * `null` on unmount. Output-only: nothing here changes what the model sees.
+   */
+  onReading?: (agrees: ReadonlyMap<string, string> | null) => void;
 }
 
 /** localStorage key for a deck's dismissed AI-refine suggestions (added-card
@@ -108,15 +118,23 @@ export function DeckAiRefine({
   partnerCommander,
   mainboard,
   pool,
-  ownedOnly,
+  scope,
   bracketTarget = null,
   bracketEstimate = null,
   onApplyMove,
   variant = 'build',
   alternatives,
   onApplyAll,
+  onReading,
 }: DeckAiRefineProps) {
   const taggerReady = useTaggerReady();
+  /** Idle-copy suffix naming the scope; empty for the whole card pool. */
+  const fromCopy =
+    scope === 'owned'
+      ? ' from cards you own'
+      : scope === 'uncommitted'
+        ? ' from free copies you own'
+        : '';
   const status = useAiStatus();
   const [phase, setPhase] = useState<'idle' | 'working' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +190,7 @@ export function DeckAiRefine({
       { target: bracketTarget, estimate: bracketEstimate }
     );
     requestDeckRefine(
-      { deckId, commander: commanderName, cards, pool, ownedOnly, analysis },
+      { deckId, commander: commanderName, cards, pool, scope, analysis },
       setStreamed
     )
       .then((result) => {
@@ -250,6 +268,20 @@ export function DeckAiRefine({
       return next;
     });
   };
+
+  // E274 join — see `onReading`. Applied rows drop too: the engine row they
+  // matched has already left the feed, and a chip on a card now in the deck
+  // would be a claim about nothing.
+  useEffect(() => {
+    if (!onReading) return;
+    const agrees = new Map<string, string>();
+    for (const t of tweaks) {
+      if (dismissed.has(t.add) || rerollIndex.has(t.add) || applied.has(t.add)) continue;
+      agrees.set(t.add, t.why);
+    }
+    onReading(agrees);
+  }, [onReading, tweaks, dismissed, rerollIndex, applied]);
+  useEffect(() => () => onReading?.(null), [onReading]);
 
   const dismiss = (addName: string) => {
     setDismissed((prev) => {
@@ -519,7 +551,7 @@ export function DeckAiRefine({
               ? `Judges whether ${incoming} earns a slot, and what to cut if it does. Never names a card outside the deck.`
               : isSuggestions
                 ? `Picks the few of these ${pool.length} suggestions worth making${
-                    ownedOnly ? ', from cards you own' : ''
+                    fromCopy ? `,${fromCopy}` : ''
                   }, never a card the coach hasn't already found.`
                 : pool.length === 0
                   ? 'Once the coach has candidates for this deck, it weighs them and suggests a few swaps.'
@@ -527,9 +559,7 @@ export function DeckAiRefine({
                        built": since #1673 the Coach mount is no longer gated to
                        generated decks, and this same string renders on
                        hand-built ones, where a generator never existed. */
-                    `Suggests a few changes${
-                      ownedOnly ? ' from cards you own' : ''
-                    }, chosen from the ${pool.length} candidates the coach already found.`}
+                    `Suggests a few changes${fromCopy}, chosen from the ${pool.length} candidates the coach already found.`}
           </p>
           <div className="deck-ai-idle-actions">
             <button

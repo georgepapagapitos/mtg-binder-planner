@@ -1,5 +1,6 @@
 import { authedFetch, handleResponse } from './fetch-utils';
 import { readNdjson } from './ndjson';
+import type { AiScope } from './ai-scope';
 import type { DeckAnalysisResult } from './deck-analysis';
 import type { ScryfallCard } from '@/deck-builder/types';
 
@@ -92,10 +93,13 @@ export function toAiAnalysis(
   return payload;
 }
 
+export type { AiScope } from './ai-scope';
+
 export interface DeckReviewPayload {
   deckId: string;
   commander: string;
   cards: { name: string; oracleId: string; qty: number }[];
+  scope: AiScope;
   analysis: AiAnalysisPayload;
 }
 

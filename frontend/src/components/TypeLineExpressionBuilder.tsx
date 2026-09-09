@@ -193,12 +193,14 @@ export function TypeLineExpressionBuilder({
           }}
           placeholder="Legendary, Creature, Angel"
           autoComplete="off"
+          role="combobox"
           aria-autocomplete="list"
           aria-expanded={open}
+          aria-controls="type-line-suggest-list"
           aria-activedescendant={activeIdx >= 0 ? `type-line-suggest-${activeIdx}` : undefined}
         />
         {open && (
-          <ul className="chip-suggest-list" role="listbox">
+          <ul className="chip-suggest-list" id="type-line-suggest-list" role="listbox">
             {filtered.map((s, i) => (
               <li
                 key={s}

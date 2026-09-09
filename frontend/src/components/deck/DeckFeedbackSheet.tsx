@@ -188,7 +188,7 @@ export function DeckFeedbackSheet({ deck, onClose }: Props) {
       className="card-picker-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -197,7 +197,6 @@ export function DeckFeedbackSheet({ deck, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={`Feedback for ${deck.name}`}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

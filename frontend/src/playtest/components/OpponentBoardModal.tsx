@@ -170,7 +170,11 @@ export function OpponentBoardModal({ opp, active, onClose }: Props) {
   return createPortal(
     <div
       className={`opponent-board-backdrop${isClosing ? ' is-closing' : ''}`}
-      onClick={() => beginClose()}
+      role="presentation"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) beginClose();
+      }}
     >
       <section
         className={`opponent-board-sheet${isClosing ? ' is-closing' : ''}`}
@@ -178,7 +182,6 @@ export function OpponentBoardModal({ opp, active, onClose }: Props) {
         aria-modal="true"
         aria-labelledby={labelId}
         style={exitStyle}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <header className="opponent-board-head">

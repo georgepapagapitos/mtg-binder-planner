@@ -59,14 +59,20 @@ export function GameMenu({
   const activeTab: MenuTab = tab === 'setup' && !canSetup ? 'now' : tab;
 
   return (
-    <div className="game-menu-backdrop" onClick={onClose}>
+    <div
+      className="game-menu-backdrop"
+      role="presentation"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
         ref={panelRef}
         className="game-menu"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
       >
         <span className="game-menu-grabber" aria-hidden="true" />
         <header className="game-menu-head">

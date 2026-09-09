@@ -671,19 +671,28 @@ function SortableCard({
         transition,
         touchAction: 'none',
       }}
-      // Click fires when PointerSensor's distance constraint isn't crossed
-      // (i.e. the user tapped without dragging) — open preview.
-      onClick={onPreview}
       {...attributes}
       {...listeners}
     >
-      <span className={`deck-test-hand-card-art${isNewlyDrawn ? ' is-newly-drawn' : ''}`}>
+      {/* The LI carries dnd-kit's own drag semantics (role="button" +
+          tabIndex from `attributes`, at runtime only — jsx-a11y can't see
+          through the spread, but a literal role here would trip
+          no-noninteractive-element-to-interactive-role on a listitem). Tap-
+          to-preview is a distinct action, so it gets its own real <button>:
+          native Enter/Space activation for free, no custom key handler
+          needed, and no conflict with dnd-kit's own Space-to-pick-up. */}
+      <button
+        type="button"
+        className={`deck-test-hand-card-art${isNewlyDrawn ? ' is-newly-drawn' : ''}`}
+        onClick={onPreview}
+        aria-label={slot.card.name}
+      >
         {url ? (
-          <img src={url} alt={slot.card.name} loading="lazy" decoding="async" draggable={false} />
+          <img src={url} alt="" loading="lazy" decoding="async" draggable={false} />
         ) : (
           <span className="deck-test-hand-card-art-fallback" aria-hidden />
         )}
-      </span>
+      </button>
       <span className="sr-only">{slot.card.name}</span>
     </li>
   );

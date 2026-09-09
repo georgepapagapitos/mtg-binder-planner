@@ -70,7 +70,7 @@ export function CardPickerSheet({ binderId, allCards, currentBoundSet, onClose }
       className="card-picker-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -79,7 +79,6 @@ export function CardPickerSheet({ binderId, allCards, currentBoundSet, onClose }
         role="dialog"
         aria-modal="true"
         aria-label="Add cards to binder"
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

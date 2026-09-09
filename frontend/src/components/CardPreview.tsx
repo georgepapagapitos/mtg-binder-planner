@@ -493,15 +493,19 @@ export function CardPreview({
   return createPortal(
     <div
       className={`card-preview-backdrop${isClosing ? ' is-closing' : ''}`}
-      onClick={() => beginClose()}
-      role="dialog"
-      aria-modal="true"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) beginClose();
+      }}
+      role="presentation"
     >
       <div
         ref={sheetRef}
         className={`card-preview-sheet${isDragging ? ' is-dragging' : ''}${
           isClosing ? ' is-closing' : ''
         }`}
+        role="dialog"
+        aria-modal="true"
         style={exitStyle}
         onAnimationEnd={onAnimationEnd}
         {...touchHandlers}
@@ -537,7 +541,7 @@ export function CardPreview({
         {/* Always rendered so single-faced and transform cards reserve the
             same vertical space — otherwise navigating between them would
             shift the panel up/down. */}
-        <div className="card-preview-flip-row" onClick={(e) => e.stopPropagation()}>
+        <div className="card-preview-flip-row">
           <button
             type="button"
             className={`card-preview-flip-btn card-preview-details-btn${expanded ? ' is-on' : ''}`}
@@ -642,12 +646,7 @@ export function CardPreview({
           ))}
         </div>
 
-        <div
-          className="card-preview-panel"
-          data-source={source}
-          data-expanded={expanded}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="card-preview-panel" data-source={source} data-expanded={expanded}>
           <div
             className="card-preview-panel-inner"
             id="card-preview-panel-inner"
@@ -954,20 +953,18 @@ export function CardPreview({
           </div>
         </div>
       </div>
-      {/* Portaled out of the backdrop's DOM subtree, and its clicks stopped
-          here: React bubbles portal events through the *component* tree, so
-          without this every tap inside the dialog would reach the backdrop's
-          onClose and dismiss the whole preview underneath it. */}
+      {/* Portaled out of the backdrop's DOM subtree. React still bubbles the
+          portal's clicks through the *component* tree to the backdrop above,
+          but its handler only dismisses on `e.target === e.currentTarget`,
+          which a click anywhere in this dialog never satisfies. */}
       {shareOpen &&
         faceSrc &&
         createPortal(
-          <div onClick={(e) => e.stopPropagation()}>
-            <CardShareDialog
-              name={current.name}
-              imageUrl={faceSrc}
-              onClose={() => setShareOpen(false)}
-            />
-          </div>,
+          <CardShareDialog
+            name={current.name}
+            imageUrl={faceSrc}
+            onClose={() => setShareOpen(false)}
+          />,
           document.body
         )}
     </div>,

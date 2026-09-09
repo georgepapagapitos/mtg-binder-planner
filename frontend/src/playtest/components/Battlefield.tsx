@@ -27,6 +27,11 @@ export function Battlefield({
       ref={setNodeRef}
       className={`playtest-battlefield${isOver ? ' is-over' : ''}`}
       aria-label="Battlefield"
+      // Decorative from an interaction standpoint: click-away-to-deselect
+      // only duplicates the keyboard-reachable Escape shortcut and the
+      // visible "Clear" button in the selection readout (PlaytestBoard.tsx),
+      // never the only way to clear a selection.
+      role="presentation"
       // Clicking bare felt clears the selection — the standard
       // click-away-to-deselect gesture. Cards stop their own clicks from
       // reaching here by handling them first (React bubbles, so compare the

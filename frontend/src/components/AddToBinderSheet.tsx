@@ -84,7 +84,7 @@ export function AddToBinderSheet({ card, currentBinderId, onClose }: Props) {
       className="card-picker-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -93,7 +93,6 @@ export function AddToBinderSheet({ card, currentBinderId, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={dialogLabel}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

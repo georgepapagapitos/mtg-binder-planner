@@ -596,8 +596,9 @@ export function BinderEditor() {
             <h3>Basics</h3>
             <div className="editor-row">
               <div className="field" style={{ flex: 1, minWidth: 0 }}>
-                <label>Binder name</label>
+                <label htmlFor="binder-editor-name">Binder name</label>
                 <input
+                  id="binder-editor-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -609,7 +610,7 @@ export function BinderEditor() {
             </div>
             <div className="editor-row" style={{ alignItems: 'flex-start' }}>
               <div className="field" style={{ flex: 1 }}>
-                <label>Pocket layout</label>
+                <span className="field-label">Pocket layout</span>
                 <div
                   style={{
                     display: 'flex',
@@ -661,7 +662,7 @@ export function BinderEditor() {
             </div>
             <div className="editor-row">
               <div className="field" style={{ flex: 1 }}>
-                <label>Capacity</label>
+                <span className="field-label">Capacity</span>
                 <div
                   style={{
                     display: 'flex',
@@ -729,7 +730,7 @@ export function BinderEditor() {
                 reach touch or assistive tech; they are InfoTips now. */}
             <div className="editor-row">
               <div className="field" style={{ flex: 1 }}>
-                <label>Behaviour</label>
+                <span className="field-label">Behaviour</span>
                 <div className="binder-behaviour-options">
                   <div className="binder-behaviour-option">
                     <label className="field-checkbox">
@@ -778,7 +779,7 @@ export function BinderEditor() {
             </div>
             <div className="editor-row">
               <div className="field">
-                <label>Tab color</label>
+                <span className="field-label">Tab color</span>
                 <ColorPicker value={color} onChange={setColor} ariaLabel="Tab color" />
               </div>
             </div>
@@ -935,7 +936,7 @@ export function BinderEditor() {
                 {groups.length >= 2 && (
                   <div className="editor-row" style={{ marginTop: '0.75rem' }}>
                     <div className="field" style={{ flex: 1 }}>
-                      <label>Sections</label>
+                      <span className="field-label">Sections</span>
                       <fieldset
                         aria-label="Section mode"
                         className="binder-mode-toggle binder-mode-toggle--inline"
@@ -967,7 +968,7 @@ export function BinderEditor() {
                 {sectionMode !== 'group' && (
                   <div className="editor-row" style={{ marginTop: '0.75rem' }}>
                     <div className="field" style={{ flex: 1 }}>
-                      <label>Page filling</label>
+                      <span className="field-label">Page filling</span>
                       <fieldset
                         aria-label="Page filling"
                         className="binder-mode-toggle binder-mode-toggle--inline"
@@ -1010,7 +1011,7 @@ export function BinderEditor() {
                 {sectionMode !== 'group' && sorts.length > 1 && (
                   <div className="editor-row" style={{ marginTop: '0.75rem' }}>
                     <div className="field" style={{ flex: 1 }}>
-                      <label>Page breaks</label>
+                      <span className="field-label">Page breaks</span>
                       <div
                         style={{
                           display: 'flex',

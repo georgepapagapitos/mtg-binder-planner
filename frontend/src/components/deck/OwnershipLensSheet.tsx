@@ -69,14 +69,20 @@ export function OwnershipLensSheet({ id, lens, missingCardPrices, onClose }: Pro
   const hasOwnedSummary = binderRows.length > 0 || uncategorizedCount > 0;
 
   return (
-    <div className="card-picker-root" onClick={dismiss} role="presentation">
+    <div
+      className="card-picker-root"
+      role="presentation"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) dismiss();
+      }}
+    >
       <div
         id={id}
         className={`card-picker-sheet${isClosing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label="What you own from this deck"
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

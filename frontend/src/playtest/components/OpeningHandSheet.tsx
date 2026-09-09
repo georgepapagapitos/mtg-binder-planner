@@ -323,6 +323,7 @@ export function OpeningHandSheet({
             <label className="playtest-opening-variant">
               <input
                 type="checkbox"
+                aria-label="Free mulligans"
                 checked={freeMulligan}
                 onChange={(e) => onFreeMulliganChange(e.target.checked)}
               />
@@ -336,6 +337,7 @@ export function OpeningHandSheet({
             <label className="playtest-opening-variant">
               <input
                 type="checkbox"
+                aria-label="On the draw"
                 checked={onDraw}
                 onChange={(e) => onOnDrawChange(e.target.checked)}
               />

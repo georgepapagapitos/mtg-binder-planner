@@ -16,14 +16,15 @@ export function TokenCreator({ onCreate, onClose }: Props) {
   useEscapeKey(beginClose);
   const [name, setName] = useState('');
   return (
-    <div className="card-picker-root" role="presentation" onClick={() => beginClose()}>
-      <div className="card-picker-backdrop" />
+    <div className="card-picker-root">
+      {/* The backdrop fully covers the root (both `inset: 0`), so it — not
+          root — is what a "click outside the sheet" actually lands on. */}
+      <div className="card-picker-backdrop" role="presentation" onClick={() => beginClose()} />
       <div
         className={`card-picker-sheet playtest-token-sheet${isClosing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label="Create token"
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

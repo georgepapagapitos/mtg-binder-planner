@@ -218,6 +218,11 @@ function OracleConfig({ customization, update }: Pick<Props, 'customization' | '
         <input
           type="checkbox"
           checked={customization.permanentsOnly}
+          // Explicit aria-label: the implicit <label> wrapping would
+          // otherwise concatenate the hint text below into the accessible
+          // name too, which reads as a run-on to a screen reader (see
+          // DeckCustomizer's collection-group-row).
+          aria-label="Permanents only"
           onChange={(e) => update({ permanentsOnly: e.target.checked })}
         />
         <span>

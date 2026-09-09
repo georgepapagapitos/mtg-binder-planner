@@ -15,7 +15,6 @@ import {
   CubeLoadingBlock,
   CubeErrorBlock,
   cubeCardToEnriched,
-  cubeRowKeyDown,
   OwnRowBadge,
 } from './shared';
 
@@ -198,27 +197,26 @@ export function ImportCube() {
           />
           <ul className="cube-rows cube-import-rows">
             {rows.map((r, idx) => (
-              <li
-                key={r.card.oracleId || r.card.name}
-                className="cube-row cube-row-interactive"
-                role="button"
-                tabIndex={0}
-                aria-label={`Open preview for ${r.card.name}`}
-                onClick={() => setPreviewIndex(idx)}
-                onKeyDown={(e) => cubeRowKeyDown(e, idx, setPreviewIndex)}
-              >
-                {r.card.image ? (
-                  <img src={r.card.image} alt="" loading="lazy" className="cube-row-thumb" />
-                ) : (
-                  <span className="cube-row-thumb cube-row-thumb-ph" aria-hidden />
-                )}
-                <div className="cube-row-body">
-                  <span className="cube-row-title">
-                    <span className="cube-row-name">{r.card.name}</span>
-                    <OwnRowBadge own={r.ownership} showUnowned />
-                  </span>
-                  <span className="cube-row-reason">{r.card.typeLine}</span>
-                </div>
+              <li key={r.card.oracleId || r.card.name} className="cube-row">
+                <button
+                  type="button"
+                  className="cube-row-interactive"
+                  aria-label={`Open preview for ${r.card.name}`}
+                  onClick={() => setPreviewIndex(idx)}
+                >
+                  {r.card.image ? (
+                    <img src={r.card.image} alt="" loading="lazy" className="cube-row-thumb" />
+                  ) : (
+                    <span className="cube-row-thumb cube-row-thumb-ph" aria-hidden />
+                  )}
+                  <div className="cube-row-body">
+                    <span className="cube-row-title">
+                      <span className="cube-row-name">{r.card.name}</span>
+                      <OwnRowBadge own={r.ownership} showUnowned />
+                    </span>
+                    <span className="cube-row-reason">{r.card.typeLine}</span>
+                  </div>
+                </button>
               </li>
             ))}
           </ul>

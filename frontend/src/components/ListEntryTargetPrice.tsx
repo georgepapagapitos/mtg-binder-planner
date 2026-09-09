@@ -75,6 +75,7 @@ export function ListEntryTargetPrice({ entry, onSave }: Props) {
     return (
       <div
         className="list-target-price is-editing"
+        role="presentation"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >

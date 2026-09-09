@@ -449,6 +449,7 @@ export function PodHubPage() {
           {renaming ? (
             <span
               className="pod-hub-name-edit"
+              role="presentation"
               onBlur={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node | null)) void commitRename();
               }}

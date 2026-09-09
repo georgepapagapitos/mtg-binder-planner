@@ -2827,6 +2827,11 @@ export function DeckEditorPage() {
           {renaming ? (
             <div
               className="deck-editor-hero-edit"
+              // Not an interactive element itself — the handlers below only
+              // orchestrate focus/commit for the real controls nested inside
+              // (the name input, the color radios). role="presentation"
+              // reflects that the div has no meaning of its own.
+              role="presentation"
               // Clicking a color swatch must not blur-commit: the visible
               // swatch span isn't focusable, so mousedown moves focus to
               // <body> (relatedTarget null) and the commit unmounts this UI
@@ -3790,7 +3795,7 @@ function DeckEditorCardPickerSheet({
       role="presentation"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
     >
       <div
@@ -3798,7 +3803,6 @@ function DeckEditorCardPickerSheet({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         {children(dismiss)}

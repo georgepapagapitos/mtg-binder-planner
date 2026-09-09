@@ -57,7 +57,7 @@ export function CardOtagsSheet({ card, onClose }: Props) {
       className="card-picker-root"
       onClick={(e) => {
         e.stopPropagation();
-        dismiss();
+        if (e.target === e.currentTarget) dismiss();
       }}
       role="presentation"
     >
@@ -66,7 +66,6 @@ export function CardOtagsSheet({ card, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={`Card tags for ${card.name}`}
-        onClick={(e) => e.stopPropagation()}
         onAnimationEnd={onAnimationEnd}
       >
         <div className="card-picker-handle" aria-hidden />

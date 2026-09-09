@@ -335,14 +335,18 @@ export function CardContextMenu({
 
   if (variant === 'sheet') {
     return (
-      <div className="card-picker-root" role="presentation" onClick={() => beginClose()}>
-        <div className="card-picker-backdrop" />
+      <div className="card-picker-root">
+        {/* The backdrop fully covers the root (both `inset: 0`), so it — not
+            root — is what a "click outside the sheet" actually lands on;
+            role="presentation" since it carries no dim of its own (that
+            comes from the root's `:where()` rule) and no meaning beyond
+            being a dismiss hit area. */}
+        <div className="card-picker-backdrop" role="presentation" onClick={() => beginClose()} />
         <div
           className={`card-picker-sheet playtest-ctx-sheet${isClosing ? ' is-closing' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={cardName}
-          onClick={(e) => e.stopPropagation()}
           onAnimationEnd={onAnimationEnd}
         >
           <div className="card-picker-handle" aria-hidden />
@@ -364,7 +368,7 @@ export function CardContextMenu({
 
   return (
     <>
-      <div className="playtest-ctx__backdrop" onClick={onClose} />
+      <div className="playtest-ctx__backdrop" role="presentation" onClick={onClose} />
       <div
         ref={menuRef}
         className="playtest-ctx playtest-ctx-menu"

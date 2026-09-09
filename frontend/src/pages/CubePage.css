@@ -674,11 +674,6 @@
   padding: 0;
 }
 .cube-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-2);
   border-bottom: 1px solid var(--border);
   font-size: var(--text-sm);
   /* A cube is 360–720 rows. Let the browser skip render/layout/paint for
@@ -687,7 +682,22 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 52px;
 }
+/* The clickable row nests a real <button> (a11y: an `<li role="button">` is
+   a non-interactive element carrying an interactive role) — the LI above
+   keeps only the render-skip + border-bottom, this owns the row's grid
+   layout plus the UA button-chrome reset (same split as .cube-tile/.cube-tile-btn). */
 .cube-row-interactive {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px var(--space-2);
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
   cursor: pointer;
 }
 @media (hover: hover) and (pointer: fine) {

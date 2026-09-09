@@ -205,10 +205,23 @@ export const SnapCarousel = forwardRef<SnapCarouselHandle, Props>(function SnapC
                 slideRefs.current[i] = el;
               }}
               className={`${cls}${active ? ' is-active' : ''}`}
+              role="button"
+              // Roving tabindex: a collection preview can hold thousands of
+              // slides, so only the active one is a Tab stop — arrow keys
+              // (handled above, independent of DOM focus) move between them.
+              tabIndex={active ? 0 : -1}
+              aria-label={`Slide ${i + 1} of ${count}`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!active) scrollTo(i);
                 onSlideClick?.(i, active);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (!active) scrollTo(i);
+                  onSlideClick?.(i, active);
+                }
               }}
             >
               {Math.abs(i - windowCenter) <= windowRadius ? renderSlide(i) : null}

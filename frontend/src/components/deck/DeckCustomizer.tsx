@@ -501,6 +501,11 @@ function CollectionGroup({ customization, update }: DeckCustomizerProps) {
           className="collection-group-checkbox"
           checked={active}
           disabled={empty}
+          // Explicit aria-label: the implicit <label> wrapping would
+          // otherwise concatenate the sub-description text below into the
+          // accessible name too, which reads as a run-on to a screen reader
+          // (same pattern as ManaPhilosophyGroup below).
+          aria-label="Build from my collection"
           onChange={(e) => update({ collectionMode: e.target.checked })}
         />
         <span className="collection-group-text">

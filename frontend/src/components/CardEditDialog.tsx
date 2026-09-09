@@ -663,7 +663,7 @@ export function CardEditDialog({
 
               {quantity !== undefined && (
                 <div className="card-edit-qty">
-                  <label className="card-edit-qty-label">Quantity</label>
+                  <span className="card-edit-qty-label">Quantity</span>
                   <div className="card-edit-qty-controls">
                     <button
                       type="button"

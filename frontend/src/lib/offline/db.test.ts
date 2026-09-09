@@ -117,6 +117,29 @@ describe('combos store', () => {
     await replaceCombos([]);
     expect((await getAllCombos()).length).toBe(0);
   });
+
+  it('reads back every row across page boundaries, each exactly once', async () => {
+    // getAllCombos pages by key (READ_BATCH = 5000) so a single response can
+    // never hit Firefox's IPC cap; 10 007 rows spans three pages with a
+    // partial last one, and ids that don't sort the way they were inserted.
+    const rows: OfflineCombo[] = Array.from({ length: 10_007 }, (_, i) => ({
+      id: `c-${(i * 7919) % 10_007}`,
+      identity: 'W',
+      produces: [],
+      prerequisites: null,
+      description: null,
+      manaNeeded: null,
+      popularity: i,
+      legalities: { commander: 'legal' },
+      cardCount: 1,
+      bracket: null,
+      cards: [{ oracleId: 'o1', cardName: 'Card', quantity: 1, position: 0 }],
+    }));
+    await replaceCombos(rows);
+    const back = await getAllCombos();
+    expect(back.length).toBe(rows.length);
+    expect(new Set(back.map((c) => c.id)).size).toBe(rows.length);
+  });
 });
 
 describe('manifest', () => {

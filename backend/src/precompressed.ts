@@ -27,11 +27,16 @@ const ENCODINGS: readonly [encoding: string, suffix: string][] = [
 ];
 
 export function precompressed(root: string): RequestHandler {
+  const base = path.resolve(root);
   const known = new Map<string, boolean>();
   const exists = (rel: string): boolean => {
     let hit = known.get(rel);
     if (hit === undefined) {
-      hit = existsSync(path.join(root, rel));
+      // Resolve, then require the result to stay inside the bundle root —
+      // the request path is user input, and a `..` that survived decoding
+      // (or an absolute path) must never reach the filesystem.
+      const abs = path.resolve(base, '.' + rel);
+      hit = abs.startsWith(base + path.sep) && existsSync(abs);
       known.set(rel, hit);
     }
     return hit;

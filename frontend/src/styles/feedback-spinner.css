@@ -151,12 +151,17 @@
 }
 
 /* Centered spinner for full-page hydration. Sized up from the inline
-   .spinner so it reads as a page-level loader, not a button micro-state. */
+   .spinner so it reads as a page-level loader, not a button micro-state.
+   It reserves (almost) a viewport of height: the footer follows the page
+   content, and a shorter loader parked the footer mid-screen, then shoved
+   it down when the page mounted — a 0.04 layout shift on every lazy route
+   (measured on /decks/discover, 2026-09-09). Below the fold, a move costs
+   nothing. */
 .page-loader {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 40vh;
+  min-height: 100dvh;
 }
 
 .page-loader .spinner {

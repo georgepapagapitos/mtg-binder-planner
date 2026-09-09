@@ -16,6 +16,8 @@
     "prebuild": "npm run build:shared && node scripts/refresh-tagger.mjs --no-fetch && node scripts/refresh-otag-index.mjs --no-fetch && node scripts/refresh-rules.mjs --no-fetch && node scripts/refresh-sld-drops.mjs --no-fetch",
     "dev": "vite",
     "build": "tsc -p tsconfig.build.json && vite build",
+    "postbuild": "node scripts/precompress-dist.mjs",
+    "build:budget": "node scripts/check-boot-budget.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

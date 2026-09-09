@@ -177,6 +177,13 @@ jobs:
       - name: Production build
         run: npm run build
 
+      # Boot payload budget (quality program, 2026-09-09): gzipped size of the
+      # entry's module-preloaded JS and the render-blocking CSS, against the
+      # ceilings in frontend/scripts/check-boot-budget.mjs. Growth past a
+      # ceiling is a decision made in that file, never a drift.
+      - name: Boot payload budget
+        run: npm run build:budget
+
   backend:
     name: Backend — typecheck & test
     runs-on: ubuntu-latest

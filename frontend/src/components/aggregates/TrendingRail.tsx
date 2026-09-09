@@ -85,7 +85,9 @@ function TrendingCommanderTile({
   commanderName: string;
   deckCount: number;
 }) {
-  const art = useCardThumb(commanderName, 'normal');
+  // The art box is 2.6rem wide (deck-builder-commander.css); Scryfall's
+  // `small` (146px) covers it at 3x, where `normal` was ~100 KB per tile.
+  const art = useCardThumb(commanderName, 'small');
   return (
     <Link
       to="/decks/new"
@@ -116,7 +118,7 @@ function TrendingCommanderTile({
  *  is left to the link's own visible text content (deck name + commander),
  *  which already conveys "view deck" via the `<Link>`'s default semantics. */
 function TrendingDeckTile({ deck }: { deck: TopCopiedDeck }) {
-  const art = useCardThumb(deck.commanderName ?? undefined, 'normal');
+  const art = useCardThumb(deck.commanderName ?? undefined, 'small');
   const commanderLine = deck.commanderName
     ? deck.partnerName
       ? `${deck.commanderName} + ${deck.partnerName}`
@@ -153,12 +155,46 @@ function TrendingTileSkeleton() {
   );
 }
 
-function TrendingSkeletonSection({ heading }: { heading: string }) {
+/** A loaded section shows up to this many tiles. */
+export const TRENDING_SECTION_MAX = 10;
+
+/**
+ * The skeleton reserves the height the rail had LAST time it loaded, so
+ * the browse grid beneath does not move when data lands. A fixed four-tile
+ * skeleton reserved less than half the loaded rail and the grid jumped
+ * ~200px — a 0.07 layout shift measured on /decks/discover (2026-09-09);
+ * a fixed ten-tile one would over-reserve wherever nothing is trending
+ * yet and the grid would jump UP instead. The loaded shape is one number
+ * (the longer section's tile count) kept per browser; a first visit
+ * assumes a full section, the common shape in production.
+ */
+const SHAPE_KEY = 'sc-trending-shape';
+
+export function readTrendingShape(): number {
+  try {
+    const raw = localStorage.getItem(SHAPE_KEY);
+    if (raw === null) return TRENDING_SECTION_MAX;
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 0 ? Math.min(n, TRENDING_SECTION_MAX) : TRENDING_SECTION_MAX;
+  } catch {
+    return TRENDING_SECTION_MAX;
+  }
+}
+
+function rememberTrendingShape(tiles: number): void {
+  try {
+    localStorage.setItem(SHAPE_KEY, String(tiles));
+  } catch {
+    // Storage denied: the next visit reserves the default and that's fine.
+  }
+}
+
+function TrendingSkeletonSection({ heading, tiles }: { heading: string; tiles: number }) {
   return (
     <div className="trending-rail-section">
       <h3 className="deck-combos-title trending-rail-section-title">{heading}</h3>
       <ul className="commander-result-grid">
-        {Array.from({ length: 4 }, (_, i) => (
+        {Array.from({ length: tiles }, (_, i) => (
           <TrendingTileSkeleton key={i} />
         ))}
       </ul>
@@ -191,8 +227,22 @@ export function TrendingRail({
   compactWhenEmpty?: boolean;
 }) {
   const { data, loading, error, refresh } = useTrendingRail(enabled);
+  const [reserve] = useState(readTrendingShape);
+  useEffect(() => {
+    if (!data) return;
+    rememberTrendingShape(
+      Math.min(
+        TRENDING_SECTION_MAX,
+        Math.max(data.risingCommanders.length, data.topCopiedDecks?.length ?? 0)
+      )
+    );
+  }, [data]);
 
   if (loading) {
+    // A remembered empty rail reserves nothing: the loaded state is one
+    // muted line or an empty-state card, neither of which a tile grid
+    // would approximate.
+    if (reserve === 0) return null;
     return (
       <section aria-labelledby="trending-rail-heading" className="trending-rail">
         <h2 id="trending-rail-heading" className="deck-combos-title">
@@ -201,9 +251,13 @@ export function TrendingRail({
         <p role="status" aria-live="polite" className="sr-only">
           Loading trending decks
         </p>
+        {/* One section, not two: the bento puts a second one beside the
+            first on wide boards (same height) but BELOW it on phones, where
+            a rail that usually loads one section would then shrink by a
+            whole section's height. One section is the common loaded shape
+            on every width. */}
         <div className="deck-bento trending-rail-grid" aria-hidden="true">
-          <TrendingSkeletonSection heading="Rising commanders" />
-          <TrendingSkeletonSection heading="Most copied decks" />
+          <TrendingSkeletonSection heading="Rising commanders" tiles={reserve} />
         </div>
       </section>
     );
@@ -235,8 +289,11 @@ export function TrendingRail({
   // enabled=false -- never fetched, nothing to show yet.
   if (!data) return null;
 
-  const rising = data.risingCommanders.slice(0, 10);
-  const topCopied = ('topCopiedDecks' in data ? (data.topCopiedDecks ?? []) : []).slice(0, 10);
+  const rising = data.risingCommanders.slice(0, TRENDING_SECTION_MAX);
+  const topCopied = ('topCopiedDecks' in data ? (data.topCopiedDecks ?? []) : []).slice(
+    0,
+    TRENDING_SECTION_MAX
+  );
   const hasTopCopied = topCopied.length > 0;
 
   if (rising.length === 0 && !hasTopCopied) {

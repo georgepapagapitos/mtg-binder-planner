@@ -1,5 +1,6 @@
 import { logger } from './logger';
 import { scheduleHeartbeat } from './heartbeat';
+import { precompressed } from './precompressed';
 import cookieParser from 'cookie-parser';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
@@ -1200,6 +1201,7 @@ if (existsSync(SPA_DIR)) {
   // whatever chat it's pasted into; it falls through to the plain SPA shell,
   // resolves client-side, and redirects to /gn/:token which does unfurl.
 
+  app.use(precompressed(SPA_DIR));
   app.use(
     express.static(SPA_DIR, {
       setHeaders: (res, filePath) => {

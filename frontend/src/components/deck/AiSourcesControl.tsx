@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { AiScope } from '../../lib/ai-scope';
+import { AI_BUDGET_CEILING_USD, isCollectionScope, type AiScope } from '../../lib/ai-scope';
 import { useAiStatus } from '../../lib/use-ai-status';
 import './AiSourcesControl.css';
 
@@ -26,6 +26,11 @@ const AI_SCOPE_OPTIONS: ReadonlyArray<{ value: AiScope; label: string; hint: str
     label: 'Free copies you own',
     hint: 'Your collection, minus copies already in another deck.',
   },
+  {
+    value: 'budget',
+    label: 'Budget picks',
+    hint: `Cards under $${AI_BUDGET_CEILING_USD}, by their cheapest printing today.`,
+  },
 ];
 
 interface AiSourcesControlProps {
@@ -49,7 +54,7 @@ export function AiSourcesControl({
       <legend className="ai-sources-legend">Where the AI may draw from</legend>
       <div className="ai-sources-options">
         {AI_SCOPE_OPTIONS.map((opt) => {
-          const disabled = collectionEmpty && opt.value !== 'any';
+          const disabled = collectionEmpty && isCollectionScope(opt.value);
           const selected = value === opt.value;
           return (
             <label

@@ -88,6 +88,7 @@ describe('AI scope (T112)', () => {
     expect(parseAiScope('bogus')).toBe('any');
     expect(parseAiScope(undefined, true)).toBe('owned');
     expect(parseAiScope('uncommitted', false)).toBe('uncommitted');
+    expect(parseAiScope('budget')).toBe('budget');
   });
 
   it('is parsed off the review body, defaulting to any', () => {
@@ -107,6 +108,8 @@ describe('AI scope (T112)', () => {
     const uncommitted = hashDeckReviewInput({ ...base.value, scope: 'uncommitted' });
     expect(owned).not.toBe(legacy);
     expect(uncommitted).not.toBe(owned);
+    const budget = hashDeckReviewInput({ ...base.value, scope: 'budget' });
+    expect(new Set([legacy, owned, uncommitted, budget]).size).toBe(4);
   });
 
   it('tells the writing pass the looked-up cards are owned when the scope says so', () => {
@@ -116,6 +119,7 @@ describe('AI scope (T112)', () => {
     expect(renderFetchedCards(fetched, 'uncommitted')).toMatch(
       /not already in another of their decks/
     );
+    expect(renderFetchedCards(fetched, 'budget')).toMatch(/every one under \$5/);
   });
 });
 

@@ -3,7 +3,13 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { ScryfallCache } from '../cache';
-import { createMarkerGate, lookupCardsTool, makeCandidateResolver, runTool } from './tools';
+import {
+  createMarkerGate,
+  lookupCardsTool,
+  makeCandidateResolver,
+  runTool,
+  withinBudget,
+} from './tools';
 import type { ScryfallCard } from '../types';
 
 function card(overrides: Partial<ScryfallCard> & { id: string; name: string }): ScryfallCard {
@@ -395,6 +401,58 @@ describe('lookup_cards, owned-only', () => {
   });
 });
 
+describe('lookup_cards, budget', () => {
+  beforeEach(() => {
+    cache.setMany([
+      card({
+        id: 'id-budget',
+        name: 'Budget Crush',
+        oracle_id: 'o-budget',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        color_identity: ['G'],
+        prices: { usd: '1.00' },
+      }),
+      card({
+        id: 'id-pricey',
+        name: 'Pricey Crush',
+        oracle_id: 'o-pricey',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        color_identity: ['G'],
+        prices: { usd: '30.00' },
+      }),
+    ]);
+  });
+
+  it('returns only cards at or under the ceiling — unpriced cards included in the cut', async () => {
+    const tool = lookupCardsTool(cache, { maxUsd: 5 });
+    const names = (await tool.run({ query: 'destroy target artifact' })).fetched.map((f) => f.name);
+    expect(names).toEqual(['Budget Crush']);
+  });
+
+  it('says nothing in budget matched, and states the ceiling in its description', async () => {
+    const tool = lookupCardsTool(cache, { maxUsd: 5 });
+    expect(tool.definition.description).toMatch(/at most \$5 USD/);
+    expect(lookupCardsTool(cache, {}).definition.description).not.toMatch(/at most \$/);
+    const { text, fetched } = await tool.run({ query: 'counter spell' });
+    expect(fetched).toEqual([]);
+    expect(text).toMatch(/Nothing under \$5 matched/);
+  });
+
+  it('withinBudget reads the cheapest fresh USD printing and fails closed without one', () => {
+    cache.setLookups([
+      { key: 'ns:budget crush|tst', scryfallId: 'id-budget' },
+      { key: 'ns:pricey crush|tst', scryfallId: 'id-pricey' },
+      { key: 'ns:naturalize|tst', scryfallId: 'id-naturalize' },
+    ]);
+    expect(withinBudget(cache, 'Budget Crush', 5)).toBe(true);
+    expect(withinBudget(cache, 'Pricey Crush', 5)).toBe(false);
+    expect(withinBudget(cache, 'Naturalize', 5)).toBe(false); // no price
+    expect(withinBudget(cache, 'Nonexistent Card', 5)).toBe(false);
+  });
+});
+
 describe('makeCandidateResolver', () => {
   /** getCheapestByName reads `card_lookups`, which the bulk ingest populates. */
   function alias(name: string, id: string, set = 'tst') {
@@ -430,6 +488,19 @@ describe('makeCandidateResolver', () => {
   it('rejects a card the player does not own when the build is owned-only', () => {
     const resolve = makeCandidateResolver(cache, { ownedNames: ['Relic Crush'] });
     expect(resolve('Relic Crush')).toBe('Relic Crush');
+    expect(resolve('Naturalize')).toBeNull();
+  });
+
+  it('rejects a card over the ceiling, or with no price, under a budget scope', () => {
+    cache.setMany([
+      card({ id: 'id-budget', name: 'Budget Crush', oracle_id: 'o-b', prices: { usd: '1.00' } }),
+      card({ id: 'id-pricey', name: 'Pricey Crush', oracle_id: 'o-p', prices: { usd: '30.00' } }),
+    ]);
+    alias('Budget Crush', 'id-budget');
+    alias('Pricey Crush', 'id-pricey');
+    const resolve = makeCandidateResolver(cache, { maxUsd: 5 });
+    expect(resolve('budget crush')).toBe('Budget Crush');
+    expect(resolve('Pricey Crush')).toBeNull();
     expect(resolve('Naturalize')).toBeNull();
   });
 

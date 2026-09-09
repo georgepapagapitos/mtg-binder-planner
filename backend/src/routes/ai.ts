@@ -7,7 +7,13 @@ import { getPool } from '../db';
 import { testAwareLimiter } from '../route-utils';
 import { getScryfallCache } from '../scryfall-cache';
 import { aiEnabled, generateReview, AI_MODEL } from '../ai/client';
-import { checkBracketTool, lookupCardsTool, makeCandidateResolver, type AiTool } from '../ai/tools';
+import {
+  checkBracketTool,
+  lookupCardsTool,
+  makeCandidateResolver,
+  withinBudget,
+  type AiTool,
+} from '../ai/tools';
 import { getTagLookup } from '../ai/tags';
 import { estimateForNames, renderBracketCheck } from '../ai/bracket';
 import { loadRelevantCombos } from './combos';
@@ -23,6 +29,8 @@ import {
   parseDeckReviewRequest,
   renderFetchedCards,
   unverifiedCitations,
+  BUDGET_CEILING_USD,
+  isCollectionScope,
   type AiScope,
   type OracleEntry,
 } from '../ai/deck-review';
@@ -324,10 +332,7 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
   const cache = getScryfallCache();
   // The review's search honours the same deck-scoped sources contract as the
   // refine pass, so a restricted deck is never prescribed a card to buy.
-  const ownedNames =
-    request.scope === 'any'
-      ? undefined
-      : await loadOwnedNames(userId, request.scope, request.deckId);
+  const scoped = await scopeSearch(userId, request.scope, request.deckId);
   const oracle: OracleEntry[] = [];
   const seen = new Set<string>();
   for (const card of [{ name: request.commander }, ...request.cards]) {
@@ -376,7 +381,7 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
           lookupCardsTool(cache, {
             colorIdentity: commanderIdentity(cache, request.commander),
             exclude: [request.commander, ...request.cards.map((c) => c.name)],
-            ownedNames,
+            ...scoped,
           }),
         ],
       }
@@ -527,6 +532,21 @@ function hydrateOracle(names: string[]): OracleEntry[] {
  * collection is a few thousand names.
  */
 /**
+ * The search restriction a deck's AI scope imposes, in the shape both
+ * `lookupCardsTool` and `makeCandidateResolver` take. One place, so the review
+ * and the refine pass cannot read the contract differently.
+ */
+async function scopeSearch(
+  userId: string,
+  scope: AiScope,
+  deckId: string
+): Promise<{ ownedNames?: string[]; maxUsd?: number }> {
+  if (isCollectionScope(scope)) return { ownedNames: await loadOwnedNames(userId, scope, deckId) };
+  if (scope === 'budget') return { maxUsd: BUDGET_CEILING_USD };
+  return {};
+}
+
+/**
  * The names the AI may search under a restricted scope (T112). `owned` is the
  * collection; `uncommitted` subtracts, per name, the copies already sitting in
  * the user's OTHER decks (mainboard plus commanders), so a card whose every
@@ -535,7 +555,7 @@ function hydrateOracle(names: string[]): OracleEntry[] {
  */
 export async function loadOwnedNames(
   userId: string,
-  scope: Exclude<AiScope, 'any'>,
+  scope: 'owned' | 'uncommitted',
   deckId: string
 ): Promise<string[]> {
   const pool = getPool();
@@ -699,16 +719,21 @@ aiRouter.post('/deck-refine', reviewLimiter, requireAuth, async (req: Request, r
   // without the resolver every card the model looked up would verify on the
   // first read and vanish on the second.
   const cache = getScryfallCache();
-  const ownedNames =
-    request.scope === 'any'
-      ? undefined
-      : await loadOwnedNames(userId, request.scope, request.deckId);
+  const scoped = await scopeSearch(userId, request.scope, request.deckId);
   const searchContext = {
     colorIdentity: commanderIdentity(cache, request.commander),
     exclude: [request.commander, ...request.cards.map((c) => c.name)],
-    ownedNames,
+    ...scoped,
   };
   const resolveCandidate = makeCandidateResolver(cache, searchContext);
+  // The engine's pool is the one source the parser trusts without the
+  // resolver, so under a budget it is trimmed here — AFTER the hash, so a
+  // price crossing the ceiling overnight re-verifies the stored answer rather
+  // than spending a new reading on it.
+  if (scoped.maxUsd !== undefined) {
+    const ceiling = scoped.maxUsd;
+    request.pool = request.pool.filter((c) => withinBudget(cache, c.name, ceiling));
+  }
 
   const cached = await pool.query<{
     content: string;

@@ -36,6 +36,7 @@ import { APIUserAbortError } from '@anthropic-ai/sdk';
 
 import { RulesIndex } from '../rules';
 import { createTestEnv, extractSessionCookie } from '../test-helpers';
+import { getScryfallCache } from '../scryfall-cache';
 
 let app: Server;
 let cleanup: () => Promise<void>;
@@ -762,6 +763,27 @@ describe('review scope (T112)', () => {
     };
     expect(options.tools[0].definition.description).toMatch(/ALREADY OWNS/);
   });
+
+  it('caps the research search by price when the deck scope is budget', async () => {
+    const cookie = await makeUser('ai-review-scope-budget');
+    await optIn(cookie);
+    mockState.generate.mockImplementation(async () => ({
+      content: REVIEW_TEXT,
+      inputTokens: 1,
+      outputTokens: 1,
+      fetched: [],
+    }));
+    const res = await request(app)
+      .post('/api/ai/deck-review')
+      .set('Cookie', cookie)
+      .send(reviewBody({ scope: 'budget' }));
+    expect(res.status).toBe(200);
+    const options = mockState.generate.mock.calls[0][4] as {
+      tools: { definition: { description: string } }[];
+    };
+    expect(options.tools[0].definition.description).toMatch(/at most \$5 USD/);
+    expect(options.tools[0].definition.description).not.toMatch(/ALREADY OWNS/);
+  });
 });
 
 describe('POST /api/ai/deck-refine', () => {
@@ -865,6 +887,61 @@ describe('POST /api/ai/deck-refine', () => {
     expect(res.status).toBe(200);
     const done = parseStream(res.text).done as { tweaks: { add: string; cut: string }[] };
     expect(done.tweaks).toEqual([{ add: 'Viscera Seer', cut: 'Swamp', why: 'A free sac outlet.' }]);
+  });
+
+  it('under the budget scope, trims the engine pool to cards under the ceiling', async () => {
+    // The pool is the one source the parser trusts without the resolver, so
+    // the route has to trim it itself; the tool's own restriction is pinned
+    // on the review above.
+    const cookie = await makeUser('ai-refine-budget');
+    await optIn(cookie);
+    const cache = getScryfallCache();
+    const printing = (id: string, name: string, usd: string) => {
+      cache.setMany([
+        {
+          id,
+          oracle_id: `${id}-oracle`,
+          name,
+          rarity: 'common',
+          set: 'tst',
+          set_name: 'Test',
+          collector_number: '1',
+          prices: { usd },
+        },
+      ]);
+      cache.setLookups([{ key: `ns:${name.toLowerCase()}|tst`, scryfallId: id }]);
+    };
+    printing('ai-refine-budget-cheap', 'Ai Refine Budget Cheap Rock', '0.25');
+    printing('ai-refine-budget-pricey', 'Ai Refine Budget Pricey Rock', '40.00');
+    mockState.generate.mockImplementation(async () => ({
+      content: refineReply(PROSE, [
+        { add: 'Ai Refine Budget Cheap Rock', cut: null, why: 'Ramp on a budget.' },
+        { add: 'Ai Refine Budget Pricey Rock', cut: null, why: 'Ramp at any price.' },
+      ]),
+      inputTokens: 1,
+      outputTokens: 1,
+      fetched: [],
+    }));
+    const res = await request(app)
+      .post('/api/ai/deck-refine')
+      .set('Cookie', cookie)
+      .send(
+        refineBody({
+          scope: 'budget',
+          pool: [
+            { name: 'Ai Refine Budget Cheap Rock', oracleId: 'p-1', qty: 1 },
+            { name: 'Ai Refine Budget Pricey Rock', oracleId: 'p-2', qty: 1 },
+          ],
+        })
+      );
+    expect(res.status).toBe(200);
+    const done = parseStream(res.text).done as { tweaks: { add: string }[] };
+    expect(done.tweaks.map((t) => t.add)).toEqual(['Ai Refine Budget Cheap Rock']);
+    // What the model was shown: the trimmed pool under the budget header.
+    const userMessage = mockState.generate.mock.calls[0][1] as string;
+    expect(userMessage).toMatch(/ENGINE SUGGESTIONS — BUDGET/);
+    expect(userMessage).toContain('Ai Refine Budget Cheap Rock');
+    expect(userMessage).not.toContain('Ai Refine Budget Pricey Rock');
   });
 
   it('hands the model a card-search tool and an answer marker', async () => {

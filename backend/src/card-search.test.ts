@@ -240,6 +240,67 @@ describe('searchCards', () => {
     expect(names).toContain('Bala Ged Recovery // Bala Ged Sanctuary');
   });
 
+  it('caps by price on the cheapest FRESH printing, and drops cards with no price', () => {
+    cache.setMany([
+      card({
+        id: 'id-cheap',
+        name: 'Cheap Crush',
+        oracle_id: 'o-cheap',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        prices: { usd: '0.50' },
+      }),
+      card({
+        id: 'id-pricey',
+        name: 'Pricey Crush',
+        oracle_id: 'o-pricey',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        prices: { usd: '20.00' },
+      }),
+      // Two printings: the expensive one must not hide the cheap one.
+      card({
+        id: 'id-twice-a',
+        name: 'Twice Crush',
+        oracle_id: 'o-twice',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        prices: { usd: '20.00' },
+      }),
+      card({
+        id: 'id-twice-b',
+        name: 'Twice Crush',
+        oracle_id: 'o-twice',
+        set: 'tsb',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        prices: { usd: '3.00' },
+      }),
+      card({
+        id: 'id-stale',
+        name: 'Stale Crush',
+        oracle_id: 'o-stale',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        prices: { usd: '1.00' },
+      }),
+    ]);
+    // A price older than the ingest window is not a price.
+    const db = new Database(path.join(dir, 'cards.db'));
+    db.prepare('UPDATE cards SET cached_at = ? WHERE scryfall_id = ?').run(
+      Date.now() - 30 * 24 * 60 * 60 * 1000,
+      'id-stale'
+    );
+    db.close();
+
+    const names = cache
+      .searchCards({ query: 'destroy target artifact', maxUsd: 5 })
+      .map((r) => r.name)
+      .sort();
+    // Shatter et al. carry no price at all, so they are out too.
+    expect(names).toEqual(['Cheap Crush', 'Twice Crush']);
+  });
+
   it('is not subject to the price TTL — oracle text does not go stale', () => {
     // Backdate every card well past the 7-day TTL. getCheapestByName would miss;
     // search must not, or results would evaporate as rows aged out.

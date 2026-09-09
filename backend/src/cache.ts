@@ -70,6 +70,12 @@ export interface CardSearchOptions {
    * this" when the collection plainly holds something.
    */
   ownedNames?: readonly string[];
+  /**
+   * Only cards whose cheapest fresh USD printing is at or under this. Applied
+   * in the query for the same reason {@link ownedNames} is; a card with no
+   * fresh price is out, since a ceiling nobody can check is not a ceiling.
+   */
+  maxUsd?: number;
   limit?: number;
 }
 
@@ -606,13 +612,25 @@ export class ScryfallCache {
       params.push(JSON.stringify(options.ownedNames.map((n) => n.toLowerCase())));
     }
 
+    // The index carries no prices (they move nightly; oracle text does not), so
+    // a ceiling joins the card rows and takes the cheapest fresh printing per
+    // oracle card. NULLIF guards the CAST: '' would cast to 0 and read as free.
+    const from =
+      options.maxUsd === undefined ? 'card_search' : 'card_search JOIN cards USING (scryfall_id)';
+    const having =
+      options.maxUsd === undefined
+        ? ''
+        : `HAVING MIN(CASE WHEN cards.cached_at >= ? THEN CAST(NULLIF(json_extract(cards.data, '$.prices.usd'), '') AS REAL) END) <= ?`;
+    if (options.maxUsd !== undefined) params.push(Date.now() - TTL_MS, options.maxUsd);
+
     try {
       const rows = this.db
         .prepare(
           `SELECT oracle_id, name, type_line, oracle_text, ci_mask, MIN(cmc) AS cmc
-             FROM card_search
+             FROM ${from}
             WHERE ${where.join(' AND ')}
             GROUP BY oracle_id
+            ${having}
             ORDER BY rank
             LIMIT ?`
         )

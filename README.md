@@ -237,7 +237,7 @@ The table below documents the collection-import, auth, and sync core. The rest o
 - Import chunk size and client upload concurrency — top of [frontend/src/lib/api.ts](frontend/src/lib/api.ts) (`IMPORT_CHUNK_SIZE`, `IMPORT_CHUNK_CONCURRENCY`)
 - Scryfall bulk ingest flush size — `FLUSH_AT` in [backend/src/scryfall-bulk.ts](backend/src/scryfall-bulk.ts)
 - Rate limits — `importLimiter` and `priceLimiter` in [backend/src/server.ts](backend/src/server.ts)
-- AI "Budget picks" per-card ceiling — `BUDGET_CEILING_USD` in [backend/src/ai/deck-review.ts](backend/src/ai/deck-review.ts) (mirrored for the label as `AI_BUDGET_CEILING_USD` in [frontend/src/lib/ai-scope.ts](frontend/src/lib/ai-scope.ts))
+- AI "Budget picks" per-card ceiling (same number in USD or EUR, checked in the player's display currency) — `BUDGET_CEILING` in [backend/src/ai/deck-review.ts](backend/src/ai/deck-review.ts) (mirrored for the label as `AI_BUDGET_CEILING` in [frontend/src/lib/ai-scope.ts](frontend/src/lib/ai-scope.ts))
 - Default sorts for new binders — `NEW_BINDER_DEFAULT_SORTS` in [frontend/src/lib/sorting.ts](frontend/src/lib/sorting.ts)
 - Sticky price margin (reviewed cards don't leave a binder for a within-margin price wobble) — `PRICE_STICKINESS_MARGIN` in [packages/binder-routing/src/rules.ts](packages/binder-routing/src/rules.ts)
 - Default EDHREC top-N — `DEFAULT_EDHREC_TOP_N` in [frontend/src/components/BinderEditor.tsx](frontend/src/components/BinderEditor.tsx)

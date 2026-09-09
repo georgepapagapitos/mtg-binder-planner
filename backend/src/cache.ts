@@ -51,6 +51,12 @@ export interface CardSearchResult {
   colorIdentity: string;
 }
 
+/** A per-card price cap: USD = TCGplayer, EUR = Cardmarket, both off the Scryfall dump. */
+export interface PriceCeiling {
+  amount: number;
+  currency: 'usd' | 'eur';
+}
+
 export interface CardSearchOptions {
   /** Plain-language effect text. Not FTS5 syntax — see {@link toMatchExpression}. */
   query: string;
@@ -71,11 +77,12 @@ export interface CardSearchOptions {
    */
   ownedNames?: readonly string[];
   /**
-   * Only cards whose cheapest fresh USD printing is at or under this. Applied
-   * in the query for the same reason {@link ownedNames} is; a card with no
-   * fresh price is out, since a ceiling nobody can check is not a ceiling.
+   * Only cards whose cheapest fresh printing, in this currency, is at or under
+   * `amount`. Applied in the query for the same reason {@link ownedNames} is;
+   * a card with no fresh price in that currency is out, since a ceiling nobody
+   * can check is not a ceiling.
    */
-  maxUsd?: number;
+  maxPrice?: PriceCeiling;
   limit?: number;
 }
 
@@ -453,7 +460,11 @@ export class ScryfallCache {
    * back. Returns null when nothing is cached inside `maxAgeMs`, which the
    * caller reads as "go ask Scryfall".
    */
-  getCheapestByName(name: string, maxAgeMs: number = TTL_MS): ScryfallCard | null {
+  getCheapestByName(
+    name: string,
+    maxAgeMs: number = TTL_MS,
+    currency: 'usd' | 'eur' = 'usd'
+  ): ScryfallCard | null {
     // Multi-face names are stored under the front face (see cardAliasKeys).
     const front = name.split(' // ')[0].trim().toLowerCase();
     if (!front) return null;
@@ -487,20 +498,25 @@ export class ScryfallCache {
       // Infinity == "no price in this currency", so it always loses the min.
       // Not `Number(raw)` alone: the dump writes an absent price as null, and
       // `Number(null)` is 0 — which read as free and beat every real price.
-      const priceOf = (card: ScryfallCard, key: 'usd' | 'usd_foil'): number => {
+      const priceOf = (
+        card: ScryfallCard,
+        key: 'usd' | 'usd_foil' | 'eur' | 'eur_foil'
+      ): number => {
         const raw = card.prices?.[key];
         if (raw == null || raw === '') return Infinity;
         const n = Number(raw);
         return Number.isFinite(n) ? n : Infinity;
       };
-      const cheapestBy = (key: 'usd' | 'usd_foil'): ScryfallCard | null =>
+      const cheapestBy = (key: 'usd' | 'usd_foil' | 'eur' | 'eur_foil'): ScryfallCard | null =>
         cards.reduce<ScryfallCard | null>(
           (best, card) =>
             priceOf(card, key) < (best ? priceOf(best, key) : Infinity) ? card : best,
           null
         );
 
-      return cheapestBy('usd') ?? cheapestBy('usd_foil') ?? cards[0];
+      return currency === 'eur'
+        ? (cheapestBy('eur') ?? cheapestBy('eur_foil') ?? cards[0])
+        : (cheapestBy('usd') ?? cheapestBy('usd_foil') ?? cards[0]);
     } catch (err) {
       logger.error('[cache] getCheapestByName failed, treating as cache miss:', err);
       return null;
@@ -615,13 +631,14 @@ export class ScryfallCache {
     // The index carries no prices (they move nightly; oracle text does not), so
     // a ceiling joins the card rows and takes the cheapest fresh printing per
     // oracle card. NULLIF guards the CAST: '' would cast to 0 and read as free.
-    const from =
-      options.maxUsd === undefined ? 'card_search' : 'card_search JOIN cards USING (scryfall_id)';
-    const having =
-      options.maxUsd === undefined
-        ? ''
-        : `HAVING MIN(CASE WHEN cards.cached_at >= ? THEN CAST(NULLIF(json_extract(cards.data, '$.prices.usd'), '') AS REAL) END) <= ?`;
-    if (options.maxUsd !== undefined) params.push(Date.now() - TTL_MS, options.maxUsd);
+    const ceiling = options.maxPrice;
+    const from = ceiling ? 'card_search JOIN cards USING (scryfall_id)' : 'card_search';
+    // The JSON path is one of two literals, never the caller's string.
+    const priceCol = ceiling?.currency === 'eur' ? '$.prices.eur' : '$.prices.usd';
+    const having = ceiling
+      ? `HAVING MIN(CASE WHEN cards.cached_at >= ? THEN CAST(NULLIF(json_extract(cards.data, '${priceCol}'), '') AS REAL) END) <= ?`
+      : '';
+    if (ceiling) params.push(Date.now() - TTL_MS, ceiling.amount);
 
     try {
       const rows = this.db

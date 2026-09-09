@@ -13,6 +13,7 @@ import {
 } from '../../lib/ai-review';
 import { requestDeckRefine, type RefineCard, type RefineTweak } from '../../lib/ai-refine';
 import type { AiScope } from '../../lib/ai-scope';
+import { aiPriceCurrency } from '../../lib/currency';
 import { noteAiExhausted, noteAiSpend, useAiStatus } from '../../lib/use-ai-status';
 import { AiMarker, DeckAiConsent, isAiInviteDismissed } from './DeckAiConsent';
 import { useCardCarousel } from './useCardCarousel';
@@ -193,7 +194,15 @@ export function DeckAiRefine({
       [commander, ...(partnerCommander ? [partnerCommander] : []), ...mainboard.map((m) => m.card)]
     );
     requestDeckRefine(
-      { deckId, commander: commanderName, cards, pool, scope, analysis },
+      {
+        deckId,
+        commander: commanderName,
+        cards,
+        pool,
+        scope,
+        currency: aiPriceCurrency(),
+        analysis,
+      },
       setStreamed
     )
       .then((result) => {

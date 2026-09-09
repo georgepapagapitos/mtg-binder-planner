@@ -4,6 +4,7 @@ import {
   buildUserMessage,
   hashDeckReviewInput,
   parseAiScope,
+  parseCurrency,
   parseDeckReviewRequest,
   renderAnalysis,
   renderFetchedCards,
@@ -89,6 +90,9 @@ describe('AI scope (T112)', () => {
     expect(parseAiScope(undefined, true)).toBe('owned');
     expect(parseAiScope('uncommitted', false)).toBe('uncommitted');
     expect(parseAiScope('budget')).toBe('budget');
+    expect(parseCurrency('eur')).toBe('eur');
+    expect(parseCurrency('EUR')).toBe('usd');
+    expect(parseCurrency(undefined)).toBe('usd');
   });
 
   it('is parsed off the review body, defaulting to any', () => {
@@ -110,6 +114,13 @@ describe('AI scope (T112)', () => {
     expect(uncommitted).not.toBe(owned);
     const budget = hashDeckReviewInput({ ...base.value, scope: 'budget' });
     expect(new Set([legacy, owned, uncommitted, budget]).size).toBe(4);
+    // Currency keys only a EUR budget apart: USD budget readings written before
+    // currencies existed keep their key, and no other scope reads it.
+    expect(hashDeckReviewInput({ ...base.value, scope: 'budget', currency: 'usd' })).toBe(budget);
+    expect(hashDeckReviewInput({ ...base.value, scope: 'budget', currency: 'eur' })).not.toBe(
+      budget
+    );
+    expect(hashDeckReviewInput({ ...base.value, scope: 'owned', currency: 'eur' })).toBe(owned);
   });
 
   it('tells the writing pass the looked-up cards are owned when the scope says so', () => {
@@ -120,6 +131,7 @@ describe('AI scope (T112)', () => {
       /not already in another of their decks/
     );
     expect(renderFetchedCards(fetched, 'budget')).toMatch(/every one under \$5/);
+    expect(renderFetchedCards(fetched, 'budget', 'eur')).toMatch(/every one under €5/);
   });
 });
 

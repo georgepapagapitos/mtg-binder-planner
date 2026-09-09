@@ -784,6 +784,26 @@ describe('review scope (T112)', () => {
     expect(options.tools[0].definition.description).toMatch(/at most \$5 USD/);
     expect(options.tools[0].definition.description).not.toMatch(/ALREADY OWNS/);
   });
+
+  it('caps in EUR when the player prices in EUR', async () => {
+    const cookie = await makeUser('ai-review-scope-budget-eur');
+    await optIn(cookie);
+    mockState.generate.mockImplementation(async () => ({
+      content: REVIEW_TEXT,
+      inputTokens: 1,
+      outputTokens: 1,
+      fetched: [],
+    }));
+    const res = await request(app)
+      .post('/api/ai/deck-review')
+      .set('Cookie', cookie)
+      .send(reviewBody({ scope: 'budget', currency: 'eur' }));
+    expect(res.status).toBe(200);
+    const options = mockState.generate.mock.calls[0][4] as {
+      tools: { definition: { description: string } }[];
+    };
+    expect(options.tools[0].definition.description).toMatch(/at most €5 EUR/);
+  });
 });
 
 describe('POST /api/ai/deck-refine', () => {
@@ -896,7 +916,7 @@ describe('POST /api/ai/deck-refine', () => {
     const cookie = await makeUser('ai-refine-budget');
     await optIn(cookie);
     const cache = getScryfallCache();
-    const printing = (id: string, name: string, usd: string) => {
+    const printing = (id: string, name: string, usd: string, eur: string | null = null) => {
       cache.setMany([
         {
           id,
@@ -906,13 +926,14 @@ describe('POST /api/ai/deck-refine', () => {
           set: 'tst',
           set_name: 'Test',
           collector_number: '1',
-          prices: { usd },
+          prices: { usd, eur },
         },
       ]);
       cache.setLookups([{ key: `ns:${name.toLowerCase()}|tst`, scryfallId: id }]);
     };
     printing('ai-refine-budget-cheap', 'Ai Refine Budget Cheap Rock', '0.25');
-    printing('ai-refine-budget-pricey', 'Ai Refine Budget Pricey Rock', '40.00');
+    // Cheap on Cardmarket, dear on TCGplayer: in under EUR, out under USD.
+    printing('ai-refine-budget-pricey', 'Ai Refine Budget Pricey Rock', '40.00', '2.00');
     mockState.generate.mockImplementation(async () => ({
       content: refineReply(PROSE, [
         { add: 'Ai Refine Budget Cheap Rock', cut: null, why: 'Ramp on a budget.' },
@@ -942,6 +963,28 @@ describe('POST /api/ai/deck-refine', () => {
     expect(userMessage).toMatch(/ENGINE SUGGESTIONS — BUDGET/);
     expect(userMessage).toContain('Ai Refine Budget Cheap Rock');
     expect(userMessage).not.toContain('Ai Refine Budget Pricey Rock');
+
+    // The same deck priced in EUR keeps the Cardmarket-cheap card and drops
+    // the one with no EUR price at all — a USD price is never a stand-in.
+    mockState.generate.mockClear();
+    const eur = await request(app)
+      .post('/api/ai/deck-refine')
+      .set('Cookie', cookie)
+      .send(
+        refineBody({
+          scope: 'budget',
+          currency: 'eur',
+          pool: [
+            { name: 'Ai Refine Budget Cheap Rock', oracleId: 'p-1', qty: 1 },
+            { name: 'Ai Refine Budget Pricey Rock', oracleId: 'p-2', qty: 1 },
+          ],
+        })
+      );
+    expect(eur.status).toBe(200);
+    const eurDone = parseStream(eur.text).done as { tweaks: { add: string }[]; cached: boolean };
+    expect(eurDone.cached).toBe(false); // a EUR budget is its own key
+    expect(eurDone.tweaks.map((t) => t.add)).toEqual(['Ai Refine Budget Pricey Rock']);
+    expect(mockState.generate.mock.calls[0][1] as string).toMatch(/BUDGET .*under €5/);
   });
 
   it('hands the model a card-search tool and an answer marker', async () => {

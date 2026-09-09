@@ -114,6 +114,7 @@ describe('requestDeckRefine', () => {
     cards: [{ name: 'Swamp', oracleId: 'o', qty: 1 }],
     pool: [{ name: 'Sol Ring', oracleId: 'o', qty: 1 }],
     scope: 'any' as const,
+    currency: 'usd' as const,
     analysis: {} as never,
   };
 

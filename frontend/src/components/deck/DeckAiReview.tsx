@@ -18,6 +18,7 @@ import {
   type ReviewReading,
 } from '../../lib/ai-review';
 import type { AiScope } from '../../lib/ai-scope';
+import { aiPriceCurrency, useCurrency } from '../../lib/currency';
 import { noteAiExhausted, noteAiSpend, useAiStatus } from '../../lib/use-ai-status';
 import { AiMarker, DeckAiConsent, isAiInviteDismissed } from './DeckAiConsent';
 import { useCardCarousel } from './useCardCarousel';
@@ -138,9 +139,13 @@ export function DeckAiReview({
   const cards = useMemo(() => buildDeckReviewCards(mainboard), [mainboard]);
   // The scope is in the key: a reading written against the whole card pool is
   // stale once the deck says "cards I own", the same way an edited list is.
+  const currency = useCurrency();
   const currentKey = useMemo(
-    () => `${scope}::${deckContentKey(commanderName, cards)}`,
-    [scope, commanderName, cards]
+    // A EUR budget is a different reading from a USD one (the server keys it
+    // apart too), so the staleness key follows the currency under that scope.
+    () =>
+      `${scope}${scope === 'budget' ? `:${aiPriceCurrency(currency)}` : ''}::${deckContentKey(commanderName, cards)}`,
+    [scope, currency, commanderName, cards]
   );
 
   /** Every card the prose may name, mapped to the printing this deck holds so
@@ -172,7 +177,10 @@ export function DeckAiReview({
       // usually the commander's.
       [commander, ...(partnerCommander ? [partnerCommander] : []), ...mainboard.map((m) => m.card)]
     );
-    requestDeckReview({ deckId, commander: commanderName, cards, scope, analysis }, setStreamed)
+    requestDeckReview(
+      { deckId, commander: commanderName, cards, scope, currency: aiPriceCurrency(), analysis },
+      setStreamed
+    )
       .then((result) => {
         setReview({ content: result.content, key: requestKey, fetched: result.fetched });
         setStreamed('');

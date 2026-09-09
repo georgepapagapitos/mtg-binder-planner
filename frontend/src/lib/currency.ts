@@ -55,6 +55,11 @@ export function useCurrency(): Currency {
   return useCurrencyStore((s) => s.currency);
 }
 
+/** The AI requests' price currency — the display currency, lower-cased for the wire. */
+export function aiPriceCurrency(currency: Currency = getCurrency()): 'usd' | 'eur' {
+  return currency === 'EUR' ? 'eur' : 'usd';
+}
+
 /** Bare symbol for compact labels ("€5–20" filter chips) where the full
  *  formatMoney rendering ("€5.00–€20.00") is too heavy. */
 export function currencySymbol(currency: Currency = getCurrency()): string {

@@ -839,6 +839,34 @@ describe('POST /api/ai/deck-refine', () => {
     expect(done.tweaks.map((t) => t.add)).toEqual(['Viscera Seer']);
   });
 
+  it('never applies a swap that cuts an engine piece named in analysis.engines', async () => {
+    const cookie = await makeUser('ai-refine-engine-cut');
+    await optIn(cookie);
+    mockState.generate.mockImplementation(async () => ({
+      content: refineReply(PROSE, [
+        { add: 'Eternal Witness', cut: 'Sol Ring', why: 'Recursion beats a rock here.' },
+        { add: 'Viscera Seer', cut: 'Swamp', why: 'A free sac outlet.' },
+      ]),
+      inputTokens: 1,
+      outputTokens: 1,
+      fetched: [],
+    }));
+    const res = await request(app)
+      .post('/api/ai/deck-refine')
+      .set('Cookie', cookie)
+      .send(
+        refineBody({
+          analysis: {
+            totalNonCommander: 13,
+            engines: [{ label: 'Artifacts', sources: ['Sol Ring'], payoffs: ['Meren'] }],
+          },
+        })
+      );
+    expect(res.status).toBe(200);
+    const done = parseStream(res.text).done as { tweaks: { add: string; cut: string }[] };
+    expect(done.tweaks).toEqual([{ add: 'Viscera Seer', cut: 'Swamp', why: 'A free sac outlet.' }]);
+  });
+
   it('hands the model a card-search tool and an answer marker', async () => {
     const cookie = await makeUser('ai-refine-tools');
     await optIn(cookie);

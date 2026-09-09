@@ -49,6 +49,7 @@ import { reportsRouter } from './routes/reports';
 import { discoverRouter } from './routes/discover';
 import { eventsRouter } from './routes/events';
 import { sitemapHandler } from './sitemap';
+import { isSpaRoute } from './spa-routes';
 import { activityRouter } from './routes/activity';
 import { aiRouter } from './routes/ai';
 import { getMatcher } from './scanner/matcher';
@@ -1215,11 +1216,13 @@ if (existsSync(SPA_DIR)) {
   // SPA history fallback: any GET that didn't match a static file or an /api
   // route gets index.html, so client-side routes (/decks, /collection, …)
   // and hard refreshes deep-link correctly. /api/* misses fall through to a
-  // 404. /s/:token is handled above, before the static layer.
+  // 404. /s/:token is handled above, before the static layer. A path whose
+  // first segment the router doesn't own still gets the shell (the app shows
+  // its not-found page) but with a 404 status — no soft-404s for crawlers.
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
     if (req.path.startsWith('/api/')) return next();
-    res.sendFile(path.join(SPA_DIR, 'index.html'));
+    res.status(isSpaRoute(req.path) ? 200 : 404).sendFile(path.join(SPA_DIR, 'index.html'));
   });
 }
 

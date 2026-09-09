@@ -314,7 +314,8 @@ export const CORPUS: CorpusCard[] = [
     keywords: [],
     oracle_text:
       'Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.',
-    expect: { producers: ['lifegain'], payoffs: ['sacrifice'] },
+    // Drain: the gain is the loss's side effect, not a lifegain source (T112 residual).
+    expect: { producers: [], payoffs: ['sacrifice'] },
   },
   {
     name: 'Zulaport Cutthroat',
@@ -322,7 +323,8 @@ export const CORPUS: CorpusCard[] = [
     keywords: [],
     oracle_text:
       'Whenever this creature or another creature you control dies, each opponent loses 1 life and you gain 1 life.',
-    expect: { producers: ['lifegain'], payoffs: ['sacrifice'] },
+    // Drain: the gain is the loss's side effect, not a lifegain source (T112 residual).
+    expect: { producers: [], payoffs: ['sacrifice'] },
   },
   {
     name: 'Viscera Seer',
@@ -1422,7 +1424,8 @@ export const CORPUS: CorpusCard[] = [
     keywords: [],
     oracle_text:
       'Whenever you cycle or discard a card, you may pay {1}. If you do, each opponent loses 2 life and you gain 2 life.',
-    expect: { producers: ['lifegain'], payoffs: ['cycling', 'discard'] },
+    // Drain: the gain is the loss's side effect, not a lifegain source (T112 residual).
+    expect: { producers: [], payoffs: ['cycling', 'discard'] },
   },
   {
     name: 'Waste Not',
@@ -1651,7 +1654,8 @@ export const CORPUS: CorpusCard[] = [
     keywords: [],
     oracle_text:
       'Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life.',
-    expect: { producers: ['lifegain'], payoffs: ['sacrifice'] },
+    // Drain: the gain is the loss's side effect, not a lifegain source (T112 residual).
+    expect: { producers: [], payoffs: ['sacrifice'] },
   },
   {
     name: 'Crypt Incursion',
@@ -1998,7 +2002,8 @@ export const CORPUS: CorpusCard[] = [
     keywords: [],
     oracle_text:
       'When this creature enters, you become the monarch.\nWhenever an opponent becomes the monarch, if you were the monarch as the turn began, that player loses 2 life and you gain 2 life.',
-    expect: { producers: ['lifegain', 'monarch'], payoffs: ['monarch'] },
+    // Drain: the gain is the loss's side effect, not a lifegain source (T112 residual).
+    expect: { producers: ['monarch'], payoffs: ['monarch'] },
   },
   {
     name: 'Land Tax',
@@ -2361,7 +2366,8 @@ export const CORPUS: CorpusCard[] = [
     keywords: [],
     oracle_text:
       'When The Bus Runner enters, create a 4/4 Desert Vehicle artifact land token with crew 2. Put eight hour counters on it. It has "{T}: Add {C}" and "Whenever this token or a Gamer you control becomes tapped, remove an hour counter from this token. Then if it has no hour counters on it, each opponent loses 1 life, you gain 1 life, and put eight hour counters on this token."\nReady to run (You can have two commanders if both have ready to run.)',
-    expect: { producers: ['lifegain'], payoffs: [] },
+    // Drain: the gain is the loss's side effect, not a lifegain source (T112 residual).
+    expect: { producers: [], payoffs: [] },
   },
   {
     name: 'The Monarch',

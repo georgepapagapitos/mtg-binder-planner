@@ -29,6 +29,17 @@ describe('synergy classifier — safety invariants', () => {
     }
   });
 
+  it('never counts a drain\'s "and you gain N life" as a lifegain source', () => {
+    // The Mr. House review read "Lifegain: 8 sources · 0 payoffs" off exactly
+    // these; Soul Warden's gain is the whole clause and is a real source.
+    for (const name of ['Blood Artist', 'Zulaport Cutthroat', 'Cruel Celebrant']) {
+      const card = CORPUS.find((c) => c.name === name)!;
+      expect(classifyCard(card).producers.map((r) => r.axis)).not.toContain('lifegain');
+    }
+    const warden = CORPUS.find((c) => c.name === 'Soul Warden')!;
+    expect(classifyCard(warden).producers.map((r) => r.axis)).toContain('lifegain');
+  });
+
   it('reports an aggregate precision/recall ≥ 0.9 on producers and payoffs', () => {
     let tp = 0;
     let fp = 0;

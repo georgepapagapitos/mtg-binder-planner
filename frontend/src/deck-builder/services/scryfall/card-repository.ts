@@ -26,8 +26,12 @@ export interface CardRepository {
     options?: CardSearchOptions
   ): Promise<ScryfallSearchResponse>;
 
-  /** Resolve a single card by (case-insensitive) name. Throws if not found. */
-  getCardByName(name: string): Promise<ScryfallCard>;
+  /**
+   * Resolve a single card by (case-insensitive) name. Throws if not found.
+   * `arenaOnly` (E271) prefers a printing on MTG Arena over the cheapest
+   * paper one — offline ignores it (no per-printing `games` data).
+   */
+  getCardByName(name: string, arenaOnly?: boolean): Promise<ScryfallCard>;
 
   /** Batch-resolve cards by name. Missing names are simply absent from the map. */
   getCardsByNames(
@@ -88,4 +92,13 @@ export interface GetCardsByNamesOptions {
    * refines prices the cost plan can also live without. Default `true`.
    */
   priceTail?: boolean;
+
+  /**
+   * Live path only. Prefer a printing on MTG Arena over the cheapest paper
+   * one (E271) — the batch `/cards/collection` endpoint can't filter by game,
+   * so this post-processes any name whose returned printing lacks 'arena'
+   * through the arena-preferred single-name search. Offline ignores this (no
+   * per-printing `games` data). Default `false`.
+   */
+  arenaOnly?: boolean;
 }

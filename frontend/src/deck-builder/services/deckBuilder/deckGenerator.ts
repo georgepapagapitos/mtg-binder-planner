@@ -1386,7 +1386,9 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       mustIncludeNames
     );
 
-    const mustIncludeMap = await getCardsByNames(mustIncludeNames, undefined, preferredSet);
+    const mustIncludeMap = await getCardsByNames(mustIncludeNames, undefined, preferredSet, {
+      arenaOnly,
+    });
     // getCardsByNames keys results by Scryfall's CANONICAL card name, but
     // Scryfall fuzzy-resolves punctuation/case differences (e.g. a stored
     // "Comet Stellar Pup" → "Comet, Stellar Pup"). A direct .get(requestedName)
@@ -2247,7 +2249,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         const pct = 25 + Math.round((fetched / total) * 10);
         onProgress?.('Scrying the multiverse…', pct);
       },
-      preferredSet
+      preferredSet,
+      { arenaOnly }
     );
     // Post-filter: remove cards that don't match the scryfallQuery filter
     if (preferredSet) {
@@ -3207,7 +3210,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // over the Commander limit"). Topping up first lets the trim reconcile the
   // surplus — its land budget (max(0, lands - landTarget)) still protects the
   // freshly added basics.
-  const landTopUpCtx: LandTopUpContext = { colorIdentity, categories };
+  const landTopUpCtx: LandTopUpContext = { colorIdentity, categories, arenaOnly };
   await runLandDeficitTopUp(landTopUpCtx, targets.lands);
 
   // ── Smart Trim: priority-aware, role-aware, combo-aware ──
@@ -3279,7 +3282,9 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       );
 
       const namesToFetch = remainingEdhrecCards.slice(0, shortage * 3).map((c) => c.name);
-      const fillCardMap = await getCardsByNames(namesToFetch, undefined, preferredSet);
+      const fillCardMap = await getCardsByNames(namesToFetch, undefined, preferredSet, {
+        arenaOnly,
+      });
       if (preferredSet) {
         for (const [name, card] of fillCardMap) {
           if (card.set !== preferredSet) fillCardMap.delete(name);
@@ -3667,7 +3672,12 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         });
         const chosen = plan.rows.slice(0, need);
         if (chosen.length > 0) {
-          const fetched = await getCardsByNames(chosen.map((r) => r.usedName));
+          const fetched = await getCardsByNames(
+            chosen.map((r) => r.usedName),
+            undefined,
+            undefined,
+            { arenaOnly }
+          );
           for (const row of chosen) {
             const card = fetched.get(row.usedName);
             if (!card || usedNames.has(card.name)) continue;
@@ -4057,7 +4067,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       ignoreOwnedBudget,
       ignoreOwnedRarity,
       getBasicLand: async (name) =>
-        getCachedCard(name) ?? (await getCardByName(name).catch(() => null)),
+        getCachedCard(name, arenaOnly) ?? (await getCardByName(name, arenaOnly).catch(() => null)),
     });
     coherenceRepairs = [...comboAuditRepairs, ...repairResult.repairs];
     // A repair add can complete a tracked combo — refresh completeness against
@@ -4210,7 +4220,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
             .filter((n) => !scryfallCardMap.has(n));
           const resolved =
             unresolvedNames.length > 0
-              ? await getCardsByNames(unresolvedNames, undefined, preferredSet)
+              ? await getCardsByNames(unresolvedNames, undefined, preferredSet, { arenaOnly })
               : new Map<string, ScryfallCard>();
           return { pool: budgetPoolData.cardlists.allNonLand, scryfallMap: resolved };
         } catch {

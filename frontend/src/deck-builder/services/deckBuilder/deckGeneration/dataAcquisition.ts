@@ -403,7 +403,7 @@ export async function acquireCommanderDataPhase(
     onProgress?.('Shuffling up…', 5);
     let combosFetchFailed = false;
     const [, fetchedGCNames, fetchedCombos] = await Promise.all([
-      prefetchBasicLands(),
+      prefetchBasicLands(state.cfg.arenaOnly),
       getGameChangerNames(),
       retryOnce(() => fetchCommanderCombosRaw(commander.name)).catch(() => {
         combosFetchFailed = true;

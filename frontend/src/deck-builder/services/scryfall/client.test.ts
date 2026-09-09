@@ -946,3 +946,255 @@ describe('validateScryfallFilter', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+// E271: `notOnArena` used to reject Command Tower, basics, Impact Tremors,
+// etc. under arenaOnly because resolution always picked the CHEAPEST paper
+// printing, and that printing often isn't the one on Arena. arenaOnly now
+// prefers an Arena-legal printing without disturbing the plain (cheapest
+// paper) cache entry for the same name.
+describe('getCardByName arenaOnly (E271)', () => {
+  beforeEach(() => {
+    gate.offline = false;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('re-resolves to an Arena printing when the cheapest paper printing is not on Arena', async () => {
+    const name = 'Arena Leak Test Tower';
+    const paperCheapest = makeCard({
+      id: 'paper-cheapest',
+      name,
+      layout: 'normal',
+      games: ['paper'],
+      prices: { usd: '0.25' },
+    });
+    const arenaPrint = makeCard({
+      id: 'arena-print',
+      name,
+      layout: 'normal',
+      games: ['paper', 'arena'],
+      prices: { usd: '2.00' },
+    });
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/cards/named'))
+        return { ok: true, json: async () => ({ card: null }) };
+      if (url.includes('/cards/search')) {
+        if (url.includes('game%3Aarena')) {
+          return { ok: true, json: async () => ({ data: [arenaPrint], has_more: false }) };
+        }
+        return { ok: false, status: 404, statusText: 'Not Found' };
+      }
+      if (url.includes('/cards/named')) return { ok: true, json: async () => paperCheapest };
+      return { ok: false, status: 404, statusText: 'Not Found' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getCardByName(name, true);
+
+    expect(result.id).toBe('arena-print');
+    expect(result.games).toContain('arena');
+    const searchUrl = fetchMock.mock.calls
+      .map((c) => String(c[0]))
+      .find((u) => u.includes('/cards/search'));
+    expect(searchUrl).toContain('game%3Aarena');
+  });
+
+  it('falls back to the plain cheapest-printing query when no Arena printing exists', async () => {
+    const name = 'Arena Leak Test Paperonly';
+    const paperCheapest = makeCard({
+      id: 'paper-cheapest-2',
+      name,
+      layout: 'normal',
+      games: ['paper'],
+      prices: { usd: '0.25' },
+    });
+    const fallbackCheapest = makeCard({
+      id: 'fallback-cheapest',
+      name,
+      layout: 'normal',
+      games: ['paper', 'mtgo'],
+      prices: { usd: '0.10' },
+    });
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/cards/named'))
+        return { ok: true, json: async () => ({ card: null }) };
+      if (url.includes('/cards/search')) {
+        // The arena-scoped query 404s (no Arena printing exists at all) —
+        // must fall back to the plain query rather than giving up.
+        if (url.includes('game%3Aarena')) {
+          return { ok: false, status: 404, statusText: 'Not Found' };
+        }
+        return { ok: true, json: async () => ({ data: [fallbackCheapest], has_more: false }) };
+      }
+      if (url.includes('/cards/named')) return { ok: true, json: async () => paperCheapest };
+      return { ok: false, status: 404, statusText: 'Not Found' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getCardByName(name, true);
+
+    expect(result.id).toBe('fallback-cheapest');
+  });
+
+  it('never overwrites the plain (non-arena) cache entry with the Arena-preferred printing', async () => {
+    const name = 'Arena Leak Test Cache Isolation';
+    const paperCheapest = makeCard({
+      id: 'paper-cheapest-3',
+      name,
+      layout: 'normal',
+      games: ['paper'],
+      prices: { usd: '0.25' },
+    });
+    const arenaPrint = makeCard({
+      id: 'arena-print-3',
+      name,
+      layout: 'normal',
+      games: ['paper', 'arena'],
+      prices: { usd: '2.00' },
+    });
+    const fetchMock = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/cards/named'))
+        return { ok: true, json: async () => ({ card: null }) };
+      if (url.includes('/cards/search')) {
+        return { ok: true, json: async () => ({ data: [arenaPrint], has_more: false }) };
+      }
+      if (url.includes('/cards/named')) return { ok: true, json: async () => paperCheapest };
+      return { ok: false, status: 404, statusText: 'Not Found' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const arenaResult = await getCardByName(name, true);
+    expect(arenaResult.id).toBe('arena-print-3');
+
+    const callsAfterFirst = fetchMock.mock.calls.length;
+
+    // A plain (non-arena) lookup for the SAME name must still return the
+    // cheapest paper printing from cache — not the Arena-preferred one — and
+    // must not need another network round-trip (the plain resolve was cached
+    // during the first call above).
+    const plainResult = await getCardByName(name, false);
+    expect(plainResult.id).toBe('paper-cheapest-3');
+    expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
+
+    // And a second Arena-preferred lookup must be served from the `|arena`
+    // cache entry rather than re-issuing the search.
+    const arenaResultAgain = await getCardByName(name, true);
+    expect(arenaResultAgain.id).toBe('arena-print-3');
+    expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
+  });
+});
+
+describe('getCardsByNames arenaOnly batch post-process (E271)', () => {
+  beforeEach(() => {
+    gate.offline = false;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('re-resolves a batch-returned non-Arena printing through the Arena-preferred search', async () => {
+    const name = 'Arena Leak Test Batch Card';
+    const batchPrinting = makeCard({
+      id: 'batch-non-arena',
+      name,
+      layout: 'normal',
+      games: ['paper'],
+      prices: { usd: '0.25' },
+    });
+    const arenaPrint = makeCard({
+      id: 'batch-arena-print',
+      name,
+      layout: 'normal',
+      games: ['paper', 'arena'],
+      prices: { usd: '2.00' },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/cards/collection')) {
+          const body = JSON.parse(String(init?.body)) as { identifiers: Array<{ name: string }> };
+          return {
+            ok: true,
+            json: async () => ({
+              data: body.identifiers.map(() => batchPrinting),
+              not_found: [],
+            }),
+          };
+        }
+        if (url.includes('/cards/search') && url.includes('game%3Aarena')) {
+          return { ok: true, json: async () => ({ data: [arenaPrint], has_more: false }) };
+        }
+        return { ok: false, status: 404, statusText: 'Not Found' };
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getCardsByNames([name], undefined, undefined, { arenaOnly: true });
+
+    expect(result.get(name)?.id).toBe('batch-arena-print');
+    expect(result.get(name)?.games).toContain('arena');
+  });
+
+  it('re-resolves many non-Arena names in ONE chunked search and keeps the batch printing for a card with no Arena printing', async () => {
+    const onArena = 'Chunk Arena Card';
+    const paperOnly = 'Chunk Paper Only Card';
+    const batchPrinting = (name: string) =>
+      makeCard({
+        id: `batch-${name}`,
+        name,
+        layout: 'normal',
+        games: ['paper'],
+        prices: { usd: '0.25' },
+      });
+    const arenaPrint = makeCard({
+      id: 'chunk-arena-print',
+      name: onArena,
+      layout: 'normal',
+      games: ['paper', 'arena'],
+      prices: { usd: '1.00' },
+    });
+    const searches: string[] = [];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/cards/collection')) {
+          const body = JSON.parse(String(init?.body)) as { identifiers: Array<{ name: string }> };
+          return {
+            ok: true,
+            json: async () => ({
+              data: body.identifiers.map((id) => batchPrinting(id.name)),
+              not_found: [],
+            }),
+          };
+        }
+        if (url.includes('/cards/search') && url.includes('game%3Aarena')) {
+          searches.push(decodeURIComponent(url));
+          return { ok: true, json: async () => ({ data: [arenaPrint], has_more: false }) };
+        }
+        return { ok: false, status: 404, statusText: 'Not Found' };
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getCardsByNames([onArena, paperOnly], undefined, undefined, {
+      arenaOnly: true,
+    });
+
+    expect(searches).toHaveLength(1);
+    expect(searches[0]).toContain(`!"${onArena}" or !"${paperOnly}"`);
+    expect(result.get(onArena)?.id).toBe('chunk-arena-print');
+    expect(result.get(paperOnly)?.id).toBe(`batch-${paperOnly}`);
+
+    // Both answers are remembered: a second arenaOnly ask is a pure cache hit.
+    const again = await getCardsByNames([onArena, paperOnly], undefined, undefined, {
+      arenaOnly: true,
+    });
+    expect(searches).toHaveLength(1);
+    expect(again.get(onArena)?.id).toBe('chunk-arena-print');
+    expect(again.get(paperOnly)?.id).toBe(`batch-${paperOnly}`);
+  });
+});

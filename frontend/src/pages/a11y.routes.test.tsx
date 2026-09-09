@@ -30,8 +30,14 @@ import type { EnrichedCard } from '../types';
 
 expect.extend(matchers);
 declare module 'vitest' {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-object-type
-  interface Matchers<T = any> extends AxeMatchers {}
+  // Type parameters must match vitest's own `Matchers<R, T>` declaration
+  // exactly (names, constraints, defaults) or tsc rejects the merge (TS2428).
+  /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-object-type */
+  interface Matchers<
+    R extends void | Promise<void> = void | Promise<void>,
+    T = unknown,
+  > extends AxeMatchers {}
+  /* eslint-enable @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-object-type */
 }
 
 // ── Phone environment ────────────────────────────────────────────────────

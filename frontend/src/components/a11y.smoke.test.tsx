@@ -6,9 +6,9 @@
  * so an ARIA regression (invalid role/attr combos, missing accessible
  * names, broken parent/child role contracts) fails CI instead of shipping.
  *
- * Uses `vitest-axe` (a jest-axe port; runtime-compatible with vitest 4 —
+ * Uses `vitest-axe` (a jest-axe port; runtime-compatible with vitest 4+ —
  * matchers are plain `expect.extend` material). Its shipped type
- * augmentation targets the pre-1.0 `namespace Vi` global, which vitest 4
+ * augmentation targets the pre-1.0 `namespace Vi` global, which vitest
  * no longer reads, so the module augmentation below registers
  * `toHaveNoViolations` with the current `Matchers` interface instead.
  */
@@ -26,9 +26,14 @@ import { Tabs } from './Tabs';
 expect.extend(matchers);
 
 declare module 'vitest' {
-  // Type parameter must match vitest's own `Matchers<T = any>` declaration.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-object-type
-  interface Matchers<T = any> extends AxeMatchers {}
+  // Type parameters must match vitest's own `Matchers<R, T>` declaration
+  // exactly (names, constraints, defaults) or tsc rejects the merge (TS2428).
+  /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-object-type */
+  interface Matchers<
+    R extends void | Promise<void> = void | Promise<void>,
+    T = unknown,
+  > extends AxeMatchers {}
+  /* eslint-enable @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-object-type */
 }
 
 // Render every virtual row so the list markup exists in happy-dom (no

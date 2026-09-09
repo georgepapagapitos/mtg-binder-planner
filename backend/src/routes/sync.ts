@@ -1,10 +1,18 @@
 import { Router, type Request, type Response } from 'express';
 import { logger } from '../logger';
 import { requireAuth } from '../auth';
+import { testAwareLimiter } from '../route-utils';
 import { getPool } from '../db';
 import { refreshDeckPublications } from '../publications/sync-hook';
 
 export const syncRouter: Router = Router();
+
+// Runaway-client backstop, NOT a human ceiling. Web pushes one POST per
+// mutation (no debounce) and a 429 there REVERTS the local edit with a
+// "could not be saved" toast, so this must stay far above anything a table
+// of people behind one game-store NAT can produce by hand. Native drains a
+// debounced queue and imports chunk at 500 ops per POST, both well under it.
+const syncLimiter = testAwareLimiter({ windowMs: 60_000, max: 600 });
 
 /**
  * Delta sync.
@@ -199,7 +207,7 @@ function parseLimit(raw: unknown): number {
  * `rev > since`, ordered by `rev ASC` so the client can apply in order and
  * advance its cursor monotonically.
  */
-syncRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+syncRouter.get('/', requireAuth, syncLimiter, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const since = parseSince(req.query.since);
   const limit = parseLimit(req.query.limit);
@@ -270,7 +278,7 @@ syncRouter.get('/', requireAuth, async (req: Request, res: Response) => {
  * only row anyway — defensive, so a future upsert with the same id from a
  * peer can still observe the deletion.
  */
-syncRouter.post('/', requireAuth, async (req: Request, res: Response) => {
+syncRouter.post('/', requireAuth, syncLimiter, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const body = req.body as {
     upserts?: unknown;

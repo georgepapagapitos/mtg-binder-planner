@@ -72,6 +72,8 @@ function nativeCallbackUrl(): string {
 const registerLimiter = testAwareLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
 const loginLimiter = testAwareLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 const oauthLimiter = testAwareLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+// Session bootstrap reads (/providers, /me): hit on every app open and focus.
+const sessionLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
 
 export const authRouter: Router = Router();
 
@@ -167,7 +169,7 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
  * calls this to decide whether to render the "Continue with Google" button —
  * Google SSO is optional and only enabled when its env vars are configured.
  */
-authRouter.get('/providers', (_req: Request, res: Response) => {
+authRouter.get('/providers', sessionLimiter, (_req: Request, res: Response) => {
   res.json({ password: true, google: isGoogleOAuthConfigured() });
 });
 
@@ -535,7 +537,7 @@ authRouter.post('/logout', (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-authRouter.get('/me', async (req: Request, res: Response) => {
+authRouter.get('/me', sessionLimiter, async (req: Request, res: Response) => {
   const token = readSessionCookie(req);
   if (!token) return res.status(401).json({ error: 'Not authenticated.' });
   const user = await loadAuthedUser(token);
@@ -685,7 +687,7 @@ authRouter.patch('/profile', profileLimiter, requireAuth, async (req: Request, r
   });
 });
 
-authRouter.delete('/me', requireAuth, async (req: Request, res: Response) => {
+authRouter.delete('/me', requireAuth, profileLimiter, async (req: Request, res: Response) => {
   const db = getDb();
   const userId = req.user!.id;
 
@@ -713,11 +715,16 @@ authRouter.delete('/me', requireAuth, async (req: Request, res: Response) => {
  * identity linked via verified-email matches their account; the banner
  * stops appearing on subsequent /me responses.
  */
-authRouter.post('/me/acknowledge-auto-link', requireAuth, async (req: Request, res: Response) => {
-  const db = getDb();
-  await db.update(users).set({ autoLinkedAt: null }).where(eq(users.id, req.user!.id));
-  res.json({ ok: true });
-});
+authRouter.post(
+  '/me/acknowledge-auto-link',
+  requireAuth,
+  profileLimiter,
+  async (req: Request, res: Response) => {
+    const db = getDb();
+    await db.update(users).set({ autoLinkedAt: null }).where(eq(users.id, req.user!.id));
+    res.json({ ok: true });
+  }
+);
 
 /**
  * Which external sign-in methods the authed user has linked. Used by the
@@ -725,23 +732,28 @@ authRouter.post('/me/acknowledge-auto-link', requireAuth, async (req: Request, r
  * because we don't persist it on the identity row — Settings shows
  * "Linked / Not linked" only.
  */
-authRouter.get('/me/identities', requireAuth, async (req: Request, res: Response) => {
-  const db = getDb();
-  const userRows = await db
-    .select({ passwordHash: users.passwordHash })
-    .from(users)
-    .where(eq(users.id, req.user!.id))
-    .limit(1);
-  const googleRows = await db
-    .select({ createdAt: authIdentities.createdAt })
-    .from(authIdentities)
-    .where(and(eq(authIdentities.userId, req.user!.id), eq(authIdentities.provider, 'google')))
-    .limit(1);
-  res.json({
-    password: Boolean(userRows[0]?.passwordHash),
-    google: googleRows[0] ? { linkedAt: googleRows[0].createdAt } : null,
-  });
-});
+authRouter.get(
+  '/me/identities',
+  requireAuth,
+  profileLimiter,
+  async (req: Request, res: Response) => {
+    const db = getDb();
+    const userRows = await db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, req.user!.id))
+      .limit(1);
+    const googleRows = await db
+      .select({ createdAt: authIdentities.createdAt })
+      .from(authIdentities)
+      .where(and(eq(authIdentities.userId, req.user!.id), eq(authIdentities.provider, 'google')))
+      .limit(1);
+    res.json({
+      password: Boolean(userRows[0]?.passwordHash),
+      google: googleRows[0] ? { linkedAt: googleRows[0].createdAt } : null,
+    });
+  }
+);
 
 /**
  * Unlink the user's Google account. Refuses if removing the Google identity
@@ -750,28 +762,33 @@ authRouter.get('/me/identities', requireAuth, async (req: Request, res: Response
  * account is unrecoverable — the check is non-negotiable for any future
  * "remove sign-in method" endpoint too; consult userHasOtherSignInMethod().
  */
-authRouter.delete('/me/identities/google', requireAuth, async (req: Request, res: Response) => {
-  const db = getDb();
-  const exists = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, req.user!.id))
-    .limit(1);
-  if (!exists[0]) return res.status(404).json({ error: 'Account not found.' });
-  const hasOther = await userHasOtherSignInMethod(req.user!.id, {
-    kind: 'identity',
-    provider: 'google',
-  });
-  if (!hasOther) {
-    return res.status(409).json({
-      error: 'Set a password before unlinking Google — it would lock you out of this account.',
+authRouter.delete(
+  '/me/identities/google',
+  requireAuth,
+  profileLimiter,
+  async (req: Request, res: Response) => {
+    const db = getDb();
+    const exists = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, req.user!.id))
+      .limit(1);
+    if (!exists[0]) return res.status(404).json({ error: 'Account not found.' });
+    const hasOther = await userHasOtherSignInMethod(req.user!.id, {
+      kind: 'identity',
+      provider: 'google',
     });
+    if (!hasOther) {
+      return res.status(409).json({
+        error: 'Set a password before unlinking Google — it would lock you out of this account.',
+      });
+    }
+    await db
+      .delete(authIdentities)
+      .where(and(eq(authIdentities.userId, req.user!.id), eq(authIdentities.provider, 'google')));
+    // Unlinking implicitly resolves the auto-link banner — no need to make
+    // the user click "Got it" first.
+    await db.update(users).set({ autoLinkedAt: null }).where(eq(users.id, req.user!.id));
+    res.json({ ok: true });
   }
-  await db
-    .delete(authIdentities)
-    .where(and(eq(authIdentities.userId, req.user!.id), eq(authIdentities.provider, 'google')));
-  // Unlinking implicitly resolves the auto-link banner — no need to make
-  // the user click "Got it" first.
-  await db.update(users).set({ autoLinkedAt: null }).where(eq(users.id, req.user!.id));
-  res.json({ ok: true });
-});
+);

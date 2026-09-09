@@ -21,6 +21,8 @@ import { testAwareLimiter } from '../route-utils';
 export const feedbackRouter: Router = Router();
 
 const submitLimiter = testAwareLimiter({ windowMs: 60_000, max: 10 });
+const readLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
+const actionLimiter = testAwareLimiter({ windowMs: 60_000, max: 30 });
 
 const NAME_MAX = 40;
 const COMMENT_MAX = 4000;
@@ -189,25 +191,30 @@ feedbackRouter.post(
 );
 
 /** List feedback responses for one of the caller's decks, newest first. */
-feedbackRouter.get('/deck/:deckId', requireAuth, async (req: Request, res: Response) => {
-  const deckId = readParam(req, 'deckId');
-  const rows = await getDb()
-    .select()
-    .from(deckFeedback)
-    .where(and(eq(deckFeedback.ownerUserId, req.user!.id), eq(deckFeedback.deckId, deckId)))
-    .orderBy(desc(deckFeedback.createdAt));
-  res.json({
-    responses: rows.map((r) => ({
-      id: r.id,
-      authorName: r.authorName,
-      authorUserId: r.authorUserId,
-      comment: r.comment,
-      bracketSuggestion: r.bracketSuggestion,
-      suggestions: r.suggestions,
-      createdAt: r.createdAt,
-    })),
-  });
-});
+feedbackRouter.get(
+  '/deck/:deckId',
+  requireAuth,
+  readLimiter,
+  async (req: Request, res: Response) => {
+    const deckId = readParam(req, 'deckId');
+    const rows = await getDb()
+      .select()
+      .from(deckFeedback)
+      .where(and(eq(deckFeedback.ownerUserId, req.user!.id), eq(deckFeedback.deckId, deckId)))
+      .orderBy(desc(deckFeedback.createdAt));
+    res.json({
+      responses: rows.map((r) => ({
+        id: r.id,
+        authorName: r.authorName,
+        authorUserId: r.authorUserId,
+        comment: r.comment,
+        bracketSuggestion: r.bracketSuggestion,
+        suggestions: r.suggestions,
+        createdAt: r.createdAt,
+      })),
+    });
+  }
+);
 
 /**
  * Owner verdict on one suggestion: accepted / rejected (or back to pending —
@@ -217,6 +224,7 @@ feedbackRouter.get('/deck/:deckId', requireAuth, async (req: Request, res: Respo
 feedbackRouter.post(
   '/:id/suggestions/:suggestionId',
   requireAuth,
+  actionLimiter,
   async (req: Request, res: Response) => {
     const id = readParam(req, 'id');
     const suggestionId = readParam(req, 'suggestionId');
@@ -261,7 +269,7 @@ feedbackRouter.post(
 );
 
 /** Delete a feedback response (owner only). 404 if it isn't the caller's. */
-feedbackRouter.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+feedbackRouter.delete('/:id', requireAuth, actionLimiter, async (req: Request, res: Response) => {
   const id = readParam(req, 'id');
   const deleted = await getDb()
     .delete(deckFeedback)

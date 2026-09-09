@@ -29,6 +29,9 @@ export const gameNightsRouter: Router = Router();
 const publicLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
 // Writes from unauthenticated holders of a leaked link — keep tighter than reads.
 const rsvpLimiter = testAwareLimiter({ windowMs: 60_000, max: 20 });
+// Host edits (create/patch/lock/poll/invites/deletes): own bucket so an RSVP
+// burst at the table never starves the host.
+const hostWriteLimiter = testAwareLimiter({ windowMs: 60_000, max: 20 });
 
 const TITLE_MAX = 80;
 const LOCATION_MAX = 120;
@@ -746,7 +749,7 @@ async function cleanInvitees(callerId: string, raw: unknown): Promise<string[] |
  * the host locks one in later. While polling, `startsAt` mirrors the latest
  * candidate so the upcoming-list and grace-window queries need no special case.
  */
-gameNightsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
+gameNightsRouter.post('/', requireAuth, hostWriteLimiter, async (req: Request, res: Response) => {
   const body = req.body as Record<string, unknown>;
   const title = cleanRequired(body.title, TITLE_MAX);
   if (!title) {
@@ -859,7 +862,7 @@ gameNightsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
  * link while signed in). Upcoming plus a 24h grace window; soonest first.
  * Cancelled nights stay listed until they age out so invitees see the cancellation.
  */
-gameNightsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+gameNightsRouter.get('/', requireAuth, publicLimiter, async (req: Request, res: Response) => {
   const pool = getPool();
   // Lazy materialization (E125): before listing, make sure every live series
   // the caller is part of has its next occurrence — reading the list is the
@@ -952,91 +955,98 @@ gameNightsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 /** Edit a night (host only): details and/or additional friend invites. */
-gameNightsRouter.patch('/:id', requireAuth, async (req: Request, res: Response) => {
-  const id = typeof req.params.id === 'string' ? req.params.id : '';
-  const db = getDb();
-  const found = await db
-    .select()
-    .from(gameNights)
-    .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
-    .limit(1);
-  if (found.length === 0) {
-    // Non-host gets the same 404 as a bad id — don't confirm the night exists.
-    return res.status(404).json({ error: 'Game night not found.' });
-  }
-  const night = found[0];
-  if (night.cancelledAt !== null) {
-    return res.status(400).json({ error: 'This game night was cancelled.' });
-  }
+gameNightsRouter.patch(
+  '/:id',
+  requireAuth,
+  hostWriteLimiter,
+  async (req: Request, res: Response) => {
+    const id = typeof req.params.id === 'string' ? req.params.id : '';
+    const db = getDb();
+    const found = await db
+      .select()
+      .from(gameNights)
+      .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
+      .limit(1);
+    if (found.length === 0) {
+      // Non-host gets the same 404 as a bad id — don't confirm the night exists.
+      return res.status(404).json({ error: 'Game night not found.' });
+    }
+    const night = found[0];
+    if (night.cancelledAt !== null) {
+      return res.status(400).json({ error: 'This game night was cancelled.' });
+    }
 
-  const body = req.body as Record<string, unknown>;
-  const patch: Partial<typeof night> = {};
-  if (body.title !== undefined) {
-    const title = cleanRequired(body.title, TITLE_MAX);
-    if (!title) {
-      return res.status(400).json({ error: `title is required (max ${TITLE_MAX} characters).` });
+    const body = req.body as Record<string, unknown>;
+    const patch: Partial<typeof night> = {};
+    if (body.title !== undefined) {
+      const title = cleanRequired(body.title, TITLE_MAX);
+      if (!title) {
+        return res.status(400).json({ error: `title is required (max ${TITLE_MAX} characters).` });
+      }
+      patch.title = title;
     }
-    patch.title = title;
-  }
-  const nightOptions = (await loadNightOptions([id])).get(id) ?? [];
-  if (body.startsAt !== undefined) {
-    if (nightOptions.length > 0) {
-      // While polling, the date comes from the poll — lock in an option instead.
-      return res.status(400).json({ error: 'This night is voting on a date. Lock one in first.' });
+    const nightOptions = (await loadNightOptions([id])).get(id) ?? [];
+    if (body.startsAt !== undefined) {
+      if (nightOptions.length > 0) {
+        // While polling, the date comes from the poll — lock in an option instead.
+        return res
+          .status(400)
+          .json({ error: 'This night is voting on a date. Lock one in first.' });
+      }
+      if (!isValidStartsAt(body.startsAt)) {
+        return res.status(400).json({ error: 'startsAt must be a valid epoch-ms timestamp.' });
+      }
+      patch.startsAt = body.startsAt;
     }
-    if (!isValidStartsAt(body.startsAt)) {
-      return res.status(400).json({ error: 'startsAt must be a valid epoch-ms timestamp.' });
+    if (body.timezone !== undefined) patch.timezone = cleanTimezone(body.timezone);
+    if (body.location !== undefined)
+      patch.location = cleanOptional(body.location, LOCATION_MAX) ?? null;
+    if (body.notes !== undefined) patch.notes = cleanOptional(body.notes, NOTES_MAX) ?? null;
+    if (body.format !== undefined) patch.format = cleanOptional(body.format, FORMAT_MAX) ?? null;
+    if (body.inviteOnly !== undefined) {
+      if (typeof body.inviteOnly !== 'boolean') {
+        return res.status(400).json({ error: 'inviteOnly must be a boolean.' });
+      }
+      patch.inviteOnly = body.inviteOnly;
     }
-    patch.startsAt = body.startsAt;
-  }
-  if (body.timezone !== undefined) patch.timezone = cleanTimezone(body.timezone);
-  if (body.location !== undefined)
-    patch.location = cleanOptional(body.location, LOCATION_MAX) ?? null;
-  if (body.notes !== undefined) patch.notes = cleanOptional(body.notes, NOTES_MAX) ?? null;
-  if (body.format !== undefined) patch.format = cleanOptional(body.format, FORMAT_MAX) ?? null;
-  if (body.inviteOnly !== undefined) {
-    if (typeof body.inviteOnly !== 'boolean') {
-      return res.status(400).json({ error: 'inviteOnly must be a boolean.' });
+    const invitees = await cleanInvitees(req.user!.id, body.addInviteUserIds);
+    if (typeof invitees === 'string') {
+      const status = invitees === 'You can only invite friends.' ? 403 : 400;
+      return res.status(status).json({ error: invitees });
     }
-    patch.inviteOnly = body.inviteOnly;
-  }
-  const invitees = await cleanInvitees(req.user!.id, body.addInviteUserIds);
-  if (typeof invitees === 'string') {
-    const status = invitees === 'You can only invite friends.' ? 403 : 400;
-    return res.status(status).json({ error: invitees });
-  }
 
-  if (Object.keys(patch).length > 0) {
-    await db.update(gameNights).set(patch).where(eq(gameNights.id, id));
-  }
-  if (invitees.length > 0) {
-    const now = Date.now();
-    await getPool().query(
-      `INSERT INTO game_night_invites (night_id, user_id, created_at)
+    if (Object.keys(patch).length > 0) {
+      await db.update(gameNights).set(patch).where(eq(gameNights.id, id));
+    }
+    if (invitees.length > 0) {
+      const now = Date.now();
+      await getPool().query(
+        `INSERT INTO game_night_invites (night_id, user_id, created_at)
        SELECT $1, unnest($2::text[]), $3
        ON CONFLICT DO NOTHING`,
-      [id, invitees, now]
-    );
-  }
+        [id, invitees, now]
+      );
+    }
 
-  const updated = { ...night, ...patch };
-  const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
-  const { rsvpsByNight, awaitingByNight, blockedByNight, guestInvitesByNight } =
-    await loadNightDetails([id]);
-  res.json({
-    night: toNightView(
-      updated,
-      hostDisplayLabel,
-      req.user!.id,
-      rsvpsByNight.get(id) ?? [],
-      awaitingByNight.get(id) ?? [],
-      nightOptions,
-      await seriesInfoOf(night),
-      blockedByNight.get(id) ?? [],
-      guestInvitesByNight.get(id) ?? []
-    ),
-  });
-});
+    const updated = { ...night, ...patch };
+    const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
+    const { rsvpsByNight, awaitingByNight, blockedByNight, guestInvitesByNight } =
+      await loadNightDetails([id]);
+    res.json({
+      night: toNightView(
+        updated,
+        hostDisplayLabel,
+        req.user!.id,
+        rsvpsByNight.get(id) ?? [],
+        awaitingByNight.get(id) ?? [],
+        nightOptions,
+        await seriesInfoOf(night),
+        blockedByNight.get(id) ?? [],
+        guestInvitesByNight.get(id) ?? []
+      ),
+    });
+  }
+);
 
 /**
  * Lock in a poll option (host only): the night flips to the plain scheduled
@@ -1044,52 +1054,57 @@ gameNightsRouter.patch('/:id', requireAuth, async (req: Request, res: Response) 
  * votes, via cascade) are deleted. Everything downstream (RSVPs, calendar,
  * OG unfurl) then behaves exactly like a night created with a single date.
  */
-gameNightsRouter.post('/:id/lock', requireAuth, async (req: Request, res: Response) => {
-  const id = typeof req.params.id === 'string' ? req.params.id : '';
-  const db = getDb();
-  const found = await db
-    .select()
-    .from(gameNights)
-    .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
-    .limit(1);
-  if (found.length === 0) {
-    return res.status(404).json({ error: 'Game night not found.' });
-  }
-  const night = found[0];
-  if (night.cancelledAt !== null) {
-    return res.status(400).json({ error: 'This game night was cancelled.' });
-  }
-  const body = req.body as Record<string, unknown>;
-  const optionId = typeof body.optionId === 'string' ? body.optionId : '';
-  const pool = getPool();
-  const option = await pool.query<{ starts_at: string }>(
-    `SELECT starts_at FROM game_night_options WHERE id = $1 AND night_id = $2`,
-    [optionId, id]
-  );
-  if (option.rows.length === 0) {
-    return res.status(400).json({ error: 'Pick one of the poll options to lock in.' });
-  }
-  const startsAt = Number(option.rows[0].starts_at);
-  await pool.query(`UPDATE game_nights SET starts_at = $2 WHERE id = $1`, [id, startsAt]);
-  await pool.query(`DELETE FROM game_night_options WHERE night_id = $1`, [id]);
+gameNightsRouter.post(
+  '/:id/lock',
+  requireAuth,
+  hostWriteLimiter,
+  async (req: Request, res: Response) => {
+    const id = typeof req.params.id === 'string' ? req.params.id : '';
+    const db = getDb();
+    const found = await db
+      .select()
+      .from(gameNights)
+      .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
+      .limit(1);
+    if (found.length === 0) {
+      return res.status(404).json({ error: 'Game night not found.' });
+    }
+    const night = found[0];
+    if (night.cancelledAt !== null) {
+      return res.status(400).json({ error: 'This game night was cancelled.' });
+    }
+    const body = req.body as Record<string, unknown>;
+    const optionId = typeof body.optionId === 'string' ? body.optionId : '';
+    const pool = getPool();
+    const option = await pool.query<{ starts_at: string }>(
+      `SELECT starts_at FROM game_night_options WHERE id = $1 AND night_id = $2`,
+      [optionId, id]
+    );
+    if (option.rows.length === 0) {
+      return res.status(400).json({ error: 'Pick one of the poll options to lock in.' });
+    }
+    const startsAt = Number(option.rows[0].starts_at);
+    await pool.query(`UPDATE game_nights SET starts_at = $2 WHERE id = $1`, [id, startsAt]);
+    await pool.query(`DELETE FROM game_night_options WHERE night_id = $1`, [id]);
 
-  const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
-  const { rsvpsByNight, awaitingByNight, blockedByNight, guestInvitesByNight } =
-    await loadNightDetails([id]);
-  res.json({
-    night: toNightView(
-      { ...night, startsAt },
-      hostDisplayLabel,
-      req.user!.id,
-      rsvpsByNight.get(id) ?? [],
-      awaitingByNight.get(id) ?? [],
-      [],
-      await seriesInfoOf(night),
-      blockedByNight.get(id) ?? [],
-      guestInvitesByNight.get(id) ?? []
-    ),
-  });
-});
+    const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
+    const { rsvpsByNight, awaitingByNight, blockedByNight, guestInvitesByNight } =
+      await loadNightDetails([id]);
+    res.json({
+      night: toNightView(
+        { ...night, startsAt },
+        hostDisplayLabel,
+        req.user!.id,
+        rsvpsByNight.get(id) ?? [],
+        awaitingByNight.get(id) ?? [],
+        [],
+        await seriesInfoOf(night),
+        blockedByNight.get(id) ?? [],
+        guestInvitesByNight.get(id) ?? []
+      ),
+    });
+  }
+);
 
 /**
  * Open a date vote on an existing night (host only) — E124's poll attached
@@ -1097,85 +1112,95 @@ gameNightsRouter.post('/:id/lock', requireAuth, async (req: Request, res: Respon
  * "should we move this one?". Everything downstream — voting, suggesting,
  * lock-in — is the existing poll machinery untouched.
  */
-gameNightsRouter.post('/:id/poll', requireAuth, async (req: Request, res: Response) => {
-  const id = typeof req.params.id === 'string' ? req.params.id : '';
-  const db = getDb();
-  const found = await db
-    .select()
-    .from(gameNights)
-    .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
-    .limit(1);
-  if (found.length === 0) {
-    return res.status(404).json({ error: 'Game night not found.' });
-  }
-  const night = found[0];
-  const closed = nightClosedError(night);
-  if (closed) {
-    return res.status(400).json({ error: closed });
-  }
-  if (((await loadNightOptions([id])).get(id) ?? []).length > 0) {
-    return res.status(400).json({ error: 'This night is already voting on a date.' });
-  }
-  const cleaned = cleanOptionSlots((req.body as Record<string, unknown>).options);
-  if (typeof cleaned === 'string') {
-    return res.status(400).json({ error: cleaned });
-  }
-  const now = Date.now();
-  await db.insert(gameNightOptions).values(
-    cleaned.map((startsAt) => ({
-      id: crypto.randomUUID(),
-      nightId: id,
-      startsAt,
-      proposedBy: null,
-      createdAt: now,
-    }))
-  );
-  // The polling invariant: while voting, startsAt mirrors the latest candidate.
-  const startsAt = Math.max(...cleaned);
-  await getPool().query(`UPDATE game_nights SET starts_at = $2 WHERE id = $1`, [id, startsAt]);
+gameNightsRouter.post(
+  '/:id/poll',
+  requireAuth,
+  hostWriteLimiter,
+  async (req: Request, res: Response) => {
+    const id = typeof req.params.id === 'string' ? req.params.id : '';
+    const db = getDb();
+    const found = await db
+      .select()
+      .from(gameNights)
+      .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
+      .limit(1);
+    if (found.length === 0) {
+      return res.status(404).json({ error: 'Game night not found.' });
+    }
+    const night = found[0];
+    const closed = nightClosedError(night);
+    if (closed) {
+      return res.status(400).json({ error: closed });
+    }
+    if (((await loadNightOptions([id])).get(id) ?? []).length > 0) {
+      return res.status(400).json({ error: 'This night is already voting on a date.' });
+    }
+    const cleaned = cleanOptionSlots((req.body as Record<string, unknown>).options);
+    if (typeof cleaned === 'string') {
+      return res.status(400).json({ error: cleaned });
+    }
+    const now = Date.now();
+    await db.insert(gameNightOptions).values(
+      cleaned.map((startsAt) => ({
+        id: crypto.randomUUID(),
+        nightId: id,
+        startsAt,
+        proposedBy: null,
+        createdAt: now,
+      }))
+    );
+    // The polling invariant: while voting, startsAt mirrors the latest candidate.
+    const startsAt = Math.max(...cleaned);
+    await getPool().query(`UPDATE game_nights SET starts_at = $2 WHERE id = $1`, [id, startsAt]);
 
-  const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
-  const { rsvpsByNight, awaitingByNight, blockedByNight, guestInvitesByNight } =
-    await loadNightDetails([id]);
-  res.status(201).json({
-    night: toNightView(
-      { ...night, startsAt },
-      hostDisplayLabel,
-      req.user!.id,
-      rsvpsByNight.get(id) ?? [],
-      awaitingByNight.get(id) ?? [],
-      (await loadNightOptions([id])).get(id) ?? [],
-      await seriesInfoOf(night),
-      blockedByNight.get(id) ?? [],
-      guestInvitesByNight.get(id) ?? []
-    ),
-  });
-});
+    const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
+    const { rsvpsByNight, awaitingByNight, blockedByNight, guestInvitesByNight } =
+      await loadNightDetails([id]);
+    res.status(201).json({
+      night: toNightView(
+        { ...night, startsAt },
+        hostDisplayLabel,
+        req.user!.id,
+        rsvpsByNight.get(id) ?? [],
+        awaitingByNight.get(id) ?? [],
+        (await loadNightOptions([id])).get(id) ?? [],
+        await seriesInfoOf(night),
+        blockedByNight.get(id) ?? [],
+        guestInvitesByNight.get(id) ?? []
+      ),
+    });
+  }
+);
 
 /**
  * Stop a series repeating (host only). Existing occurrences — including the
  * already-materialized upcoming one — stay as plain nights; the series link
  * keeps resolving to the latest of them instead of going dead.
  */
-gameNightsRouter.delete('/series/:id', requireAuth, async (req: Request, res: Response) => {
-  const id = typeof req.params.id === 'string' ? req.params.id : '';
-  const updated = await getDb()
-    .update(gameNightSeries)
-    .set({ endedAt: Date.now() })
-    .where(
-      and(
-        eq(gameNightSeries.id, id),
-        eq(gameNightSeries.hostUserId, req.user!.id),
-        isNull(gameNightSeries.endedAt)
+gameNightsRouter.delete(
+  '/series/:id',
+  requireAuth,
+  hostWriteLimiter,
+  async (req: Request, res: Response) => {
+    const id = typeof req.params.id === 'string' ? req.params.id : '';
+    const updated = await getDb()
+      .update(gameNightSeries)
+      .set({ endedAt: Date.now() })
+      .where(
+        and(
+          eq(gameNightSeries.id, id),
+          eq(gameNightSeries.hostUserId, req.user!.id),
+          isNull(gameNightSeries.endedAt)
+        )
       )
-    )
-    .returning({ id: gameNightSeries.id });
-  if (updated.length === 0) {
-    // Non-host gets the same 404 as a bad id — don't confirm the series exists.
-    return res.status(404).json({ error: 'Series not found.' });
+      .returning({ id: gameNightSeries.id });
+    if (updated.length === 0) {
+      // Non-host gets the same 404 as a bad id — don't confirm the series exists.
+      return res.status(404).json({ error: 'Series not found.' });
+    }
+    res.status(204).end();
   }
-  res.status(204).end();
-});
+);
 
 /**
  * Resolve a stable series link (E125) to the night it currently points at —
@@ -1269,56 +1294,62 @@ gameNightsRouter.get(
  * left to block (400, and the guest row is left alone for the client to
  * retry as a plain remove).
  */
-gameNightsRouter.delete('/:id/rsvps/:rsvpId', requireAuth, async (req: Request, res: Response) => {
-  const id = typeof req.params.id === 'string' ? req.params.id : '';
-  const rsvpId = typeof req.params.rsvpId === 'string' ? req.params.rsvpId : '';
-  const block = req.query.block === '1';
-  const found = await getDb()
-    .select()
-    .from(gameNights)
-    .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
-    .limit(1);
-  if (found.length === 0) {
-    return res.status(404).json({ error: 'Game night not found.' });
-  }
-  const pool = getPool();
-  const rsvp = await pool.query<{ user_id: string | null }>(
-    `SELECT user_id FROM game_night_rsvps WHERE id = $1 AND night_id = $2`,
-    [rsvpId, id]
-  );
-  if (rsvp.rows.length === 0) {
-    return res.status(404).json({ error: 'RSVP not found.' });
-  }
-  const userId = rsvp.rows[0].user_id;
-  if (userId === req.user!.id) {
-    return res.status(400).json({ error: "You're the host — cancel the night instead." });
-  }
-  if (block && userId === null) {
-    return res
-      .status(400)
-      .json({ error: "Guests can't be blocked — make the night invite-only instead." });
-  }
-  await pool.query(`DELETE FROM game_night_rsvps WHERE id = $1`, [rsvpId]);
-  if (userId !== null) {
-    await pool.query(`DELETE FROM game_night_invites WHERE night_id = $1 AND user_id = $2`, [
-      id,
-      userId,
-    ]);
-    if (block) {
-      await pool.query(
-        `INSERT INTO game_night_blocks (night_id, user_id, created_at)
-         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-        [id, userId, Date.now()]
-      );
+gameNightsRouter.delete(
+  '/:id/rsvps/:rsvpId',
+  requireAuth,
+  hostWriteLimiter,
+  async (req: Request, res: Response) => {
+    const id = typeof req.params.id === 'string' ? req.params.id : '';
+    const rsvpId = typeof req.params.rsvpId === 'string' ? req.params.rsvpId : '';
+    const block = req.query.block === '1';
+    const found = await getDb()
+      .select()
+      .from(gameNights)
+      .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
+      .limit(1);
+    if (found.length === 0) {
+      return res.status(404).json({ error: 'Game night not found.' });
     }
+    const pool = getPool();
+    const rsvp = await pool.query<{ user_id: string | null }>(
+      `SELECT user_id FROM game_night_rsvps WHERE id = $1 AND night_id = $2`,
+      [rsvpId, id]
+    );
+    if (rsvp.rows.length === 0) {
+      return res.status(404).json({ error: 'RSVP not found.' });
+    }
+    const userId = rsvp.rows[0].user_id;
+    if (userId === req.user!.id) {
+      return res.status(400).json({ error: "You're the host — cancel the night instead." });
+    }
+    if (block && userId === null) {
+      return res
+        .status(400)
+        .json({ error: "Guests can't be blocked — make the night invite-only instead." });
+    }
+    await pool.query(`DELETE FROM game_night_rsvps WHERE id = $1`, [rsvpId]);
+    if (userId !== null) {
+      await pool.query(`DELETE FROM game_night_invites WHERE night_id = $1 AND user_id = $2`, [
+        id,
+        userId,
+      ]);
+      if (block) {
+        await pool.query(
+          `INSERT INTO game_night_blocks (night_id, user_id, created_at)
+         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          [id, userId, Date.now()]
+        );
+      }
+    }
+    res.status(204).end();
   }
-  res.status(204).end();
-});
+);
 
 /** Un-invite a friend who hasn't replied yet (host only), by username. */
 gameNightsRouter.delete(
   '/:id/invites/:username',
   requireAuth,
+  hostWriteLimiter,
   async (req: Request, res: Response) => {
     const id = typeof req.params.id === 'string' ? req.params.id : '';
     const username = typeof req.params.username === 'string' ? req.params.username : '';
@@ -1352,42 +1383,47 @@ gameNightsRouter.delete(
  * the upcoming night week after week — same reasoning as the /gn/s/:token
  * stable link (E125). A one-off night mints against the night.
  */
-gameNightsRouter.post('/:id/guest-invites', requireAuth, async (req: Request, res: Response) => {
-  const id = typeof req.params.id === 'string' ? req.params.id : '';
-  const found = await getDb()
-    .select()
-    .from(gameNights)
-    .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
-    .limit(1);
-  if (found.length === 0) {
-    return res.status(404).json({ error: 'Game night not found.' });
-  }
-  const night = found[0];
-  const label = cleanRequired((req.body as Record<string, unknown>).label, NAME_MAX);
-  if (label === null) {
-    return res.status(400).json({ error: `label is required (max ${NAME_MAX} characters).` });
-  }
-  const seriesId = night.seriesId;
-  const nightId = seriesId === null ? night.id : null;
-  const pool = getPool();
-  // NULL never matches, so this counts exactly the scope we're minting into.
-  const count = await pool.query<{ n: string }>(
-    `SELECT COUNT(*) AS n FROM game_night_guest_invites
+gameNightsRouter.post(
+  '/:id/guest-invites',
+  requireAuth,
+  hostWriteLimiter,
+  async (req: Request, res: Response) => {
+    const id = typeof req.params.id === 'string' ? req.params.id : '';
+    const found = await getDb()
+      .select()
+      .from(gameNights)
+      .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
+      .limit(1);
+    if (found.length === 0) {
+      return res.status(404).json({ error: 'Game night not found.' });
+    }
+    const night = found[0];
+    const label = cleanRequired((req.body as Record<string, unknown>).label, NAME_MAX);
+    if (label === null) {
+      return res.status(400).json({ error: `label is required (max ${NAME_MAX} characters).` });
+    }
+    const seriesId = night.seriesId;
+    const nightId = seriesId === null ? night.id : null;
+    const pool = getPool();
+    // NULL never matches, so this counts exactly the scope we're minting into.
+    const count = await pool.query<{ n: string }>(
+      `SELECT COUNT(*) AS n FROM game_night_guest_invites
       WHERE revoked_at IS NULL AND (night_id = $1 OR series_id = $2)`,
-    [nightId, seriesId]
-  );
-  if (Number(count.rows[0].n) >= MAX_INVITES) {
-    return res.status(400).json({ error: `You can have up to ${MAX_INVITES} invite links.` });
-  }
-  const token = newToken();
-  const inviteId = crypto.randomUUID();
-  await pool.query(
-    `INSERT INTO game_night_guest_invites (id, night_id, series_id, token, label, created_at)
+      [nightId, seriesId]
+    );
+    if (Number(count.rows[0].n) >= MAX_INVITES) {
+      return res.status(400).json({ error: `You can have up to ${MAX_INVITES} invite links.` });
+    }
+    const token = newToken();
+    const inviteId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO game_night_guest_invites (id, night_id, series_id, token, label, created_at)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [inviteId, nightId, seriesId, token, label, Date.now()]
-  );
-  res.status(201).json({ invite: { id: inviteId, label, url: guestInviteUrl(token) } });
-});
+      [inviteId, nightId, seriesId, token, label, Date.now()]
+    );
+    res.status(201).json({ invite: { id: inviteId, label, url: guestInviteUrl(token) } });
+  }
+);
 
 /**
  * Revoke a named invite link (host only). Soft — the link dies immediately,
@@ -1398,6 +1434,7 @@ gameNightsRouter.post('/:id/guest-invites', requireAuth, async (req: Request, re
 gameNightsRouter.delete(
   '/:id/guest-invites/:inviteId',
   requireAuth,
+  hostWriteLimiter,
   async (req: Request, res: Response) => {
     const id = typeof req.params.id === 'string' ? req.params.id : '';
     const inviteId = typeof req.params.inviteId === 'string' ? req.params.inviteId : '';
@@ -1426,6 +1463,7 @@ gameNightsRouter.delete(
 gameNightsRouter.delete(
   '/:id/blocks/:username',
   requireAuth,
+  hostWriteLimiter,
   async (req: Request, res: Response) => {
     const id = typeof req.params.id === 'string' ? req.params.id : '';
     const username = typeof req.params.username === 'string' ? req.params.username : '';
@@ -1456,43 +1494,48 @@ gameNightsRouter.delete(
  * delete is refused for a live weekly occurrence — the next read would just
  * re-materialize the slot; skip the week or stop the series instead.
  */
-gameNightsRouter.delete('/:id', requireAuth, async (req: Request, res: Response) => {
-  const id = typeof req.params.id === 'string' ? req.params.id : '';
-  const db = getDb();
-  if (req.query.hard === '1') {
-    const found = await db
-      .select()
-      .from(gameNights)
-      .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
-      .limit(1);
-    if (found.length === 0) {
+gameNightsRouter.delete(
+  '/:id',
+  requireAuth,
+  hostWriteLimiter,
+  async (req: Request, res: Response) => {
+    const id = typeof req.params.id === 'string' ? req.params.id : '';
+    const db = getDb();
+    if (req.query.hard === '1') {
+      const found = await db
+        .select()
+        .from(gameNights)
+        .where(and(eq(gameNights.id, id), eq(gameNights.hostUserId, req.user!.id)))
+        .limit(1);
+      if (found.length === 0) {
+        return res.status(404).json({ error: 'Game night not found.' });
+      }
+      const series = await seriesInfoOf(found[0]);
+      if (series !== null && series.endedAt === null) {
+        return res.status(400).json({
+          error: 'This night repeats weekly — skip this week or stop the series instead.',
+        });
+      }
+      await db.delete(gameNights).where(eq(gameNights.id, id));
+      return res.status(204).end();
+    }
+    const updated = await db
+      .update(gameNights)
+      .set({ cancelledAt: Date.now() })
+      .where(
+        and(
+          eq(gameNights.id, id),
+          eq(gameNights.hostUserId, req.user!.id),
+          isNull(gameNights.cancelledAt)
+        )
+      )
+      .returning({ id: gameNights.id });
+    if (updated.length === 0) {
       return res.status(404).json({ error: 'Game night not found.' });
     }
-    const series = await seriesInfoOf(found[0]);
-    if (series !== null && series.endedAt === null) {
-      return res
-        .status(400)
-        .json({ error: 'This night repeats weekly — skip this week or stop the series instead.' });
-    }
-    await db.delete(gameNights).where(eq(gameNights.id, id));
-    return res.status(204).end();
+    res.status(204).end();
   }
-  const updated = await db
-    .update(gameNights)
-    .set({ cancelledAt: Date.now() })
-    .where(
-      and(
-        eq(gameNights.id, id),
-        eq(gameNights.hostUserId, req.user!.id),
-        isNull(gameNights.cancelledAt)
-      )
-    )
-    .returning({ id: gameNights.id });
-  if (updated.length === 0) {
-    return res.status(404).json({ error: 'Game night not found.' });
-  }
-  res.status(204).end();
-});
+);
 
 async function findNightByToken(
   token: string

@@ -33,6 +33,7 @@ import type { GameResultParticipant } from '../games/result-types';
 export const sharesRouter: Router = Router();
 
 const publicLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
+const writeLimiter = testAwareLimiter({ windowMs: 60_000, max: 20 });
 
 /** 'feedback' is a deck share that also accepts suggestion submissions —
  *  see routes/feedback.ts. Viewers get the same PublicDeck projection.
@@ -73,7 +74,7 @@ function newToken(): string {
  * per (userId, kind, resourceId): re-clicking "Share" returns the same token
  * unless it was revoked, in which case a new one is minted.
  */
-sharesRouter.post('/', requireAuth, async (req: Request, res: Response) => {
+sharesRouter.post('/', requireAuth, writeLimiter, async (req: Request, res: Response) => {
   const body = req.body as {
     kind?: unknown;
     resourceId?: unknown;
@@ -169,7 +170,7 @@ sharesRouter.post('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 /** List the caller's active share links. */
-sharesRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+sharesRouter.get('/', requireAuth, publicLimiter, async (req: Request, res: Response) => {
   const db = getDb();
   const rows = await db
     .select()
@@ -185,7 +186,7 @@ sharesRouter.get('/', requireAuth, async (req: Request, res: Response) => {
  * resource label; shares whose underlying resource was deleted are dropped
  * (they'd 404 on open). Newest first.
  */
-sharesRouter.get('/inbox', requireAuth, async (req: Request, res: Response) => {
+sharesRouter.get('/inbox', requireAuth, publicLimiter, async (req: Request, res: Response) => {
   const pool = getPool();
   const rows = await pool.query<{
     token: string;
@@ -238,7 +239,7 @@ function readTokenParam(req: Request): string {
 }
 
 /** Revoke a share token. Returns 204 on success, 404 if the caller doesn't own it. */
-sharesRouter.delete('/:token', requireAuth, async (req: Request, res: Response) => {
+sharesRouter.delete('/:token', requireAuth, writeLimiter, async (req: Request, res: Response) => {
   const token = readTokenParam(req);
   const db = getDb();
   const updated = await db

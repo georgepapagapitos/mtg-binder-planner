@@ -16,6 +16,14 @@
   padding: 0 var(--space-5);
 }
 
+/* Cards-tab search band. Sits between the tabs and the scrolling body (not
+   inside it) so the pill stays put while 591 rows scroll under it — same
+   shape as `.card-picker-header`. */
+.binder-card-editor-search {
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 0.5px solid var(--border);
+}
+
 .binder-card-editor-tab {
   background: none;
   border: none;

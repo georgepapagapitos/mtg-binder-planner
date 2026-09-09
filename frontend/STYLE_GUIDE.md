@@ -1885,6 +1885,27 @@ to anything new that edits a predicate.
   an `<input>` (the name is editable in place) and an input cannot wrap, so
   the count and actions wrap under it rather than clipping it to
   "legendary creat…".
+- **An info-tip sits beside the label it explains, never at the row's far
+  edge.** `justify-content: space-between` on the Behaviour rows parked each
+  (i) 350px from its short checkbox label in the 700px modal, where it read
+  as row decoration. A ragged tip column beats a tip nobody associates with
+  its option.
+- **Every section of an editor carries a heading, including the first.** The
+  binder editor's name / layout / capacity / behaviour / colour block was the
+  only unheaded section next to "Filters" and "Sort within binder", so it
+  read as the dialog's loose top and the others as sub-sections. It is
+  "Basics" now; peers look like peers.
+- **A warning about a state the user has not authored yet waits for them.**
+  "This binder has no filters" fired the instant "New binder" opened, before
+  a single keystroke. It now waits until the binder is named, a rule group is
+  edited, or a save is attempted; an EXISTING binder with no filters still
+  warns straight away because that state is real.
+- **A dialog list long enough to scroll gets a `SearchPill`**, in a band
+  between the tabs and the scrolling body so it stays put. Manage cards
+  listed 591 rows with no way to find one. The pill reuses the Add-cards
+  picker's predicate (folded name, set code, collector number). The Order
+  tab stays unfiltered: a drag-sortable list with hidden rows can't say where
+  a drop lands.
 
 ### Binder views
 
@@ -1931,6 +1952,12 @@ to anything new that edits a predicate.
 - Put the grid on the LIST and let rows `display: contents`, so pickers,
   direction chips and action clusters line up down the panel. Per-row grids
   size their own columns and the control column reads as stacked one-offs.
+- **The row's controls cluster next to the field they act on; the slack goes
+  to a trailing track.** With the picker on `1fr` the direction chip and the
+  reorder/remove cluster sat at the modal's far edge, 300px from the field
+  whose direction they flip. Columns are `auto auto auto minmax(0, 1fr)`
+  above 600px (the ≤600px two-line layout is unchanged), and span-all
+  children still get the full row because the last track absorbs the width.
 
 #### The compact toolbar pill (E250)
 

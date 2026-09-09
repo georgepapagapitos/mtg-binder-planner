@@ -121,6 +121,11 @@ export function BinderEditor() {
     totalFiles?: number;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Has the user authored anything yet (edited a rule group, or tried to
+  // save)? Gates the "no filters" warning on a NEW binder: a blank form is
+  // not a mistake, so the amber banner waits until there is something to
+  // warn about. Existing binders and named drafts warn straight away.
+  const [touched, setTouched] = useState(false);
   const [liveMsg, setLiveMsg] = useState('');
   // After adding a group, set this to the new index so the group's name input can autofocus.
   const [autofocusGroupIdx, setAutofocusGroupIdx] = useState<number | null>(null);
@@ -273,6 +278,7 @@ export function BinderEditor() {
         setSortValueOrders({});
       }
       setErrorMsg(null);
+      setTouched(false);
       setLiveMsg('');
       setAutofocusGroupIdx(null);
       setBinderMode('rules');
@@ -325,8 +331,10 @@ export function BinderEditor() {
 
   if (!isOpen) return null;
 
-  const updateGroup = (idx: number, patch: (g: BinderFilterGroup) => BinderFilterGroup) =>
+  const updateGroup = (idx: number, patch: (g: BinderFilterGroup) => BinderFilterGroup) => {
+    setTouched(true);
     setGroups((prev) => prev.map((g, i) => (i === idx ? patch(g) : g)));
+  };
 
   const patchFilter = (idx: number, p: Partial<BinderFilter>) =>
     updateGroup(idx, (g) => ({ ...g, filter: { ...g.filter, ...p } }));
@@ -334,6 +342,7 @@ export function BinderEditor() {
   const setGroupName = (idx: number, name: string) => updateGroup(idx, (g) => ({ ...g, name }));
 
   const addGroup = () => {
+    setTouched(true);
     setGroups((prev) => {
       const next = [...prev, newGroup()];
       setAutofocusGroupIdx(next.length - 1);
@@ -343,6 +352,7 @@ export function BinderEditor() {
   };
 
   const duplicateGroup = (idx: number) => {
+    setTouched(true);
     setGroups((prev) => {
       const src = prev[idx];
       const copy: BinderFilterGroup = {
@@ -357,6 +367,7 @@ export function BinderEditor() {
   };
 
   const removeGroup = (idx: number) => {
+    setTouched(true);
     setGroups((prev) => {
       if (prev.length <= 1) return prev;
       const next = prev.filter((_, i) => i !== idx);
@@ -455,6 +466,7 @@ export function BinderEditor() {
   };
 
   const handleSave = async () => {
+    setTouched(true);
     const isImportMode = binderMode === 'import' && isNew;
     const isImportBatch = isImportMode && importFiles_.length > 0;
     // In batch import each staged file names its own binder, so the top-level
@@ -543,12 +555,16 @@ export function BinderEditor() {
     await executeImport('separate');
   };
 
-  const showEmptyWarning = areAllGroupsEmpty(groups);
+  const allGroupsEmpty = areAllGroupsEmpty(groups);
+  // A brand-new, untouched binder is not "a binder with no filters" yet — it
+  // is a blank form. The warning waits until the user has authored something
+  // (a name, a rule edit, or a save attempt).
+  const showEmptyWarning = allGroupsEmpty && (!isNew || touched || name.trim() !== '');
   const capacity = fixedCapacity ?? 0;
   // Suppress over-capacity warning when filters are empty — an unfiltered binder
   // would match every card by definition, which is never what the warning is
   // trying to flag.
-  const overCapacity = fixedCapacity !== null && !showEmptyWarning && binderMatchCount > capacity;
+  const overCapacity = fixedCapacity !== null && !allGroupsEmpty && binderMatchCount > capacity;
 
   return (
     <>
@@ -573,8 +589,11 @@ export function BinderEditor() {
         </div>
 
         <div className="modal-body">
-          {/* Basics */}
+          {/* Basics — headed like "Filters" and "Sort within binder" below, so
+              the three sections read as peers instead of the first one looking
+              like the dialog's loose top and the others like sub-sections. */}
           <section className="editor-section">
+            <h3>Basics</h3>
             <div className="editor-row">
               <div className="field" style={{ flex: 1, minWidth: 0 }}>
                 <label>Binder name</label>

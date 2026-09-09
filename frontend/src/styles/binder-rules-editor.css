@@ -24,9 +24,10 @@
 .binder-behaviour-option {
   display: flex;
   align-items: center;
-  /* The tip sits at the row's end on every row, so a label that wraps at
-     360px doesn't leave its tip in a different column from its neighbours'. */
-  justify-content: space-between;
+  /* The tip sits right after the label it explains. `space-between` parked
+     it at the modal's far edge — 350px of dead space after a short label in
+     the 700px dialog, so the (i) read as row decoration rather than as
+     "about THIS option". A ragged tip column is the lesser evil. */
   gap: var(--space-1);
 }
 
@@ -85,7 +86,12 @@
    a ragged edge on a control column that reads as three stacked one-offs. */
 .sort-editor-list {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  /* The slack goes to the LAST track, not the picker's: with the picker on
+     `1fr` the direction chip and the reorder cluster were pushed to the
+     modal's far edge, 300px from the field they act on. Now the three
+     controls read as one cluster and the trailing track just absorbs the
+     leftover width (so the span-all children below still get the full row). */
+  grid-template-columns: auto auto auto minmax(0, 1fr);
   align-items: center;
   column-gap: var(--space-2);
   row-gap: 0.7rem;
@@ -100,6 +106,10 @@
 .sort-editor-row > .sort-value-order-editor,
 .sort-editor-list > .btn-add-group {
   grid-column: 1 / -1;
+}
+
+.sort-editor-actions {
+  justify-self: start;
 }
 
 /* The direction toggle. Reads as a control rather than a status glyph — it

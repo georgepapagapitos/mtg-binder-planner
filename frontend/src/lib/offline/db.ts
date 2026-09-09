@@ -158,9 +158,26 @@ export async function* iterateAllCards(): AsyncGenerator<SlimCard, void, unknown
   }
 }
 
+/**
+ * Page size for reading the combo store back. Firefox rejects any single
+ * `getAll` whose response serializes past its IPC cap (256 MiB − 10 MiB
+ * overhead ≈ 246 MiB) with "The serialized value is too large" — and the
+ * whole dataset (107k rows, 163 MB raw JSON) now serializes past it, so one
+ * `getAll()` fails outright and every combo surface errored. 5000 rows is
+ * roughly 8 MB a page: 20-ish round trips, nowhere near the cap.
+ */
+const READ_BATCH = 5000;
+
 export async function getAllCombos(): Promise<OfflineCombo[]> {
   const db = await getDB();
-  return (await db.getAll(STORE_COMBOS)) as OfflineCombo[];
+  const out: OfflineCombo[] = [];
+  let after: IDBKeyRange | undefined;
+  for (;;) {
+    const page = (await db.getAll(STORE_COMBOS, after, READ_BATCH)) as OfflineCombo[];
+    for (const c of page) out.push(c);
+    if (page.length < READ_BATCH) return out;
+    after = IDBKeyRange.lowerBound(page[page.length - 1].id, true);
+  }
 }
 
 export async function readManifest(): Promise<OfflineManifest | null> {

@@ -167,7 +167,10 @@ export function DeckAiReview({
     setReview(null);
     const analysis = toAiAnalysis(
       analyzeDeck({ format, commander, partnerCommander, mainboard }, taggerReady),
-      { target: bracketTarget, estimate: bracketEstimate }
+      { target: bracketTarget, estimate: bracketEstimate },
+      // The engine inventory counts the commander zone too — the engine is
+      // usually the commander's.
+      [commander, ...(partnerCommander ? [partnerCommander] : []), ...mainboard.map((m) => m.card)]
     );
     requestDeckReview({ deckId, commander: commanderName, cards, scope, analysis }, setStreamed)
       .then((result) => {

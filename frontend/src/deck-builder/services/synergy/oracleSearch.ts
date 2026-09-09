@@ -125,6 +125,10 @@ const AXIS_QUERIES: Record<AxisKey, Record<AxisSide, string | null>> = {
     producer: '(keyword:"venture into the dungeon" or o:"you take the initiative")',
     payoff: '(o:"completed a dungeon" or o:"completed dungeon" or o:"whenever you venture")',
   },
+  dice: {
+    producer: '(o:"roll a d20" or o:"roll a six-sided die" or o:"roll two six-sided dice" or o:"rolls a d20")',
+    payoff: '(o:"whenever you roll" or o:"if you would roll one or more dice")',
+  },
 };
 
 /** The Scryfall oracle query for one need, or null if no reliable query exists. */

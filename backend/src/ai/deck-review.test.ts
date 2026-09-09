@@ -181,6 +181,26 @@ describe('renderAnalysis', () => {
     expect(out).not.toContain('Battles');
   });
 
+  it('renders the engine inventory by name, sources and payoffs apart (T112 part 2)', () => {
+    const out = renderAnalysis({
+      engines: [
+        {
+          label: 'Dice rolling',
+          sources: ['Celebr-8000', 'Mr. House, President and CEO'],
+          payoffs: ['Barbarian Class'],
+        },
+        { label: 'Tokens / go-wide', sources: [], payoffs: ['Impact Tremors', 'Purphoros'] },
+        { bogus: true },
+      ],
+    });
+    expect(out).toContain(
+      'Engine, Dice rolling: 2 sources (Celebr-8000, Mr. House, President and CEO) · 1 payoff (Barbarian Class)'
+    );
+    expect(out).toContain(
+      'Engine, Tokens / go-wide: 0 sources · 2 payoffs (Impact Tremors, Purphoros)'
+    );
+  });
+
   it('survives an empty or malformed analysis', () => {
     expect(renderAnalysis({})).toContain('no statistics');
     expect(renderAnalysis({ curve: { buckets: 'nope' }, roles: 7 } as never)).toContain(

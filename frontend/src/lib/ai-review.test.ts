@@ -9,6 +9,7 @@ import {
   splitReviewSections,
   stripEmphasis,
   toAiAnalysis,
+  buildEngineInventory,
   tokenizeCardNames,
 } from './ai-review';
 import type { DeckAnalysisResult } from './deck-analysis';
@@ -318,6 +319,46 @@ function fullAnalysis(): DeckAnalysisResult {
     taggerReady: true,
   };
 }
+
+describe('buildEngineInventory (T112 part 2)', () => {
+  it('counts sources and payoffs by name from card text, sorted, and skips thin axes', () => {
+    const cards = [
+      {
+        name: 'Mr. House, President and CEO',
+        oracle_text:
+          'Whenever you roll a 4 or higher, create a 3/3 colorless Robot artifact creature token.\n{4}, {T}: Roll a six-sided die.',
+      },
+      {
+        name: 'Celebr-8000',
+        oracle_text: 'At the beginning of combat on your turn, roll two six-sided dice.',
+      },
+      {
+        name: 'Barbarian Class',
+        oracle_text:
+          'If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.',
+      },
+      {
+        name: 'Brazen Dwarf',
+        oracle_text:
+          'Whenever you roll one or more dice, this creature deals 1 damage to each opponent.',
+      },
+      { name: 'Swamp', type_line: 'Basic Land — Swamp', oracle_text: '({T}: Add {B}.)' },
+    ];
+    const engines = buildEngineInventory(cards)!;
+    const dice = engines.find((e) => e.label === 'Dice rolling')!;
+    expect(dice.sources).toEqual(['Celebr-8000', 'Mr. House, President and CEO']);
+    expect(dice.payoffs).toEqual([
+      'Barbarian Class',
+      'Brazen Dwarf',
+      'Mr. House, President and CEO',
+    ]);
+    // A lone token maker is not an engine worth telling the model about.
+    expect(engines.find((e) => e.label.startsWith('Tokens'))).toBeUndefined();
+    // Only when cards are passed does the payload carry it.
+    expect(toAiAnalysis(fullAnalysis()).engines).toBeUndefined();
+    expect(toAiAnalysis(fullAnalysis(), undefined, cards).engines).toEqual(engines);
+  });
+});
 
 describe('toAiAnalysis', () => {
   it('drops every field renderAnalysis does not read', () => {

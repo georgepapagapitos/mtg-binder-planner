@@ -192,6 +192,13 @@ export function BinderEditor() {
   const [oracleSuggestions, setOracleSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
+    // Only while the editor is open. <BinderEditor/> is mounted in the Layout
+    // on every signed-in route, and without this guard each page load fired
+    // eleven Scryfall catalog requests from the browser for an editor nobody
+    // had opened — the nightly journey caught it as a 429 burst on every
+    // screen (2026-09-09). The catalogs are cached per session, so opening
+    // the editor pays once.
+    if (!isOpen) return;
     // Derive type tokens from the collection while the catalog fetch is in flight.
     const collectionTokens = new Set<string>();
     for (const c of cards) {

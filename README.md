@@ -262,7 +262,12 @@ npm run lint              # eslint + stylelint
 npm run lint:fix
 npm run format            # prettier --write
 npm run format:check
+npm run journey -- --base http://localhost:3737 --browser chrome   # real-browser journey (see below)
 ```
+
+### Nightly journey
+
+`.github/workflows/nightly-journey.yml` runs `scripts/journey.mjs` every night against a production build served by the backend, in a real Chrome (phone + desktop viewports) and a real Firefox (desktop): sign-up → sample collection → deck creation through the UI → every route the router owns. Any uncaught error, console error, horizontal overflow, empty body, or missing title fails the run; screenshots and `report.json` are uploaded either way. Run it locally against any base URL with the command above (`JOURNEY_CHROME` / `JOURNEY_FIREFOX` point at a browser binary when the default paths don't fit).
 
 Per workspace, both `frontend` and `backend` also expose `test:watch` and `test:coverage`. CI enforces an 80% coverage floor on `lib/` and parser modules. The three shared packages (`game-core`, `binder-routing`, `deck-metrics`) are each built and tested independently (their own `npm test` / `test:coverage`, run as dedicated CI jobs and built before the consumer jobs); the root `npm test` covers `frontend` + `backend` only.
 

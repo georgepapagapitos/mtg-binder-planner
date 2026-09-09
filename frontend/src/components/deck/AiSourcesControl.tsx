@@ -1,5 +1,6 @@
 import { useId } from 'react';
-import { AI_BUDGET_CEILING_USD, isCollectionScope, type AiScope } from '../../lib/ai-scope';
+import { AI_BUDGET_CEILING, isCollectionScope, type AiScope } from '../../lib/ai-scope';
+import { currencySymbol, useCurrency } from '../../lib/currency';
 import { useAiStatus } from '../../lib/use-ai-status';
 import './AiSourcesControl.css';
 
@@ -29,7 +30,8 @@ const AI_SCOPE_OPTIONS: ReadonlyArray<{ value: AiScope; label: string; hint: str
   {
     value: 'budget',
     label: 'Budget picks',
-    hint: `Cards under $${AI_BUDGET_CEILING_USD}, by their cheapest printing today.`,
+    // Written in the player's display currency at render time — see below.
+    hint: '',
   },
 ];
 
@@ -46,8 +48,12 @@ export function AiSourcesControl({
   collectionEmpty = false,
 }: AiSourcesControlProps) {
   const status = useAiStatus();
+  const currency = useCurrency();
   const id = useId();
   if (!status?.optIn) return null;
+  // The ceiling is a tier in whichever market the player prices in (USD =
+  // TCGplayer, EUR = Cardmarket), so the label follows the currency setting.
+  const budgetHint = `Cards under ${currencySymbol(currency)}${AI_BUDGET_CEILING}, by their cheapest printing today.`;
 
   return (
     <fieldset className="ai-sources" aria-describedby={`${id}-note`}>
@@ -74,7 +80,11 @@ export function AiSourcesControl({
               <span className="ai-sources-option-text">
                 <span className="ai-sources-option-label">{opt.label}</span>
                 <span className="ai-sources-option-hint">
-                  {disabled ? 'Import a collection first.' : opt.hint}
+                  {disabled
+                    ? 'Import a collection first.'
+                    : opt.value === 'budget'
+                      ? budgetHint
+                      : opt.hint}
                 </span>
               </span>
             </label>

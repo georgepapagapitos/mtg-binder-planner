@@ -4740,7 +4740,8 @@ Model-written text always says so. The rulings:
   user just permitted.
 - **One sources contract per deck, one control (T112).** Where the AI may draw
   candidates from (any card / cards you own / free copies you own / budget
-  picks, a fixed per-card USD ceiling by cheapest printing) is a deck
+  picks, a fixed per-card ceiling by cheapest printing in the player's
+  display currency, USD or EUR) is a deck
   field (`deck.aiScope`), read identically by every AI surface on that deck and
   set in exactly one place: the `AiSourcesControl` fieldset above the Coach
   tab's AI panels. Native radios, options are rects (§ segmented controls), and

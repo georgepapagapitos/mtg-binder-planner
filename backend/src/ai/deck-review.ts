@@ -345,11 +345,25 @@ export interface DeckReviewCard {
 export type AiScope = 'any' | 'owned' | 'uncommitted' | 'budget';
 
 /**
- * The `budget` scope's per-card ceiling, USD, against the cache's cheapest
- * fresh printing. Mirrored as `AI_BUDGET_CEILING_USD` in the frontend's
+ * The `budget` scope's per-card ceiling — the same number in either currency
+ * (a tier, not an FX conversion), checked against the cache's cheapest fresh
+ * printing IN THAT CURRENCY. Mirrored as `AI_BUDGET_CEILING` in the frontend's
  * `lib/ai-scope.ts` for the control's label — change both.
  */
-export const BUDGET_CEILING_USD = 5;
+export const BUDGET_CEILING = 5;
+
+/** The market a price is read from: USD = TCGplayer, EUR = Cardmarket, both via Scryfall. */
+export type PriceCurrency = 'usd' | 'eur';
+
+/** Parse an untrusted currency; anything but `eur` is USD, the pre-currency default. */
+export function parseCurrency(value: unknown): PriceCurrency {
+  return value === 'eur' ? 'eur' : 'usd';
+}
+
+/** "$5" / "€5" — how the ceiling is written wherever the model or the player reads it. */
+export function budgetLabel(currency: PriceCurrency): string {
+  return `${currency === 'eur' ? '€' : '$'}${BUDGET_CEILING}`;
+}
 
 /** The scopes that read the player's collection (`loadOwnedNames`). */
 export const isCollectionScope = (scope: AiScope): scope is 'owned' | 'uncommitted' =>
@@ -367,6 +381,8 @@ export interface DeckReviewRequest {
   commander: string;
   cards: DeckReviewCard[];
   scope: AiScope;
+  /** The player's display currency; only the `budget` scope reads it. */
+  currency: PriceCurrency;
   /** The frontend's DeckAnalysisResult — opaque here; rendered defensively. */
   analysis: Record<string, unknown>;
 }
@@ -419,6 +435,7 @@ export function parseDeckReviewRequest(
       commander: (b.commander as string).trim(),
       cards,
       scope: parseAiScope(b.scope),
+      currency: parseCurrency(b.currency),
       analysis: b.analysis as Record<string, unknown>,
     },
   };
@@ -465,6 +482,9 @@ export function hashDeckReviewInput(req: DeckReviewRequest): string {
     // Omitted (not `'any'`) so every reading written before scopes existed keeps
     // its key; a restricted search is a different question and gets its own.
     scope: req.scope === 'any' ? undefined : req.scope,
+    // Only a EUR budget is a different question; USD budget readings written
+    // before currencies existed keep their key, and no other scope reads it.
+    currency: req.scope === 'budget' && req.currency === 'eur' ? 'eur' : undefined,
     analysis: req.analysis,
   });
   return crypto.createHash('sha256').update(canonical).digest('hex');
@@ -652,7 +672,8 @@ export function buildUserMessage(req: DeckReviewRequest, oracle: OracleEntry[]):
  */
 export function renderFetchedCards(
   fetched: { name: string; typeLine?: string; oracleText?: string }[],
-  scope: AiScope = 'any'
+  scope: AiScope = 'any',
+  currency: PriceCurrency = 'usd'
 ): string {
   if (fetched.length === 0) return '';
   const seen = new Set<string>();
@@ -674,7 +695,7 @@ export function renderFetchedCards(
       : scope === 'uncommitted'
         ? ', every one owned by the player with a copy not already in another of their decks'
         : scope === 'budget'
-          ? `, every one under $${BUDGET_CEILING_USD}`
+          ? `, every one under ${budgetLabel(currency)}`
           : '';
   return (
     `## Cards you looked up (real cards, legal in this deck, not already in it${owned} —\n` +

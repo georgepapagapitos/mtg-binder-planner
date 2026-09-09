@@ -294,11 +294,39 @@ describe('searchCards', () => {
     db.close();
 
     const names = cache
-      .searchCards({ query: 'destroy target artifact', maxUsd: 5 })
+      .searchCards({ query: 'destroy target artifact', maxPrice: { amount: 5, currency: 'usd' } })
       .map((r) => r.name)
       .sort();
     // Shatter et al. carry no price at all, so they are out too.
     expect(names).toEqual(['Cheap Crush', 'Twice Crush']);
+  });
+
+  it('caps in EUR off the Cardmarket price, never the USD one', () => {
+    cache.setMany([
+      card({
+        id: 'id-eur-cheap',
+        name: 'Euro Crush',
+        oracle_id: 'o-eur-cheap',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        prices: { usd: '20.00', eur: '2.00' },
+      }),
+      card({
+        id: 'id-eur-pricey',
+        name: 'Dollar Crush',
+        oracle_id: 'o-eur-pricey',
+        type_line: 'Sorcery',
+        oracle_text: 'Destroy target artifact.',
+        prices: { usd: '1.00', eur: null },
+      }),
+    ]);
+    const names = (currency: 'usd' | 'eur') =>
+      cache
+        .searchCards({ query: 'destroy target artifact', maxPrice: { amount: 5, currency } })
+        .map((r) => r.name)
+        .sort();
+    expect(names('eur')).toEqual(['Euro Crush']);
+    expect(names('usd')).toEqual(['Dollar Crush']);
   });
 
   it('is not subject to the price TTL — oracle text does not go stale', () => {

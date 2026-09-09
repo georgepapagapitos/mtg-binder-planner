@@ -1,6 +1,6 @@
 import { authedFetch, handleResponse } from './fetch-utils';
 import { readNdjson } from './ndjson';
-import type { AiScope } from './ai-scope';
+import type { AiPriceCurrency, AiScope } from './ai-scope';
 import type { DeckAnalysisResult } from './deck-analysis';
 import type { ScryfallCard } from '@/deck-builder/types';
 import { analyzeDeckSynergy } from '@/deck-builder/services/synergy/deckSynergy';
@@ -139,6 +139,8 @@ export interface DeckReviewPayload {
   commander: string;
   cards: { name: string; oracleId: string; qty: number }[];
   scope: AiScope;
+  /** Display currency; the server reads it only under the `budget` scope. */
+  currency: AiPriceCurrency;
   analysis: AiAnalysisPayload;
 }
 

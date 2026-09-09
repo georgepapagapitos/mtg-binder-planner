@@ -6,6 +6,7 @@ import { loadAuthedUser, readSessionCookie, requireAuth } from '../auth';
 import { getPool } from '../db';
 import { testAwareLimiter } from '../route-utils';
 import { getScryfallCache } from '../scryfall-cache';
+import type { PriceCeiling } from '../cache';
 import { aiEnabled, generateReview, AI_MODEL } from '../ai/client';
 import {
   checkBracketTool,
@@ -29,10 +30,11 @@ import {
   parseDeckReviewRequest,
   renderFetchedCards,
   unverifiedCitations,
-  BUDGET_CEILING_USD,
+  BUDGET_CEILING,
   isCollectionScope,
   type AiScope,
   type OracleEntry,
+  type PriceCurrency,
 } from '../ai/deck-review';
 import {
   DECK_REFINE_FEATURE,
@@ -332,7 +334,7 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
   const cache = getScryfallCache();
   // The review's search honours the same deck-scoped sources contract as the
   // refine pass, so a restricted deck is never prescribed a card to buy.
-  const scoped = await scopeSearch(userId, request.scope, request.deckId);
+  const scoped = await scopeSearch(userId, request.scope, request.deckId, request.currency);
   const oracle: OracleEntry[] = [];
   const seen = new Set<string>();
   for (const card of [{ name: request.commander }, ...request.cards]) {
@@ -388,7 +390,7 @@ aiRouter.post('/deck-review', reviewLimiter, requireAuth, async (req: Request, r
     );
 
     // Pass 2 — write. The research pass's CARDS carry over; its prose does not.
-    const found = renderFetchedCards(research.fetched, request.scope);
+    const found = renderFetchedCards(research.fetched, request.scope, request.currency);
     generation = await generateReview(
       DECK_REVIEW_SYSTEM_PROMPT,
       found ? `${userMessage}\n\n${found}` : userMessage,
@@ -539,10 +541,11 @@ function hydrateOracle(names: string[]): OracleEntry[] {
 async function scopeSearch(
   userId: string,
   scope: AiScope,
-  deckId: string
-): Promise<{ ownedNames?: string[]; maxUsd?: number }> {
+  deckId: string,
+  currency: PriceCurrency
+): Promise<{ ownedNames?: string[]; maxPrice?: PriceCeiling }> {
   if (isCollectionScope(scope)) return { ownedNames: await loadOwnedNames(userId, scope, deckId) };
-  if (scope === 'budget') return { maxUsd: BUDGET_CEILING_USD };
+  if (scope === 'budget') return { maxPrice: { amount: BUDGET_CEILING, currency } };
   return {};
 }
 
@@ -719,7 +722,7 @@ aiRouter.post('/deck-refine', reviewLimiter, requireAuth, async (req: Request, r
   // without the resolver every card the model looked up would verify on the
   // first read and vanish on the second.
   const cache = getScryfallCache();
-  const scoped = await scopeSearch(userId, request.scope, request.deckId);
+  const scoped = await scopeSearch(userId, request.scope, request.deckId, request.currency);
   const searchContext = {
     colorIdentity: commanderIdentity(cache, request.commander),
     exclude: [request.commander, ...request.cards.map((c) => c.name)],
@@ -730,8 +733,8 @@ aiRouter.post('/deck-refine', reviewLimiter, requireAuth, async (req: Request, r
   // resolver, so under a budget it is trimmed here — AFTER the hash, so a
   // price crossing the ceiling overnight re-verifies the stored answer rather
   // than spending a new reading on it.
-  if (scoped.maxUsd !== undefined) {
-    const ceiling = scoped.maxUsd;
+  if (scoped.maxPrice) {
+    const ceiling = scoped.maxPrice;
     request.pool = request.pool.filter((c) => withinBudget(cache, c.name, ceiling));
   }
 

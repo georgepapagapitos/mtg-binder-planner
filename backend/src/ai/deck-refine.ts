@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 import {
-  BUDGET_CEILING_USD,
+  budgetLabel,
   isCollectionScope,
   parseAiScope,
+  parseCurrency,
   renderAnalysis,
   type AiScope,
   type OracleEntry,
+  type PriceCurrency,
 } from './deck-review';
 
 /**
@@ -201,6 +203,8 @@ export interface RefineRequest {
   pool: RefineCard[];
   /** The deck's AI sources contract (T112) — see `AiScope`. */
   scope: AiScope;
+  /** The player's display currency; only the `budget` scope reads it. */
+  currency: PriceCurrency;
   /** Derived: `scope !== 'any'`. Kept as the prompt's OWNED ONLY marker and the
    *  hash field, so readings written under the boolean keep their keys. */
   ownedOnly: boolean;
@@ -268,6 +272,7 @@ export function parseRefineRequest(
       cards: cards.value,
       pool: pool.value,
       scope,
+      currency: parseCurrency(b.currency),
       ownedOnly: isCollectionScope(scope),
       analysis: b.analysis as Record<string, unknown>,
     },
@@ -307,6 +312,7 @@ export function hashRefineInput(req: RefineRequest): string {
         // Only the scopes the boolean cannot express — `owned` readings keep
         // the key they were written under.
         scope: req.scope === 'uncommitted' || req.scope === 'budget' ? req.scope : undefined,
+        currency: req.scope === 'budget' && req.currency === 'eur' ? 'eur' : undefined,
         analysis: req.analysis,
       })
     )
@@ -461,7 +467,7 @@ export function buildRefineMessage(req: RefineRequest, oracle: OracleEntry[]): s
       : req.ownedOnly
         ? '## ENGINE SUGGESTIONS — OWNED ONLY (the player physically owns every card here)'
         : req.scope === 'budget'
-          ? `## ENGINE SUGGESTIONS — BUDGET (every card here is under $${BUDGET_CEILING_USD} today)`
+          ? `## ENGINE SUGGESTIONS — BUDGET (every card here is under ${budgetLabel(req.currency)} today)`
           : "## ENGINE SUGGESTIONS (the app's own analysis flagged these for this deck)";
   const parts = [
     `Commander: ${req.commander}`,

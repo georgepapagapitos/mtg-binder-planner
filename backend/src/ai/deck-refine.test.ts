@@ -18,6 +18,7 @@ const REQ: RefineRequest = {
   cards: [card('Sol Ring'), card('Lightning Greaves'), card('Swamp', 11)],
   pool: [card('Boros Signet'), card('Orzhov Signet'), card('Burnished Hart')],
   scope: 'any',
+  currency: 'usd',
   ownedOnly: false,
   analysis: { totalNonCommander: 13 },
 };
@@ -263,6 +264,11 @@ describe('parseRefineRequest', () => {
     const msg = buildRefineMessage({ ...REQ, scope: 'budget' }, []);
     expect(msg).toMatch(/ENGINE SUGGESTIONS — BUDGET .*under \$5/);
     expect(msg).not.toMatch(/OWNED ONLY/);
+    // EUR: its own key under budget only, and the header follows the currency.
+    const eurBudget = { ...REQ, scope: 'budget' as const, currency: 'eur' as const };
+    expect(hashRefineInput(eurBudget)).not.toBe(hashRefineInput({ ...REQ, scope: 'budget' }));
+    expect(hashRefineInput({ ...REQ, currency: 'eur' })).toBe(hashRefineInput(REQ));
+    expect(buildRefineMessage(eurBudget, [])).toMatch(/BUDGET .*under €5/);
   });
 
   it('accepts a well-formed body and defaults ownedOnly to false', () => {

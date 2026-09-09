@@ -13,11 +13,15 @@
 export type AiScope = 'any' | 'owned' | 'uncommitted' | 'budget';
 
 /**
- * The `budget` scope's per-card ceiling, for the control's label only — the
- * server enforces its own copy (`BUDGET_CEILING_USD` in ai/deck-review.ts).
- * Change both.
+ * The `budget` scope's per-card ceiling — the same number in USD or EUR (a
+ * tier, not a conversion), for the control's label only. The server enforces
+ * its own copy (`BUDGET_CEILING` in ai/deck-review.ts) against the cheapest
+ * fresh printing in the player's display currency. Change both.
  */
-export const AI_BUDGET_CEILING_USD = 5;
+export const AI_BUDGET_CEILING = 5;
+
+/** The wire form of the display currency the AI requests carry (read under `budget` only). */
+export type AiPriceCurrency = 'usd' | 'eur';
 
 /** The scopes that read the player's collection (disabled without one). */
 export const isCollectionScope = (scope: AiScope): scope is 'owned' | 'uncommitted' =>

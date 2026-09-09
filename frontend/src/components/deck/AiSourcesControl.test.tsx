@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AiSourcesControl } from './AiSourcesControl';
 import { __resetAiStatus } from '../../lib/use-ai-status';
+import { useCurrencyStore } from '../../lib/currency';
 
 function stubStatus(optIn: boolean) {
   vi.stubGlobal(
@@ -64,5 +65,16 @@ describe('AiSourcesControl', () => {
     expect(screen.getByRole('radio', { name: /Any card/ })).toHaveProperty('disabled', false);
     // Budget needs no collection — it reads prices, not ownership.
     expect(screen.getByRole('radio', { name: /Budget picks/ })).toHaveProperty('disabled', false);
+  });
+
+  it('writes the ceiling in the display currency', async () => {
+    stubStatus(true);
+    useCurrencyStore.getState().setCurrency('EUR');
+    try {
+      render(<AiSourcesControl value="budget" onChange={() => {}} />);
+      expect(await screen.findByText(/under €5/)).toBeTruthy();
+    } finally {
+      useCurrencyStore.getState().setCurrency('USD');
+    }
   });
 });

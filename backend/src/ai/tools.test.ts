@@ -426,18 +426,21 @@ describe('lookup_cards, budget', () => {
   });
 
   it('returns only cards at or under the ceiling — unpriced cards included in the cut', async () => {
-    const tool = lookupCardsTool(cache, { maxUsd: 5 });
+    const tool = lookupCardsTool(cache, { maxPrice: { amount: 5, currency: 'usd' } });
     const names = (await tool.run({ query: 'destroy target artifact' })).fetched.map((f) => f.name);
     expect(names).toEqual(['Budget Crush']);
   });
 
   it('says nothing in budget matched, and states the ceiling in its description', async () => {
-    const tool = lookupCardsTool(cache, { maxUsd: 5 });
+    const tool = lookupCardsTool(cache, { maxPrice: { amount: 5, currency: 'usd' } });
     expect(tool.definition.description).toMatch(/at most \$5 USD/);
+    expect(
+      lookupCardsTool(cache, { maxPrice: { amount: 5, currency: 'eur' } }).definition.description
+    ).toMatch(/at most €5 EUR/);
     expect(lookupCardsTool(cache, {}).definition.description).not.toMatch(/at most \$/);
     const { text, fetched } = await tool.run({ query: 'counter spell' });
     expect(fetched).toEqual([]);
-    expect(text).toMatch(/Nothing under \$5 matched/);
+    expect(text).toMatch(/Nothing under \$5 USD matched/);
   });
 
   it('withinBudget reads the cheapest fresh USD printing and fails closed without one', () => {
@@ -446,10 +449,26 @@ describe('lookup_cards, budget', () => {
       { key: 'ns:pricey crush|tst', scryfallId: 'id-pricey' },
       { key: 'ns:naturalize|tst', scryfallId: 'id-naturalize' },
     ]);
-    expect(withinBudget(cache, 'Budget Crush', 5)).toBe(true);
-    expect(withinBudget(cache, 'Pricey Crush', 5)).toBe(false);
-    expect(withinBudget(cache, 'Naturalize', 5)).toBe(false); // no price
-    expect(withinBudget(cache, 'Nonexistent Card', 5)).toBe(false);
+    const usd = { amount: 5, currency: 'usd' as const };
+    expect(withinBudget(cache, 'Budget Crush', usd)).toBe(true);
+    expect(withinBudget(cache, 'Pricey Crush', usd)).toBe(false);
+    expect(withinBudget(cache, 'Naturalize', usd)).toBe(false); // no price
+    expect(withinBudget(cache, 'Nonexistent Card', usd)).toBe(false);
+    // EUR reads the Cardmarket price and fails closed without one — a USD
+    // price is never a stand-in.
+    cache.setMany([
+      card({
+        id: 'id-euro',
+        name: 'Euro Crush',
+        oracle_id: 'o-euro',
+        prices: { usd: '30.00', eur: '1.50' },
+      }),
+    ]);
+    cache.setLookups([{ key: 'ns:euro crush|tst', scryfallId: 'id-euro' }]);
+    const eur = { amount: 5, currency: 'eur' as const };
+    expect(withinBudget(cache, 'Euro Crush', eur)).toBe(true);
+    expect(withinBudget(cache, 'Euro Crush', usd)).toBe(false);
+    expect(withinBudget(cache, 'Budget Crush', eur)).toBe(false); // USD-only price
   });
 });
 
@@ -498,7 +517,7 @@ describe('makeCandidateResolver', () => {
     ]);
     alias('Budget Crush', 'id-budget');
     alias('Pricey Crush', 'id-pricey');
-    const resolve = makeCandidateResolver(cache, { maxUsd: 5 });
+    const resolve = makeCandidateResolver(cache, { maxPrice: { amount: 5, currency: 'usd' } });
     expect(resolve('budget crush')).toBe('Budget Crush');
     expect(resolve('Pricey Crush')).toBeNull();
     expect(resolve('Naturalize')).toBeNull();

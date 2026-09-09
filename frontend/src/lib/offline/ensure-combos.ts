@@ -6,6 +6,7 @@ import {
   writeStandaloneCombosVersion,
 } from './db';
 import { importCombos } from './combos-import';
+import { logger } from '../logger';
 
 /**
  * Ensure the global combo dataset is cached in the device-local offline DB so
@@ -102,6 +103,41 @@ async function fetchManifest(): Promise<{ combosVersion: string } | null> {
 }
 
 async function download(version: string): Promise<void> {
-  await importCombos();
+  // Off the main thread when the platform allows it: the import parses and
+  // writes 107k rows, and on the page that needed combos that was 10–40 s of
+  // jank on a phone after every nightly dataset refresh. The inline path is
+  // the same import (upserts are idempotent), for environments without
+  // workers and for a worker that failed part-way.
+  if (!(await importInWorker(version))) await importCombos(undefined, version);
   await writeStandaloneCombosVersion(version);
+}
+
+function importInWorker(version: string): Promise<boolean> {
+  if (typeof Worker === 'undefined' || import.meta.env.MODE === 'test') {
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL('./combos-import.worker.ts', import.meta.url), {
+        type: 'module',
+      });
+    } catch {
+      resolve(false);
+      return;
+    }
+    const finish = (ok: boolean) => {
+      worker.terminate();
+      resolve(ok);
+    };
+    worker.onmessage = (e: MessageEvent<{ ok: boolean; message?: string }>) => {
+      if (!e.data?.ok) logger.warn('[combos] import worker failed:', e.data?.message);
+      finish(Boolean(e.data?.ok));
+    };
+    worker.onerror = (e) => {
+      logger.warn('[combos] import worker crashed:', e.message);
+      finish(false);
+    };
+    worker.postMessage({ version });
+  });
 }

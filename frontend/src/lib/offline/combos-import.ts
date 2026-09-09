@@ -1,5 +1,6 @@
 import { apiUrl } from '../api-base';
 import { appendCombos, pruneCombosNotIn } from './db';
+import { rebuildComboIndex } from './combo-index';
 import type { OfflineCombo } from './types';
 
 /**
@@ -20,8 +21,16 @@ import type { OfflineCombo } from './types';
  * (the browser decompresses transparently) for progress UI.
  */
 export async function importCombos(
-  onBytes?: (received: number) => void
+  onBytes?: (received: number) => void,
+  /** Dataset version being imported; when given, the match index is rebuilt for it at the end. */
+  version?: string
 ): Promise<{ count: number }> {
+  const result = await importRows(onBytes);
+  if (version !== undefined) await rebuildComboIndex(version);
+  return result;
+}
+
+async function importRows(onBytes?: (received: number) => void): Promise<{ count: number }> {
   const res = await fetch(apiUrl('/api/offline/combos'), {
     headers: { Accept: 'application/x-ndjson, application/json;q=0.9' },
   });

@@ -39,6 +39,40 @@ describe('producedManaColors', () => {
     expect(sorted(producedManaColors(dual, WU))).toEqual(['U', 'W']);
   });
 
+  it('falls back to every color symbol in each "Add" clause when produced_mana is absent', () => {
+    // Collection rows / deck cards mapped from EnrichedCard never carry
+    // produced_mana, so this fallback is the live path for owned lands. A
+    // painland's "Add {B} or {R}" used to read as black only, which made a
+    // basic-fetch look like it "adds red" over Sulfurous Springs.
+    const springs = card({
+      name: 'Sulfurous Springs',
+      oracle_text: '{T}: Add {C}.\n{T}: Add {B} or {R}. This land deals 1 damage to you.',
+    });
+    const triLand = card({
+      name: 'Arcane Sanctum',
+      oracle_text: 'This land enters tapped.\n{T}: Add {W}, {U}, or {B}.',
+    });
+    const filter = card({
+      name: 'Mystic Gate',
+      oracle_text: '{T}: Add {C}.\n{W/U}, {T}: Add {W}{W}, {W}{U}, or {U}{U}.',
+    });
+    const all = new Set(['W', 'U', 'B', 'R', 'G']);
+    expect(sorted(producedManaColors(springs, all))).toEqual(['B', 'R']);
+    expect(sorted(producedManaColors(triLand, all))).toEqual(['B', 'U', 'W']);
+    expect(sorted(producedManaColors(filter, all))).toEqual(['U', 'W']);
+  });
+
+  it('fallback still reads basic land types and ignores a basic-fetch with no "Add"', () => {
+    const tundra = card({ name: 'Tundra', type_line: 'Land — Plains Island' });
+    const wilds = card({
+      name: 'Evolving Wilds',
+      oracle_text:
+        '{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.',
+    });
+    expect(sorted(producedManaColors(tundra, WU))).toEqual(['U', 'W']);
+    expect(producedManaColors(wilds, WU)).toEqual([]);
+  });
+
   it('counts colorless (C) producers like Sol Ring', () => {
     const solRing = card({
       name: 'Sol Ring',

@@ -55,14 +55,22 @@ export function producedManaColors(card: ScryfallCard, identity: ReadonlySet<str
 
   if (pm.length > 0) return pm;
 
-  // Fallbacks for the rare card cached without produced_mana.
+  // Fallbacks for a card without produced_mana — not rare: collection rows and
+  // deck cards mapped from the camelCase EnrichedCard shape never carry it, so
+  // every owned land in the coach/land-upgrade lanes lands here. Read every
+  // color symbol in each "Add …" clause, so "Add {B} or {R}" (painlands) and
+  // "Add {W}, {U}, or {B}" (tri-lands) yield all their colors — a literal
+  // `add {r}` match only ever saw the first symbol.
   const out = new Set<string>();
   const tl = typeLine.toLowerCase();
-  if (tl.includes('plains') || ot.includes('add {w}')) out.add('W');
-  if (tl.includes('island') || ot.includes('add {u}')) out.add('U');
-  if (tl.includes('swamp') || ot.includes('add {b}')) out.add('B');
-  if (tl.includes('mountain') || ot.includes('add {r}')) out.add('R');
-  if (tl.includes('forest') || ot.includes('add {g}')) out.add('G');
+  if (tl.includes('plains')) out.add('W');
+  if (tl.includes('island')) out.add('U');
+  if (tl.includes('swamp')) out.add('B');
+  if (tl.includes('mountain')) out.add('R');
+  if (tl.includes('forest')) out.add('G');
+  for (const [, clause] of ot.matchAll(/\badd\b([^.\n]*)/g)) {
+    for (const [, c] of clause.matchAll(/\{([wubrg])\}/g)) out.add(c.toUpperCase());
+  }
   if (ot.includes('any color') || ot.includes('any type')) {
     for (const c of COLOR_KEYS) out.add(c);
   }

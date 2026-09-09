@@ -90,4 +90,27 @@ describe('computeLandUpgrades', () => {
     });
     expect(computeLandUpgrades(deck, WU, [mediocre], new Set())).toHaveLength(0);
   });
+
+  it('reads a painland without produced_mana as both its colors (no phantom "adds red")', () => {
+    // Deck cards mapped from EnrichedCard lack produced_mana; "Add {B} or {R}"
+    // must not be read as black only, or a basic-fetch claims to add red over it.
+    const WBR = new Set(['W', 'B', 'R']);
+    const springs = card({
+      name: 'Sulfurous Springs',
+      type_line: 'Land',
+      oracle_text: '{T}: Add {C}.\n{T}: Add {B} or {R}. This land deals 1 damage to you.',
+    });
+    const passage = card({
+      name: 'Elven Passage',
+      type_line: 'Land',
+      oracle_text:
+        '{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.',
+    });
+    const spell = card({ name: 'Spell', mana_cost: '{W}{B}{R}', type_line: 'Instant' });
+    const moves = computeLandUpgrades([springs, spell], WBR, [passage], new Set(['Elven Passage']));
+    for (const m of moves) {
+      expect(m.addsColors).not.toContain('R');
+      expect(m.addsColors).not.toContain('B');
+    }
+  });
 });

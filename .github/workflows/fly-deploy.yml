@@ -69,11 +69,11 @@ jobs:
       # tracked. Without it the checkout yields a 133-byte LFS pointer, which
       # ships to Fly and makes the scanner matcher throw "bad magic" at boot
       # → every /api/scanner/match fails and clients fall back to weak pHash.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # master
 
       # The two VITE_* values are baked into the bundle at build time, so they
       # have to be build args — as Fly runtime secrets they would arrive too

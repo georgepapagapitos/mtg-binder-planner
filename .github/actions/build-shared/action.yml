@@ -17,7 +17,7 @@ runs:
     # of these 69-package installs into a 4-minute wait, and the frontend job hit
     # its 15-minute cap before typecheck ever started. `test -d node_modules ||`
     # keeps a hit from being thrown away — `npm ci` starts by deleting it.
-    - uses: actions/cache@v6
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: packages/*/node_modules
         key: shared-packages-${{ runner.os }}-${{ hashFiles('.nvmrc', 'packages/*/package-lock.json') }}

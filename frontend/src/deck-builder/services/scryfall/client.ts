@@ -804,19 +804,28 @@ async function scryfallInvalidQueryMessage(response: Response): Promise<string> 
  * fired — that check only runs once real candidate cards exist to batch
  * against, so a thin/queued/retried run can route around it. This request is
  * independent of any card names or batching, so a syntax error can't hide
- * behind either. A 404 (no matches) is a legitimate empty result, not a
- * validation failure, and does NOT throw — the caller's own pool-exhaustion
- * disclosure covers that case instead. No-op when the query is empty or the
- * device is offline (a network hiccup here shouldn't block generation; the
- * batched check above still applies).
+ * behind either. The request is scoped to the deck's color identity and
+ * Commander legality, and the result's `total_cards` is a ceiling on the
+ * pool any fill can draw from: LIVE-CONFIRMED that `garbage((` is a VALID
+ * Scryfall query (a name search matching 7 cards), so a syntax check alone
+ * shipped a 99-card deck with 98 lands. A filter that matches fewer than
+ * MIN_FILTER_POOL usable cards (or none at all, a 404) therefore throws an
+ * actionable error too. No-op when the query is empty or the device is
+ * offline (a network hiccup here shouldn't block generation; the batched
+ * check above still applies).
  */
-export async function validateScryfallFilter(query: string): Promise<void> {
+const MIN_FILTER_POOL = 40;
+export async function validateScryfallFilter(
+  query: string,
+  colorIdentity: string[] = []
+): Promise<void> {
   const trimmed = query.trim();
   if (!trimmed) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  const scoped = `${trimmed} f:commander id<=${colorIdentity.length > 0 ? colorIdentity.join('') : 'C'}`;
   let response: Response;
   try {
-    response = await scryfallRequest(`/cards/search?q=${encodeURIComponent(trimmed)}&page=1`);
+    response = await scryfallRequest(`/cards/search?q=${encodeURIComponent(scoped)}&page=1`);
   } catch {
     // Network/opaque failure — don't block generation on a validation-only
     // request; a genuinely broken connection fails loudly elsewhere.
@@ -825,6 +834,14 @@ export async function validateScryfallFilter(query: string): Promise<void> {
   if (response.status === 400 || response.status === 422) {
     throw new Error(await scryfallInvalidQueryMessage(response));
   }
+  const tooNarrow = (n: number) =>
+    new Error(
+      `Your Scryfall filter matches ${n === 0 ? 'no cards' : `only ${n} card${n === 1 ? '' : 's'}`} this deck can use. Loosen or clear it under Customize.`
+    );
+  if (response.status === 404) throw tooNarrow(0);
+  if (!response.ok) return;
+  const total = ((await response.json()) as { total_cards?: number }).total_cards ?? 0;
+  if (total < MIN_FILTER_POOL) throw tooNarrow(total);
 }
 
 /**

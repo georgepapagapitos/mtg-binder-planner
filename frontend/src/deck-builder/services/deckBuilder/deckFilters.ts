@@ -160,17 +160,10 @@ export function violatesUserCaps(
 // For a call site that already runs its own budget-tracker-aware price check
 // (the dynamic effective cap, not the static maxCardPrice) — reuse the rest
 // of violatesUserCaps without it re-litigating price against the static cap.
+// Used by combo floor/audit too: Tiny Leaders is a FORMAT rule (every nonland
+// card must be cmc <= 3), not a soft preference, so a combo piece gets no CMC
+// exemption — only price stays excluded here, since the live budget-tracker
+// effective cap already bounds it independently.
 export function userCapsWithoutPrice(caps: UserCapsConfig): UserCapsConfig {
   return { ...caps, maxCardPrice: null };
-}
-
-// Combo completion (floor + integrity audit) is deliberately CMC-unconstrained
-// even under Tiny Leaders — a combo piece can complete/preserve a combo above
-// the CMC cap (see deckGenerator.golden.test.ts's "Combo Integrity Audit"
-// cases: the whole point of those tests is that a cmc:5 enabler enters ONLY
-// through the audit, which normal picking's unconditional exceedsCmcCap would
-// have rejected). Price stays excluded too — checked separately against the
-// live budget-tracker effective cap.
-export function userCapsForComboCompletion(caps: UserCapsConfig): UserCapsConfig {
-  return { ...caps, maxCardPrice: null, maxCmc: null };
 }

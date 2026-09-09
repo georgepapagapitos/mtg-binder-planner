@@ -15,7 +15,7 @@ import {
   isOwnedBudgetExempt,
   fitsColorIdentity,
   violatesUserCaps,
-  userCapsForComboCompletion,
+  userCapsWithoutPrice,
 } from '../deckFilters';
 import { stampRoleSubtypes, routeCardByType } from '../categorize';
 import type { BudgetTracker } from '../budgetTracker';
@@ -167,18 +167,14 @@ export function applyComboFloor(state: GenerationState, ctx: ComboFloorContext):
 
     // Combo pieces are sourced from state.combos (EDHREC per-commander combo
     // data), not the pre-filtered cardPicking.ts pool — so the same user hard
-    // caps (rarity/Arena/format legality) need an explicit gate here or a
-    // Bracket-1/arenaOnly build can seed an over-cap combo piece
-    // (E-arena-leak). CMC and price are excluded: combo completion is
-    // deliberately CMC-unconstrained even under Tiny Leaders (see
-    // userCapsForComboCompletion), and price is checked below against the
-    // live budget-tracker effective cap.
+    // caps (rarity/CMC/Arena/format legality) need an explicit gate here or a
+    // Bracket-1/arenaOnly/Tiny-Leaders build can seed an over-cap combo piece
+    // (E-arena-leak). Tiny Leaders is a FORMAT rule (every nonland card must
+    // be cmc <= 3), not a soft preference — a combo piece gets no CMC
+    // exemption. Price is excluded — checked below against the live
+    // budget-tracker effective cap.
     if (
-      violatesUserCaps(
-        missingCard,
-        userCapsForComboCompletion(state.cfg),
-        state.context.collectionNames
-      )
+      violatesUserCaps(missingCard, userCapsWithoutPrice(state.cfg), state.context.collectionNames)
     ) {
       continue;
     }

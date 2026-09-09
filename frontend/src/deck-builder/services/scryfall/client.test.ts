@@ -888,13 +888,47 @@ describe('validateScryfallFilter', () => {
     );
   });
 
-  it('does not throw on a 404 (no matches — a legitimate empty result)', async () => {
+  it('throws an actionable error on a 404 (the filter matches nothing this deck can use)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
     );
 
-    await expect(validateScryfallFilter('t:nonexistenttype')).resolves.toBeUndefined();
+    await expect(validateScryfallFilter('t:nonexistenttype', ['R'])).rejects.toThrow(
+      /matches no cards this deck can use/
+    );
+  });
+
+  it('throws when the identity-scoped pool is too small to build from (a VALID but over-narrow query)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ object: 'list', total_cards: 7, has_more: false, data: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    // `garbage((` is a legitimate Scryfall name search (LIVE: 7 cards), not a
+    // syntax error, so only the pool-size ceiling can catch it.
+    await expect(validateScryfallFilter('garbage((', ['R'])).rejects.toThrow(
+      /matches only 7 cards this deck can use/
+    );
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(decodeURIComponent(url)).toContain('garbage(( f:commander id<=R');
+  });
+
+  it('resolves when the scoped pool is large enough', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ object: 'list', total_cards: 512, has_more: true, data: [] }),
+      })
+    );
+
+    await expect(
+      validateScryfallFilter('year<=2012', ['W', 'U', 'B', 'G'])
+    ).resolves.toBeUndefined();
   });
 
   it('does not throw on a network failure — a validation-only request never blocks generation', async () => {

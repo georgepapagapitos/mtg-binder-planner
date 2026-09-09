@@ -8,6 +8,7 @@ import {
   type ThemeResult,
 } from '@/deck-builder/types';
 import { buildSynergyFingerprint, topMatchedTags } from './synergyFingerprint';
+import { getFrontFaceTypeLine } from '@/deck-builder/services/scryfall/client';
 import { isRoleExcess } from './deckAnalyzer';
 import { countProtectionPieces } from './commanderDeckAnalysis';
 import { ARCHETYPE_LABEL } from './strategyVocabulary';
@@ -226,10 +227,16 @@ export function assembleBuildReport(input: {
       // fires only when the commander's candidate pool genuinely couldn't
       // supply enough owned names to hit the requested count, never when
       // more were actually available (that would be a bug, not a pool limit).
+      // Same basis as the eligible count (nonland pool names): the partial
+      // quota is a share of NONLAND cards, and counting owned lands here once
+      // produced "only 9 fit ... 11 were used" (LIVE, Lathril partial-100%).
       const eligible = generated.partialOwnedEligibleCount;
-      if (eligible != null && mainboard.length > 0) {
-        const ownedCount = mainboard.filter((card) => collectionNames.has(card.name)).length;
-        const ownedTargetCount = Math.round((mainboard.length * target) / 100);
+      const nonland = mainboard.filter(
+        (card) => !getFrontFaceTypeLine(card).toLowerCase().includes('land')
+      );
+      if (eligible != null && nonland.length > 0) {
+        const ownedCount = nonland.filter((card) => collectionNames.has(card.name)).length;
+        const ownedTargetCount = Math.round((nonland.length * target) / 100);
         if (eligible < ownedTargetCount) {
           report.ownedPercentGapNote =
             `You asked for ${target}% owned cards, but only ${eligible} owned ` +

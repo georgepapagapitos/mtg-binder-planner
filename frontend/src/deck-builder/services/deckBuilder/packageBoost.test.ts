@@ -8,6 +8,7 @@ import {
   computeBlinkVisibilityBoosts,
   computeExileVisibilityBoosts,
   computeExtraCombatVisibilityBoosts,
+  filterLiftEligible,
   LIFT_PICK_BOOST_MAX,
   LIFT_PICK_BOOST_SCALE,
   PACKAGE_BOOST_MAX,
@@ -17,6 +18,7 @@ import {
   EXTRA_COMBAT_VISIBILITY_BOOST_MAX,
   tallyAxisInvestment,
 } from './packageBoost';
+import type { UserCapsConfig } from './deckFilters';
 
 /** Real cards, real oracle text — the classifier reads the actual words. */
 function card(name: string, oracle: string, overrides: Partial<ScryfallCard> = {}): ScryfallCard {
@@ -246,6 +248,61 @@ describe('computeLiftPickBoosts', () => {
     expect(computeLiftPickBoosts(['Blood Artist'], liftScoreOf, 0).get('Blood Artist')).toBe(0);
     const doubled = computeLiftPickBoosts(['Blood Artist'], liftScoreOf, 2).get('Blood Artist');
     expect(doubled).toBeCloseTo((base.get('Blood Artist') ?? 0) * 2);
+  });
+});
+
+describe('filterLiftEligible', () => {
+  const noCaps: UserCapsConfig = {
+    maxRarity: null,
+    maxCmc: null,
+    arenaOnly: false,
+    maxCardPrice: null,
+    currency: 'USD',
+  };
+
+  // E-arena-leak: computeLiftPickBoosts is a pure, cap-agnostic scorer — this
+  // is the gate that keeps an over-cap candidate from ever receiving the
+  // "Cluster-lift pick" boost (LIVE-CONFIRMED: Sol Ring/Brightstone Ritual/
+  // Goblin War Strike shipping under arenaOnly via this exact label).
+  it('drops a candidate not on Arena when arenaOnly is set', () => {
+    const onArena = card('On Arena', '', { games: ['paper', 'arena'] });
+    const offArena = card('Off Arena', '', { games: ['paper', 'mtgo'] });
+    const cardMap = new Map([onArena, offArena].map((c) => [c.name, c]));
+    const result = filterLiftEligible(['On Arena', 'Off Arena'], cardMap, {
+      ...noCaps,
+      arenaOnly: true,
+    });
+    expect(result).toEqual(['On Arena']);
+  });
+
+  it('drops a candidate over the price cap, honoring the owned exemption', () => {
+    const cheap = card('Cheap', '', { rarity: 'common', cmc: 2, prices: { usd: '0.50' } });
+    const pricey = card('Pricey', '', { rarity: 'common', cmc: 2, prices: { usd: '20.00' } });
+    const cardMap = new Map([cheap, pricey].map((c) => [c.name, c]));
+    expect(
+      filterLiftEligible(['Cheap', 'Pricey'], cardMap, { ...noCaps, maxCardPrice: 5 })
+    ).toEqual(['Cheap']);
+    // Owned exemption lets the pricey card back in.
+    expect(
+      filterLiftEligible(
+        ['Cheap', 'Pricey'],
+        cardMap,
+        { ...noCaps, maxCardPrice: 5, ignoreOwnedBudget: true },
+        new Set(['Pricey'])
+      )
+    ).toEqual(['Cheap', 'Pricey']);
+  });
+
+  it('drops a candidate missing from the card map', () => {
+    const cardMap = new Map<string, ScryfallCard>();
+    expect(filterLiftEligible(['Ghost'], cardMap, noCaps)).toEqual([]);
+  });
+
+  it('is a no-op (byte-identical) when every cap is off', () => {
+    const a = card('A', '');
+    const b = card('B', '', { rarity: 'mythic', cmc: 12, prices: { usd: '999' } });
+    const cardMap = new Map([a, b].map((c) => [c.name, c]));
+    expect(filterLiftEligible(['A', 'B'], cardMap, noCaps)).toEqual(['A', 'B']);
   });
 });
 

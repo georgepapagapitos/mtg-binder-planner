@@ -251,14 +251,14 @@ describe('comboIntegrityAuditPhase', () => {
   });
 
   // E-arena-leak: combo candidates come from the EDHREC combo dataset, not
-  // cardPicking.ts's pre-filtered pool — the user's rarity/Arena/legality
-  // caps need an explicit gate here too, or a capped build can swap in an
-  // over-cap piece. CMC is deliberately NOT gated here — combo completion is
-  // CMC-unconstrained even under Tiny Leaders (see the golden test's "Combo
-  // Integrity Audit" cases).
-  it('skips an enabler that exceeds the user rarity/Arena caps and applies no swap', () => {
+  // cardPicking.ts's pre-filtered pool — the user's rarity/CMC/Arena caps
+  // need an explicit gate here too, or a capped build can swap in an
+  // over-cap piece. Tiny Leaders' CMC cap is a FORMAT rule, not a soft
+  // preference — a combo piece gets no exemption from it.
+  it('skips an enabler that exceeds the user rarity/CMC/Arena caps and applies no swap', () => {
     const cases: [keyof GenerationState['cfg'], unknown, Partial<ScryfallCard>][] = [
       ['maxRarity', 'common', { rarity: 'rare' }],
+      ['maxCmc', 3, { cmc: 4 }],
       ['arenaOnly', true, { games: ['paper'] }],
     ];
     for (const [capKey, capValue, cardOverrides] of cases) {

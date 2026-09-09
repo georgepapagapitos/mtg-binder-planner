@@ -192,6 +192,31 @@ describe('assembleBuildReport', () => {
     );
   });
 
+  it('counts only NONLAND owned cards in the gap note (same basis as the eligible count)', () => {
+    // Two owned basics must not inflate "N were used" past the nonland
+    // eligible denominator (LIVE: "only 9 fit ... 11 were used").
+    const mainboard = Array.from({ length: 10 }, (_, i) => makeCard(`Card ${i + 1}`));
+    const lands = [
+      { ...makeCard('Forest'), type_line: 'Basic Land — Forest' },
+      { ...makeCard('Swamp'), type_line: 'Basic Land — Swamp' },
+    ];
+    const report = assembleBuildReport({
+      generated: makeGenerated({
+        builtFromCollection: true,
+        categories: categories({ creatures: mainboard, lands }),
+        partialOwnedEligibleCount: 3,
+      }),
+      customization: makeCustomization({
+        collectionMode: true,
+        collectionStrategy: 'partial',
+        collectionOwnedPercent: 100,
+      }),
+      collectionNames: new Set(['Card 1', 'Forest', 'Swamp']),
+    });
+
+    expect(report.ownedPercentGapNote).toContain('1 was used');
+  });
+
   it('omits the gap note when the pool had enough eligible owned cards (a real bug would look different)', () => {
     const mainboard = Array.from({ length: 10 }, (_, i) => makeCard(`Card ${i + 1}`));
     const report = assembleBuildReport({

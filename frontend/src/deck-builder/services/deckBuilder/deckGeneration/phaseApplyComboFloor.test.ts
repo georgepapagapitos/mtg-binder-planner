@@ -409,7 +409,9 @@ describe('applyComboFloor', () => {
     ).toBe(false);
   });
 
-  it('does not gate combo completion on CMC (Tiny Leaders exemption)', () => {
+  // Tiny Leaders is a FORMAT rule (every nonland card must be cmc <= 3), not
+  // a soft preference — a combo piece gets no CMC exemption.
+  it('gates combo completion on CMC under Tiny Leaders (a combo piece is not exempt)', () => {
     const state = makeState({
       combos: [edhrec2CardCombo('c1', ['Gravecrawler', 'Phyrexian Altar'], 900)],
     });
@@ -424,7 +426,7 @@ describe('applyComboFloor', () => {
         mustIncludeNames: new Set(),
         targetBracket: undefined,
       }).seeded
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('does nothing when there are no evictable cards', () => {

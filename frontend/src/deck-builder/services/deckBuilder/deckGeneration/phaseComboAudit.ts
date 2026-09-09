@@ -16,7 +16,7 @@ import {
   notInCollection,
   isOwnedBudgetExempt,
   violatesUserCaps,
-  userCapsForComboCompletion,
+  userCapsWithoutPrice,
 } from '../deckFilters';
 import { stampRoleSubtypes, routeCardByType } from '../categorize';
 import type { BudgetTracker } from '../budgetTracker';
@@ -157,14 +157,13 @@ export function comboIntegrityAuditPhase(
     if (bannedCards.has(card.name)) return false; // respect banlist
     // Combo candidates come from the (Commander-scoped) EDHREC combo dataset,
     // not the pre-filtered cardPicking.ts pool — so every user hard cap
-    // (rarity/Arena/format legality, incl. the PDH 99s gate) needs an
+    // (rarity/CMC/Arena/format legality, incl. the PDH 99s gate) needs an
     // explicit check here or a capped build can seat an over-cap combo piece
-    // (E-arena-leak). CMC and price are excluded: combo completion is
-    // deliberately CMC-unconstrained even under Tiny Leaders (see
-    // userCapsForComboCompletion — proven by this file's golden coverage),
-    // and price is checked via auditPassesBudget's live effective cap.
-    if (violatesUserCaps(card, userCapsForComboCompletion(state.cfg), collectionNames))
-      return false;
+    // (E-arena-leak). Tiny Leaders is a FORMAT rule (every nonland card must
+    // be cmc <= 3), not a soft preference — a combo piece gets no CMC
+    // exemption. Price is excluded — checked via auditPassesBudget's live
+    // effective cap.
+    if (violatesUserCaps(card, userCapsWithoutPrice(state.cfg), collectionNames)) return false;
     // E101: every other add path (cardPicking, scryfallFill) checks the
     // target-bracket ceiling before accepting a card — the combo audit
     // never did, so it could push a bracket<=2 ask's Game Changer/mass
@@ -230,7 +229,7 @@ export function comboIntegrityAuditPhase(
       if (
         violatesUserCaps(
           scryfallCardMap.get(name)!,
-          userCapsForComboCompletion(state.cfg),
+          userCapsWithoutPrice(state.cfg),
           collectionNames
         )
       )
@@ -321,7 +320,7 @@ export function comboIntegrityAuditPhase(
       .filter((c) => fitsColorIdentity(c, colorIdentity))
       // Pre-filter mirrors auditCanAdd's user-caps gate so an eviction is never
       // stranded by a rejected add.
-      .filter((c) => !violatesUserCaps(c, userCapsForComboCompletion(state.cfg), collectionNames))
+      .filter((c) => !violatesUserCaps(c, userCapsWithoutPrice(state.cfg), collectionNames))
       // E101: pre-filter mirrors auditCanAdd's bracket-ceiling gate — same
       // stranding concern as the caps gate above.
       .filter((c) => !bracketGuard?.exceedsCeiling(c.name))

@@ -102,6 +102,7 @@ import { isUnsupportedSynergyPayoff } from './synergyDependency';
 import {
   computePackageBoosts,
   computeLiftPickBoosts,
+  filterLiftEligible,
   computeUntapVisibilityBoosts,
   computeBlinkVisibilityBoosts,
   computeExileVisibilityBoosts,
@@ -1117,11 +1118,12 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // constraint to this after the pool is built, so the strict printing upgrade
   // and Scryfall fallback fills enforce exactly the pool's effective filter.
   let scryfallQuery = state.cfg.scryfallQuery;
-  // Up-front, unbatched syntax check — before any pool work — so an invalid
-  // filter fails loudly instead of silently starving every downstream fill
-  // into a basics pile (LIVE-CONFIRMED: the batched upgrade-search's own
-  // check doesn't reliably surface it; see validateScryfallFilter's doc).
-  await validateScryfallFilter(scryfallQuery);
+  // Up-front, unbatched syntax + pool-size check — before any pool work — so
+  // an invalid or over-narrow filter fails loudly instead of silently starving
+  // every downstream fill into a basics pile (LIVE-CONFIRMED: the batched
+  // upgrade-search's own check doesn't reliably surface it, and `garbage((` is
+  // a valid Scryfall name search; see validateScryfallFilter's doc).
+  await validateScryfallFilter(scryfallQuery, state.context.colorIdentity);
   const markUsed = (name: string) => stMarkUsed(state, name);
   const markBanned = (name: string) => stMarkBanned(state, name);
   const addMustInclude = (name: string, source: 'user' | 'deck' | 'combo') =>
@@ -2497,11 +2499,16 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
         investment
       );
       applyBoost(pkg, 'Synergy package pick');
-      const lift = computeLiftPickBoosts(
+      // E-arena-leak: see filterLiftEligible's doc (packageBoost.ts) — a
+      // lift-boosted candidate must never receive priority it can't legally
+      // keep under the user's hard caps.
+      const liftEligibleNames = filterLiftEligible(
         pool.map((c) => c.name),
-        liftScoreOf,
-        2 * state.cfg.brewLevel
+        cardMap,
+        state.cfg,
+        context.collectionNames
       );
+      const lift = computeLiftPickBoosts(liftEligibleNames, liftScoreOf, 2 * state.cfg.brewLevel);
       applyBoost(lift, 'Cluster-lift pick');
       const untap = computeUntapVisibilityBoosts(
         pool.map((c) => c.name),

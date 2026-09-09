@@ -28,7 +28,12 @@ import { isTapland } from '@/deck-builder/services/tagger/client';
 import { BudgetTracker } from './budgetTracker';
 import { pickFromPrefetched } from './cardPicking';
 import { fillWithScryfall, type FillHardGates } from './scryfallFill';
-import { constrainsToCollection, notInCollection, notLegalForFormat } from './deckFilters';
+import {
+  constrainsToCollection,
+  notInCollection,
+  notLegalForFormat,
+  violatesUserCaps,
+} from './deckFilters';
 import {
   planBasicColorSplit,
   weightedColorDemand,
@@ -355,8 +360,33 @@ export async function generateLands(
       }
     }
 
+    // E-arena-leak: nonbasic utility/storage lands (e.g. Dreadship Reef) come
+    // from the same EDHREC-per-commander cardlist as every other candidate —
+    // gate them against the user's hard caps here too, defense-in-depth on
+    // top of pickFromPrefetched's own per-candidate checks (LIVE-CONFIRMED
+    // shipping under arenaOnly with games: ['paper','mtgo']).
+    const capsFilteredLands = nonBasicEdhrecLands.filter((c) => {
+      const sc = landCardMap.get(c.name);
+      return (
+        !sc ||
+        !violatesUserCaps(
+          sc,
+          {
+            maxRarity,
+            maxCmc,
+            arenaOnly,
+            maxCardPrice,
+            currency,
+            mtgFormat,
+            ignoreOwnedRarity,
+            ignoreOwnedBudget,
+          },
+          collectionNames
+        )
+      );
+    });
     const nonBasics = pickFromPrefetched(
-      nonBasicEdhrecLands,
+      capsFilteredLands,
       landCardMap,
       nonBasicTarget,
       usedNames,

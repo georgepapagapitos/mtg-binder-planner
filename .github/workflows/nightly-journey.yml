@@ -1,0 +1,116 @@
+# Nightly user journey (quality program, 2026-09-09).
+#
+# CI proves the code type-checks and the unit suites pass over fixtures the
+# authors wrote. This proves the APP works: a production build, served the
+# way Fly serves it (backend + static bundle), driven by a real Chrome and a
+# real Firefox through sign-up → sample collection → deck creation → every
+# route, at a phone viewport and a desktop one, failing on any uncaught
+# error, console error, horizontal overflow, empty body, or missing title.
+# Screenshots + report.json are uploaded whether it passes or fails.
+#
+# Not a required check (it runs on a schedule, not on PRs). A red run is a
+# defect to file on the board, with the screenshot attached.
+name: Nightly journey
+
+on:
+  schedule:
+    - cron: '17 9 * * *' # daily, 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-journey
+  cancel-in-progress: true
+
+jobs:
+  journey:
+    name: Chrome + Firefox journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: spellcontrol
+          POSTGRES_PASSWORD: spellcontrol
+          POSTGRES_DB: spellcontrol
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U spellcontrol -d spellcontrol"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://spellcontrol:spellcontrol@localhost:5432/spellcontrol
+      JWT_SECRET: nightly-journey-jwt-secret-not-a-secret
+      NODE_ENV: development
+      # Reference-data ingests are hours of network; the journey needs none.
+      SCRYFALL_BULK_INGEST_DISABLED: '1'
+      COMBOS_INGEST_DISABLED: '1'
+      RULES_INGEST_DISABLED: '1'
+      OFFLINE_BULK_DISABLED: '1'
+      UPTIME_HEARTBEAT_DISABLED: '1'
+
+    steps:
+      # No LFS: the only LFS object is the scanner's card-embeddings.bin, and
+      # the matcher logs a warning and disables the scanner endpoint when it
+      # is missing (scanner/matcher.ts). The journey never scans a card.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Build shared packages
+        uses: ./.github/actions/build-shared
+
+      - name: Install
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix frontend --no-audit --no-fund
+          npm ci --prefix backend --no-audit --no-fund
+
+      # Same build the Docker image ships: prebuild keeps the committed
+      # snapshots (--no-fetch), postbuild writes the pre-compressed siblings.
+      - name: Build the frontend
+        run: npm run build --prefix frontend
+
+      # server.ts serves backend/public when it exists — the Dockerfile copies
+      # frontend/dist there; a symlink is the same thing here.
+      - name: Start the backend serving the bundle
+        run: |
+          ln -s "$PWD/frontend/dist" backend/public
+          (cd backend && nohup ./node_modules/.bin/tsx src/server.ts > ../backend.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3737/health > /dev/null && exit 0
+            sleep 2
+          done
+          echo "backend never answered /health"; cat backend.log; exit 1
+
+      - name: Journey in Chrome (phone + desktop)
+        run: node scripts/journey.mjs --base http://localhost:3737 --browser chrome --out journey-chrome
+
+      - name: Journey in Firefox (desktop)
+        if: always()
+        run: node scripts/journey.mjs --base http://localhost:3737 --browser firefox --viewports desktop --out journey-firefox
+
+      - name: Upload screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: journey-${{ github.run_id }}
+          path: |
+            journey-chrome
+            journey-firefox
+            backend.log
+          retention-days: 14

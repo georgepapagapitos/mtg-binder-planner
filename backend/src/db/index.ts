@@ -728,6 +728,10 @@ export async function ensureSchema(): Promise<void> {
     -- one table. AI output never becomes a synced entity.
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_opt_in BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_daily_limit INTEGER;
+    -- Per-user unlock granted from the admin panel (T114). The AI gate in
+    -- routes/ai.ts is admin OR AI_PUBLIC=1 OR this flag; the user's own
+    -- ai_opt_in consent still applies on top.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_access BOOLEAN NOT NULL DEFAULT false;
     CREATE TABLE IF NOT EXISTS ai_reviews (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

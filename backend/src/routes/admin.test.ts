@@ -199,6 +199,69 @@ describe('GET /api/admin/users', () => {
   });
 });
 
+describe('PATCH /api/admin/users/:id/ai', () => {
+  it('403s for a non-admin session', async () => {
+    const cookie = await registerUser('ai-quinn');
+    const res = await request(app)
+      .patch('/api/admin/users/some-id/ai')
+      .set('Cookie', cookie)
+      .send({ access: true });
+    expect(res.status).toBe(403);
+  });
+
+  it('404s for an unknown user id', async () => {
+    const cookie = await registerAdmin('ai-rhea');
+    const res = await request(app)
+      .patch('/api/admin/users/does-not-exist/ai')
+      .set('Cookie', cookie)
+      .send({ access: true });
+    expect(res.status).toBe(404);
+  });
+
+  it('400s a bad or empty body', async () => {
+    const cookie = await registerAdmin('ai-sol');
+    const targetId = await userIdFromCookie(await registerUser('ai-tam'));
+    for (const body of [{}, { access: 'yes' }, { dailyLimit: -1 }, { dailyLimit: 1.5 }]) {
+      const res = await request(app)
+        .patch(`/api/admin/users/${targetId}/ai`)
+        .set('Cookie', cookie)
+        .send(body);
+      expect(res.status, JSON.stringify(body)).toBe(400);
+    }
+  });
+
+  it('grants access, sets and clears the daily limit, and the list reflects it', async () => {
+    const cookie = await registerAdmin('ai-ursa');
+    const targetId = await userIdFromCookie(await registerUser('ai-vik'));
+    const find = async () => {
+      const res = await request(app).get('/api/admin/users').set('Cookie', cookie);
+      return res.body.users.find((u: { username: string }) => u.username === 'ai-vik');
+    };
+    expect(await find()).toMatchObject({ aiAccess: false, aiDailyLimit: null });
+
+    let res = await request(app)
+      .patch(`/api/admin/users/${targetId}/ai`)
+      .set('Cookie', cookie)
+      .send({ access: true, dailyLimit: 25 });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, aiAccess: true, aiDailyLimit: 25 });
+    expect(await find()).toMatchObject({ aiAccess: true, aiDailyLimit: 25 });
+
+    // A partial patch leaves the other field alone; null restores the default.
+    res = await request(app)
+      .patch(`/api/admin/users/${targetId}/ai`)
+      .set('Cookie', cookie)
+      .send({ dailyLimit: null });
+    expect(res.body).toEqual({ ok: true, aiAccess: true, aiDailyLimit: null });
+
+    res = await request(app)
+      .patch(`/api/admin/users/${targetId}/ai`)
+      .set('Cookie', cookie)
+      .send({ access: false });
+    expect(res.body).toEqual({ ok: true, aiAccess: false, aiDailyLimit: null });
+  });
+});
+
 describe('DELETE /api/admin/users/:id', () => {
   it('403s for a non-admin session', async () => {
     const cookie = await registerUser('owen');

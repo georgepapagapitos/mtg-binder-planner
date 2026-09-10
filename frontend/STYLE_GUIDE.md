@@ -577,6 +577,14 @@ a hero CTA.
   opponent board all shipped this way). `styles/tabs-consumer-overrides.test.ts`
   guards every `fitted`/`scrollable` consumer; `underline`/`hub` reset their
   own box and are exempt.
+- **A fitted strip that would ellipsize wraps instead.** `fitted` shares the
+  row equally and clips labels, so four labelled tabs with count badges read
+  as "Bat… 3 / Gra… 1 / Co… 0" on a 360px sheet (the opponent board, E280).
+  Below the sheet breakpoint such a strip wraps to a 2×2 grid
+  (`flex-wrap: wrap` + a ~50% basis on `.sc-tab`) — the same shape the share
+  audience ladder takes for its four rungs — keeping every label a whole word
+  and the strip one tablist. Don't abbreviate labels or switch to `scrollable`
+  to dodge the wrap; a whole word beats a hidden tab.
 - **`fitted` requires labels that are short AND equal**, never more than three
   tabs. The concrete test: at 320px and full panel width every label must render
   in full with no ellipsis (a 3-tab fitted strip gives each tab ~106px ≈ 10

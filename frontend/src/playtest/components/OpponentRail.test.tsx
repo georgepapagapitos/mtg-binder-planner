@@ -271,6 +271,57 @@ describe('OpponentRail', () => {
     });
   });
 
+  describe('unseen-change badge', () => {
+    it('badges arrivals since the viewer last looked, in presence density, and clears when the board is opened', () => {
+      stubOrientation(false);
+      const { rerender } = render(
+        <OpponentRail opponents={[seat(0, { battlefield: [bfCard('a'), bfCard('b')] })]} />
+      );
+      // First board = baseline, never a badge.
+      expect(screen.queryByText(/new$/)).toBeNull();
+      rerender(
+        <OpponentRail
+          opponents={[
+            seat(0, {
+              battlefield: [bfCard('a'), bfCard('b'), bfCard('c')],
+              graveyard: [{ id: 'g1', name: 'Bolt' }],
+            }),
+          ]}
+        />
+      );
+      expect(screen.getByText('2 new')).toBeTruthy();
+      expect(screen.getByRole('button', { name: /2 changes since you last looked/ })).toBeTruthy();
+      // Opening the inspector marks everything seen; closing keeps it at 0.
+      fireEvent.click(screen.getByRole('button', { name: /Player 0/ }));
+      expect(screen.queryByText(/new$/)).toBeNull();
+      fireEvent.click(screen.getByText('stub close'));
+      expect(screen.queryByText(/new$/)).toBeNull();
+      rerender(
+        <OpponentRail
+          opponents={[
+            seat(0, {
+              battlefield: [bfCard('a'), bfCard('b'), bfCard('c'), bfCard('d')],
+              graveyard: [{ id: 'g1', name: 'Bolt' }],
+            }),
+          ]}
+        />
+      );
+      expect(screen.getByText('1 new')).toBeTruthy();
+    });
+
+    it('treats a pending seat’s first real board as the baseline, not as arrivals', () => {
+      const { rerender } = render(<OpponentRail opponents={[{ ...seat(0), pending: true }]} />);
+      rerender(<OpponentRail opponents={[seat(0, { battlefield: [bfCard('a'), bfCard('b')] })]} />);
+      expect(screen.queryByText(/new$/)).toBeNull();
+      rerender(
+        <OpponentRail
+          opponents={[seat(0, { battlefield: [bfCard('a'), bfCard('b'), bfCard('c')] })]}
+        />
+      );
+      expect(screen.getByText('1 new')).toBeTruthy();
+    });
+  });
+
   describe('turn-pass moment (opponent sweep)', () => {
     it('does not sweep on mount, even when a seat is already active', () => {
       const opponents = [seat(0), seat(1)];

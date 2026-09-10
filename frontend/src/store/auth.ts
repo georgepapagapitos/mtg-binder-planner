@@ -46,6 +46,15 @@ interface AuthState {
    */
   autoLinkedAt: number | null;
   /**
+   * Server truth (T117) behind the inbox/friend-request "unseen" badges —
+   * `users.inbox_seen_at`. Every badge reader (`useInbox`, `useFriendRequests`,
+   * `useActivity`) compares against this via `use-inbox.ts`'s
+   * `useInboxSeenAt()` instead of reading localStorage directly, so every
+   * device agrees once authed. Null until bootstrap resolves or the user has
+   * never stamped it.
+   */
+  inboxSeenAt: number | null;
+  /**
    * Editable public-profile fields (social program W0): display name, bio,
    * card-art avatar. `null` until the first successful `/me` — ProfileEditor
    * reads that as "still loading". Deliberately NOT persisted to the
@@ -105,6 +114,12 @@ interface AuthState {
   deleteAccount: () => Promise<boolean>;
   /** Dismiss the auto-link banner (server clears users.auto_linked_at). */
   acknowledgeAutoLink: () => Promise<void>;
+  /**
+   * Stamp the inbox/friend-request badges as seen now (T117). Optimistic —
+   * clears the badge immediately, then syncs the real value to the server
+   * best-effort (a failed round trip just gets corrected by the next /me).
+   */
+  stampInboxSeen: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -122,7 +137,7 @@ export const useAuth = create<AuthState>((set, get) => {
     void authApi
       .fetchMe()
       .then((me) => {
-        if (me) set({ profile: me.profile });
+        if (me) set({ profile: me.profile, inboxSeenAt: me.inboxSeenAt });
       })
       .catch(() => {
         /* ignore — Settings > Profile will just show its loading state */
@@ -136,6 +151,7 @@ export const useAuth = create<AuthState>((set, get) => {
     status: 'unknown',
     error: null,
     autoLinkedAt: null,
+    inboxSeenAt: null,
     profile: null,
 
     bootstrap: async () => {
@@ -149,12 +165,19 @@ export const useAuth = create<AuthState>((set, get) => {
             status: 'authed',
             error: null,
             autoLinkedAt: me.autoLinkedAt,
+            inboxSeenAt: me.inboxSeenAt,
             profile: me.profile,
           });
         } else {
           // A real 401 — the session is gone. Forget the cached identity.
           storeUser(null);
-          set({ user: null, status: 'guest', autoLinkedAt: null, profile: null });
+          set({
+            user: null,
+            status: 'guest',
+            autoLinkedAt: null,
+            inboxSeenAt: null,
+            profile: null,
+          });
         }
       } catch {
         // Network failure is NOT a sign-out. If we remember a signed-in identity,
@@ -170,9 +193,17 @@ export const useAuth = create<AuthState>((set, get) => {
             status: 'authed',
             error: null,
             autoLinkedAt: null,
+            inboxSeenAt: null,
             profile: null,
           });
-        else set({ user: null, status: 'guest', autoLinkedAt: null, profile: null });
+        else
+          set({
+            user: null,
+            status: 'guest',
+            autoLinkedAt: null,
+            inboxSeenAt: null,
+            profile: null,
+          });
       }
     },
 
@@ -318,6 +349,15 @@ export const useAuth = create<AuthState>((set, get) => {
         await authApi.acknowledgeAutoLink();
       } catch {
         /* ignore — next /me will restore the flag if needed */
+      }
+    },
+
+    stampInboxSeen: async () => {
+      set({ inboxSeenAt: Date.now() });
+      try {
+        await authApi.stampInboxSeen();
+      } catch {
+        /* ignore — next /me resyncs the true value if this round trip was lost */
       }
     },
 

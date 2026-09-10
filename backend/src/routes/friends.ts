@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { requireAuth, normalizeUsername } from '../auth';
+import { requireAuth, normalizeUsername, resolveDisplayLabel } from '../auth';
 import { getDb, getPool } from '../db';
 import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
@@ -10,6 +10,7 @@ import { asRecord, pickLegalities } from '../shares/projections';
 import { gzip } from 'node:zlib';
 import { logger } from '../logger';
 import { testAwareLimiter } from '../route-utils';
+import { notifyUser } from '../notify';
 
 export const friendsRouter: Router = Router();
 
@@ -371,6 +372,13 @@ friendsRouter.post(
       }
       return res.status(409).json({ error: 'Friend request already sent.' });
     }
+
+    // Best-effort email (T117) — never blocks or fails the request; see
+    // notify.ts for the verified/opted-in gating.
+    void notifyUser(target.id, 'friend_request', {
+      fromLabel: await resolveDisplayLabel(callerId),
+      path: '/friends?tab=requests',
+    }).catch(() => {});
 
     return res.status(201).json({
       friendStatus: 'request_sent',

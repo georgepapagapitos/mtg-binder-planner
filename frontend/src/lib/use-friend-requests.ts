@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../store/auth';
-import { listRequests } from './friends-client';
+import { listRequests, type FriendRequest } from './friends-client';
+import { countUnseen, useInboxSeenAt } from './use-inbox';
 
 /**
- * Returns the count of incoming pending friend requests for the nav badge.
- * Fetches on mount and on window focus. Only fetches when authed.
+ * Incoming pending friend requests. Fetches on mount and window focus, only
+ * when authed. `count` is every pending request (YouPage's "N pending"
+ * summary — a description, not a badge, so it's never suppressed by
+ * seen-state); `unseenCount` (T117) is the subset newer than the shared
+ * server `inbox_seen_at` mark, for badge/dot use — same source as
+ * `useInbox`'s count.
  */
-export function useFriendRequests(): number {
+export function useFriendRequests(): { count: number; unseenCount: number } {
   const status = useAuth((s) => s.status);
-  const [count, setCount] = useState(0);
+  const lastSeen = useInboxSeenAt();
+  const [incoming, setIncoming] = useState<FriendRequest[]>([]);
 
   useEffect(() => {
     if (status !== 'authed') return;
@@ -18,7 +24,7 @@ export function useFriendRequests(): number {
     const fetch = () => {
       listRequests()
         .then((data) => {
-          if (!cancelled) setCount(data.incoming.length);
+          if (!cancelled) setIncoming(data.incoming);
         })
         .catch(() => {
           /* silently ignore — badge stays at last known count */
@@ -33,5 +39,5 @@ export function useFriendRequests(): number {
     };
   }, [status]);
 
-  return count;
+  return { count: incoming.length, unseenCount: countUnseen(incoming, lastSeen) };
 }

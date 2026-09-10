@@ -195,11 +195,24 @@ export interface MyIdentities {
   emailVerified: boolean;
   /** Email awaiting a click on its verification link, or null. */
   pendingEmail: string | null;
+  /** Opt-out for the T117 notification emails (friend request / trade offer /
+   *  game-night invite). Only takes effect once `emailVerified` is true. */
+  notifyEmail: boolean;
 }
 
 export async function fetchIdentities(): Promise<MyIdentities> {
   const res = await authedFetch('/api/auth/me/identities', { method: 'GET' });
   return handleResponse<MyIdentities>(res);
+}
+
+/** Toggle the T117 notification emails. */
+export async function setNotifyEmail(enabled: boolean): Promise<void> {
+  const res = await authedFetch('/api/auth/me/notify-email', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  await handleResponse<{ ok: true }>(res);
 }
 
 /**
@@ -339,10 +352,14 @@ export interface AvatarPatch {
  * Result shape for /me. `autoLinkedAt` is non-null when an external sign-in
  * was just attached to this account via a verified-email match — the
  * frontend surfaces a "was this you?" banner until it's acknowledged.
+ * `inboxSeenAt` (T117) is the server truth behind the inbox/friend-request
+ * "unseen" badges — null until the user has ever opened the inbox/friends
+ * page (or stamped it offline via the local fallback).
  */
 export interface MeResponse {
   user: AuthUser;
   autoLinkedAt: number | null;
+  inboxSeenAt: number | null;
   profile: Profile;
 }
 
@@ -352,9 +369,23 @@ export async function fetchMe(): Promise<MeResponse | null> {
   const data = await handleResponse<{
     user: AuthUser;
     autoLinkedAt?: number | null;
+    inboxSeenAt?: number | null;
     profile: Profile;
   }>(res);
-  return { user: data.user, autoLinkedAt: data.autoLinkedAt ?? null, profile: data.profile };
+  return {
+    user: data.user,
+    autoLinkedAt: data.autoLinkedAt ?? null,
+    inboxSeenAt: data.inboxSeenAt ?? null,
+    profile: data.profile,
+  };
+}
+
+/** Stamp `users.inbox_seen_at` to now (T117) — call when the user opens the
+ *  inbox or friends page. Returns the server-stamped timestamp. */
+export async function stampInboxSeen(): Promise<number> {
+  const res = await authedFetch('/api/users/me/inbox-seen', { method: 'POST' });
+  const data = await handleResponse<{ ok: true; inboxSeenAt: number }>(res);
+  return data.inboxSeenAt;
 }
 
 /**

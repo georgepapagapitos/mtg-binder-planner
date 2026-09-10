@@ -159,3 +159,24 @@ describe('GET /api/users/search', () => {
     expect(res.body.users[0].friendStatus).toBe('friends');
   });
 });
+
+describe('POST /api/users/me/inbox-seen', () => {
+  it('rejects unauthenticated callers (401)', async () => {
+    const res = await request(app).post('/api/users/me/inbox-seen');
+    expect(res.status).toBe(401);
+  });
+
+  it('stamps inbox_seen_at, surfaced back via GET /api/auth/me', async () => {
+    const alice = await makeUser('inbox-seen-alice');
+    const before = await request(app).get('/api/auth/me').set('Cookie', alice);
+    expect(before.body.inboxSeenAt).toBeNull();
+
+    const before1 = Date.now();
+    const stamp = await request(app).post('/api/users/me/inbox-seen').set('Cookie', alice);
+    expect(stamp.status).toBe(200);
+    expect(stamp.body.inboxSeenAt).toBeGreaterThanOrEqual(before1);
+
+    const after = await request(app).get('/api/auth/me').set('Cookie', alice);
+    expect(after.body.inboxSeenAt).toBe(stamp.body.inboxSeenAt);
+  });
+});

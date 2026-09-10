@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import type { Server } from 'node:http';
 import { createTestEnv, extractSessionCookie } from '../test-helpers';
+
+// Wiring check only (does the route call notifyUser with the right
+// recipient/kind) — the verified/opted-in/throws branches are unit-tested
+// against a real notifyUser in notify.test.ts.
+const { mockNotifyUser } = vi.hoisted(() => ({ mockNotifyUser: vi.fn(() => Promise.resolve()) }));
+vi.mock('../notify', () => ({ notifyUser: mockNotifyUser }));
 
 let app: Server;
 let cleanup: () => Promise<void>;
@@ -113,6 +119,33 @@ describe('POST /api/trades', () => {
     expect(mirrored.give[0].name).toBe('Rhystic Study');
     expect(mirrored.receive[0].name).toBe('Sol Ring');
     expect(mirrored.counterpartyUsername).toBe(alice.username);
+  });
+
+  it('notifies the recipient of the new offer (T117)', async () => {
+    const alice = await makeUser('alice');
+    const bob = await makeUser('bob');
+    await befriend(alice, bob);
+
+    mockNotifyUser.mockClear();
+    const res = await propose(alice, bob);
+
+    expect(res.status).toBe(201);
+    expect(mockNotifyUser).toHaveBeenCalledTimes(1);
+    expect(mockNotifyUser).toHaveBeenCalledWith(
+      bob.id,
+      'trade_offer',
+      expect.objectContaining({ path: '/trades' })
+    );
+  });
+
+  it('still succeeds (201) when notifyUser rejects', async () => {
+    const alice = await makeUser('alice');
+    const bob = await makeUser('bob');
+    await befriend(alice, bob);
+    mockNotifyUser.mockRejectedValueOnce(new Error('mail provider down'));
+
+    const res = await propose(alice, bob);
+    expect(res.status).toBe(201);
   });
 
   it('rejects an offer to a non-friend', async () => {

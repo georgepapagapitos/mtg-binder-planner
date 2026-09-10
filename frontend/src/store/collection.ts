@@ -46,6 +46,7 @@ import { bindersUseTags, decorateWithTags, ensureCardTags } from '../lib/card-ta
 import { buildAllocationMap } from '../lib/allocations-core';
 import { remapCubeAllocations } from '../lib/remap-cube-allocations';
 import { appNavigate } from '../lib/navigate-bridge';
+import { findPriceTargetHits, filterNewPriceTargetHits } from '../lib/price-alerts';
 import { MAX_VISIBLE_TOASTS } from '../lib/toast-stack';
 import { clampListName, entryToCards, makeListEntry } from '../lib/lists';
 import {
@@ -473,6 +474,25 @@ function notifyBinderMoves(moves: BinderMove[]): void {
       toast.show({ message, tone: 'info' });
     }
   }
+}
+
+/**
+ * T117 price-target alerts: one toast for every want-list entry that just
+ * crossed under its target price this refresh (`filterNewPriceTargetHits`
+ * already excludes repeats). Links into the affected list, or the Lists hub
+ * when the hits span more than one.
+ */
+function notifyPriceTargetHits(hits: ReturnType<typeof findPriceTargetHits>): void {
+  if (hits.length === 0) return;
+  const listIds = new Set(hits.map((h) => h.listId));
+  const dest = listIds.size === 1 ? `/collection/lists/${hits[0].listId}` : '/collection/lists';
+  const noun = hits.length === 1 ? 'want' : 'wants';
+  toast.show({
+    message: `${hits.length} ${noun} dropped under your target price.`,
+    tone: 'info',
+    actionLabel: 'View',
+    onAction: () => appNavigate(dest),
+  });
 }
 
 /**
@@ -991,6 +1011,9 @@ export const useCollectionStore = create<CollectionState>()(
           // E133 value movers: same tick, same before/after pair the binder
           // diff uses — per-card deltas into the device-local movers log.
           recordDailyMovers(computeMovers(beforeCards, afterCards)).catch(() => {});
+          // T117 price-target alerts: same tick — prices just landed in the
+          // cache, so this is the one place a crossing can be detected.
+          notifyPriceTargetHits(filterNewPriceTargetHits(findPriceTargetHits(get().lists)));
         } catch (err) {
           const msg = userMessage(err, "Couldn't refresh prices. Try again in a moment.");
           logger.warn('[store] refreshPrices failed:', err);

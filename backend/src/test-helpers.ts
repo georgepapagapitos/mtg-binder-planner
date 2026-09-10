@@ -114,7 +114,9 @@ export async function createTestEnv(): Promise<TestEnv> {
       profile_hidden_at BIGINT,
       ai_opt_in BOOLEAN NOT NULL DEFAULT false,
       ai_daily_limit INTEGER,
-      ai_access BOOLEAN NOT NULL DEFAULT false
+      ai_access BOOLEAN NOT NULL DEFAULT false,
+      inbox_seen_at BIGINT,
+      notify_email BOOLEAN NOT NULL DEFAULT true
     );
     CREATE UNIQUE INDEX users_email_idx ON users(email);
     CREATE TABLE ai_reviews (

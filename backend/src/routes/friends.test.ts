@@ -1,8 +1,14 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import type { Server } from 'node:http';
 import type { Pool } from 'pg';
 import { createTestEnv, extractSessionCookie } from '../test-helpers';
+
+// Wiring check only (does the route call notifyUser with the right
+// recipient/kind) — the verified/opted-in/throws branches are unit-tested
+// against a real notifyUser in notify.test.ts.
+const { mockNotifyUser } = vi.hoisted(() => ({ mockNotifyUser: vi.fn(() => Promise.resolve()) }));
+vi.mock('../notify', () => ({ notifyUser: mockNotifyUser }));
 
 let app: Server;
 let pool: Pool;
@@ -193,6 +199,41 @@ describe('POST /api/friends/requests', () => {
       // Mutual sends resolve to accepted or a single pending — never stuck double-pending.
       expect(['pending', 'accepted']).toContain(pair.rows[0].status);
     }
+  });
+
+  it('notifies the addressee of the new request (T117)', async () => {
+    const alice = await makeUser('fr-notify-alice');
+    const bobReg = await request(app)
+      .post('/api/auth/register')
+      .send({ username: 'fr-notify-bob', password: 'correct horse battery' });
+    const bobId = bobReg.body.user.id as string;
+
+    mockNotifyUser.mockClear();
+    const res = await request(app)
+      .post('/api/friends/requests')
+      .set('Cookie', alice)
+      .send({ username: 'fr-notify-bob' });
+
+    expect(res.status).toBe(201);
+    expect(mockNotifyUser).toHaveBeenCalledTimes(1);
+    expect(mockNotifyUser).toHaveBeenCalledWith(
+      bobId,
+      'friend_request',
+      expect.objectContaining({ path: '/friends?tab=requests' })
+    );
+  });
+
+  it('still succeeds (201) when notifyUser rejects', async () => {
+    const alice = await makeUser('fr-notifyfail-alice');
+    await makeUser('fr-notifyfail-bob');
+    mockNotifyUser.mockRejectedValueOnce(new Error('mail provider down'));
+
+    const res = await request(app)
+      .post('/api/friends/requests')
+      .set('Cookie', alice)
+      .send({ username: 'fr-notifyfail-bob' });
+
+    expect(res.status).toBe(201);
   });
 });
 

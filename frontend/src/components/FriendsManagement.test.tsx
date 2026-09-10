@@ -37,10 +37,16 @@ vi.mock('../store/auth', () => ({
 }));
 
 const { mockMarkInboxSeen } = vi.hoisted(() => ({ mockMarkInboxSeen: vi.fn() }));
-vi.mock('../lib/use-inbox', () => ({
-  useInbox: () => inboxState,
-  markInboxSeen: mockMarkInboxSeen,
-}));
+vi.mock('../lib/use-inbox', async (importOriginal) => {
+  // Keep the real countUnseen/useInboxSeenAt (the requests-tab unseen pill,
+  // T117, is built on them) — only useInbox/markInboxSeen are stubbed.
+  const actual = await importOriginal<typeof import('../lib/use-inbox')>();
+  return {
+    ...actual,
+    useInbox: () => inboxState,
+    markInboxSeen: mockMarkInboxSeen,
+  };
+});
 
 // Stub payloads for the two calls whose resolved value isn't void — neither
 // is ever read by FriendsManagement (both call sites discard it and instead

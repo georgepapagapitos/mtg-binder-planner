@@ -25,7 +25,7 @@ import {
   type FriendRequest,
   type FriendActivityItem,
 } from '../lib/friends-client';
-import { useInbox, markInboxSeen } from '../lib/use-inbox';
+import { useInbox, markInboxSeen, countUnseen, useInboxSeenAt } from '../lib/use-inbox';
 import { useConfirm } from '../lib/use-confirm';
 
 import { userMessage } from '@/lib/user-error';
@@ -69,6 +69,9 @@ export function FriendsManagement() {
   // The inbox + its unseen count come from the shared hook (same source as the
   // nav badge) — no duplicate fetch/state here.
   const { count: inboxCount, items: inbox } = useInbox();
+  // Same server seen-state (T117) drives the Requests tab's own unseen pill,
+  // computed below once incoming/outgoing have loaded.
+  const inboxSeenAt = useInboxSeenAt();
 
   // Active tab is derived from the URL, not local state, so a link elsewhere
   // in the app (e.g. the home activity strip's /friends?tab=inbox) can switch
@@ -151,13 +154,14 @@ export function FriendsManagement() {
     [setSearchParams]
   );
 
-  // Side effects of the resolved tab (mark inbox seen; lazy-fetch activity
-  // once). Keyed on `tab` rather than called from handleTabChange so a direct
-  // deep link (e.g. /you?friendsTab=inbox) gets the same treatment as a click
-  // — not just tab switches made after landing on the page.
+  // Side effects of the resolved tab (mark inbox/requests seen — T117, one
+  // shared server timestamp; lazy-fetch activity once). Keyed on `tab`
+  // rather than called from handleTabChange so a direct deep link (e.g.
+  // /you?friendsTab=inbox) gets the same treatment as a click — not just tab
+  // switches made after landing on the page.
   useEffect(() => {
     if (status !== 'authed') return;
-    if (tab === 'inbox') markInboxSeen();
+    if (tab === 'inbox' || tab === 'requests') markInboxSeen();
     if (tab === 'activity' && !activityFetchedRef.current) {
       activityFetchedRef.current = true;
       loadActivity();
@@ -365,14 +369,15 @@ export function FriendsManagement() {
   const incomingList = incoming ?? [];
   const outgoingList = outgoing ?? [];
   const inboxList = inbox ?? [];
-  const requestCount = incomingList.length + outgoingList.length;
-  // Suppress the unseen badge while the inbox tab is open (it's been seen).
+  // Suppress the unseen badge while its own tab is open (it's been seen) —
+  // same server truth (users.inbox_seen_at, T117) backs both.
+  const unseenRequests = tab === 'requests' ? 0 : countUnseen(incomingList, inboxSeenAt);
   const unseenInbox = tab === 'inbox' ? 0 : inboxCount;
 
   const tabsWithCounts = TABS.map((t) => {
     let count: number | null = null;
     if (t.id === 'friends') count = friendsList.length || null;
-    else if (t.id === 'requests') count = requestCount > 0 ? requestCount : null;
+    else if (t.id === 'requests') count = unseenRequests > 0 ? unseenRequests : null;
     else if (t.id === 'inbox') count = unseenInbox > 0 ? unseenInbox : null;
     return { ...t, count };
   });

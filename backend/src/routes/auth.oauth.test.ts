@@ -391,6 +391,7 @@ describe('GET /api/auth/me/identities', () => {
       email: null,
       emailVerified: false,
       pendingEmail: null,
+      notifyEmail: true,
     });
   });
 

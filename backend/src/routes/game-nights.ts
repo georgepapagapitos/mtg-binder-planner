@@ -14,6 +14,7 @@ import {
 } from '../db/schema';
 import { areFriends } from '../friends/relations';
 import { ORIGIN, SITE_NAME, type ShareLandingMeta } from '../shares/og';
+import { notifyUser } from '../notify';
 
 /**
  * Game nights (E123): propose a date to play, invite friends, or hand anyone
@@ -829,6 +830,15 @@ gameNightsRouter.post('/', requireAuth, hostWriteLimiter, async (req: Request, r
   }
   // The host is going by definition — keeps tallies and the attendee list honest.
   const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
+  // Best-effort email per invitee (T117) — never blocks or fails the
+  // request; see notify.ts for the verified/opted-in gating.
+  for (const userId of invitees) {
+    void notifyUser(userId, 'game_night_invite', {
+      fromLabel: hostDisplayLabel,
+      path: `/gn/${night.token}`,
+      nightTitle: night.title,
+    }).catch(() => {});
+  }
   await db.insert(gameNightRsvps).values({
     id: crypto.randomUUID(),
     nightId: night.id,
@@ -1030,6 +1040,15 @@ gameNightsRouter.patch(
 
     const updated = { ...night, ...patch };
     const hostDisplayLabel = await resolveDisplayLabel(req.user!.id);
+    // Best-effort email per newly-added invitee (T117) — never blocks or
+    // fails the request; see notify.ts for the verified/opted-in gating.
+    for (const userId of invitees) {
+      void notifyUser(userId, 'game_night_invite', {
+        fromLabel: hostDisplayLabel,
+        path: `/gn/${night.token}`,
+        nightTitle: updated.title,
+      }).catch(() => {});
+    }
     const { rsvpsByNight, awaitingByNight, blockedByNight, guestInvitesByNight } =
       await loadNightDetails([id]);
     res.json({

@@ -88,6 +88,7 @@ describe('fetchMe', () => {
     expect(await fetchMe()).toEqual({
       user: { id: 'u3', username: 'cory' },
       autoLinkedAt: null,
+      inboxSeenAt: null,
     });
   });
 
@@ -98,6 +99,7 @@ describe('fetchMe', () => {
     expect(await fetchMe()).toEqual({
       user: { id: 'u3', username: 'cory' },
       autoLinkedAt: 1700000000000,
+      inboxSeenAt: null,
     });
   });
 
@@ -108,6 +110,18 @@ describe('fetchMe', () => {
     expect(await fetchMe()).toEqual({
       user: { id: 'u3', username: 'cory' },
       autoLinkedAt: null,
+      inboxSeenAt: null,
+    });
+  });
+
+  it('threads inboxSeenAt from /me', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ user: { id: 'u3', username: 'cory' }, inboxSeenAt: 1700000000000 })
+    );
+    expect(await fetchMe()).toEqual({
+      user: { id: 'u3', username: 'cory' },
+      autoLinkedAt: null,
+      inboxSeenAt: 1700000000000,
     });
   });
 });

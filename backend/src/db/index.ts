@@ -808,5 +808,11 @@ export async function ensureSchema(): Promise<void> {
     -- default to 0 and are priced as if uncached.
     ALTER TABLE ai_reviews ADD COLUMN IF NOT EXISTS cache_write_tokens INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE ai_reviews ADD COLUMN IF NOT EXISTS cache_read_tokens INTEGER NOT NULL DEFAULT 0;
+    -- Notifications (T117): server truth for the inbox/friend-request "unseen"
+    -- badges (replaces the old localStorage-only mark — GET /api/auth/me
+    -- returns it, POST /api/users/me/inbox-seen stamps it) and the opt-out for
+    -- the friend-request/trade-offer/game-night-invite notification emails.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS inbox_seen_at BIGINT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT true;
   `);
 }

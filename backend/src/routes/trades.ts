@@ -1,10 +1,11 @@
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import { requireAuth } from '../auth';
+import { requireAuth, resolveDisplayLabel } from '../auth';
 import { getPool } from '../db';
 import { areFriends } from '../friends/relations';
 import { testAwareLimiter } from '../route-utils';
 import type { TradeCard, TradeCopy } from '../db/schema';
+import { notifyUser } from '../notify';
 
 /**
  * Friend-to-friend trade offers.
@@ -276,6 +277,14 @@ tradesRouter.post('/', requireAuth, tradeWriteLimiter, async (req: Request, res:
 
   const row = await loadOwnOffer(res, callerId, id);
   if (!row) return;
+
+  // Best-effort email (T117) — never blocks or fails the request; see
+  // notify.ts for the verified/opted-in gating.
+  void notifyUser(recipientId, 'trade_offer', {
+    fromLabel: await resolveDisplayLabel(callerId),
+    path: '/trades',
+  }).catch(() => {});
+
   res.status(201).json({ offer: await viewFor(row, callerId) });
 });
 

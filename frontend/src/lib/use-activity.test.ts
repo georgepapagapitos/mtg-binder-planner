@@ -11,9 +11,19 @@ import type {
 } from './activity-client';
 
 let authStatus: 'guest' | 'authed' = 'authed';
-vi.mock('../store/auth', () => ({
-  useAuth: <T>(selector: (s: { status: string }) => T): T => selector({ status: authStatus }),
-}));
+vi.mock('../store/auth', () => {
+  // markInboxSeen() (real implementation, exercised below) reaches for
+  // useAuth.getState().stampInboxSeen() — give the mock the same static
+  // .getState() zustand hooks carry, so that best-effort call is a no-op
+  // instead of a TypeError. `inboxSeenAt` is deliberately omitted from the
+  // selector state so useInboxSeenAt() falls back to the localStorage mark
+  // this file's tests actually stamp/assert against.
+  const useAuth = Object.assign(
+    <T>(selector: (s: { status: string }) => T): T => selector({ status: authStatus }),
+    { getState: () => ({ stampInboxSeen: async () => {} }) }
+  );
+  return { useAuth };
+});
 
 const getActivityMock = vi.fn<() => Promise<ActivityResponse>>();
 vi.mock('./activity-client', () => ({

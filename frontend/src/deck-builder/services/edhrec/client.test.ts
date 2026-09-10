@@ -5,6 +5,7 @@ import {
   parseEdhrecResponse,
   parseSaltIndex,
   fetchCardLiftPool,
+  fetchTopCommanders,
   MIN_HEALTHY_POOL_DECKS,
   MIN_HEALTHY_POOL_CARDS,
   MAX_RETRIES,
@@ -431,5 +432,62 @@ describe('edhrecFetch retry discipline', () => {
 
     await expect(pending).resolves.toEqual([]); // empty page parses to no entries
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('fetchTopCommanders — a failed fetch is not an empty list (E278)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function res(status: number, body: unknown = {}) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      statusText: String(status),
+      headers: { get: () => null },
+      json: async () => body,
+    };
+  }
+  const page = (name: string) => ({
+    container: {
+      json_dict: { cardlists: [{ cardviews: [{ name, sanitized: name, num_decks: 9 }] }] },
+    },
+  });
+
+  it('rejects on a non-retryable error with nothing cached, so the UI can offer Retry', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => res(404))
+    );
+    vi.useFakeTimers();
+
+    const outcome = fetchTopCommanders(['U']).then(
+      () => 'resolved',
+      (e: Error) => e.message
+    );
+    await vi.runAllTimersAsync();
+
+    expect(await outcome).toMatch(/EDHREC API error: 404/);
+  });
+
+  it('serves the stale list when the refresh fails instead of throwing', async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => (++calls === 1 ? res(200, page('Krenko, Mob Boss')) : res(404)))
+    );
+    vi.useFakeTimers();
+
+    const first = fetchTopCommanders(['R']);
+    await vi.runAllTimersAsync();
+    expect((await first).map((c) => c.name)).toEqual(['Krenko, Mob Boss']);
+
+    vi.advanceTimersByTime(31 * 60 * 1000); // past TOP_COMMANDER_CACHE_TTL
+    const second = fetchTopCommanders(['R']);
+    await vi.runAllTimersAsync();
+    expect((await second).map((c) => c.name)).toEqual(['Krenko, Mob Boss']);
+    expect(calls).toBe(2);
   });
 });

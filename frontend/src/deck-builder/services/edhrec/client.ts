@@ -1103,7 +1103,11 @@ export async function fetchTopCommanders(colors: string[]): Promise<EDHRECTopCom
     return commanders;
   } catch (error) {
     logger.warn(`[EDHREC] Failed to fetch top commanders for "${slug}":`, error);
-    return cached?.data ?? [];
+    // A stale list beats none; with none, throw so the caller renders its
+    // "couldn't reach EDHREC + Retry" state — returning [] here made every
+    // failure read as the "No commanders found" empty result (E278).
+    if (cached) return cached.data;
+    throw error;
   }
 }
 

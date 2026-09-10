@@ -1380,14 +1380,14 @@ the rulings behind the config and the fixes that brought the tree to zero.
 - **A thing you click is a `<button>`.** A `div`/`span`/`li` with `onClick`
   and no interactive children becomes `<button type="button">` with its
   classes kept (add `background: none; border: 0; padding: 0; font: inherit;
-  color: inherit; text-align: inherit;` to the element's OWN rule only if the
+color: inherit; text-align: inherit;` to the element's OWN rule only if the
   button chrome shows through). One that must stay a `div` because it wraps
   other controls (a row with an inner button) gets `role="button"`,
   `tabIndex={0}`, and an Enter/Space `onKeyDown` — the pattern in
   `components/shared/CardRow.tsx`. Never an `eslint-disable`.
 - **Backdrops.** The dim layer is `role="presentation"` and dismisses only on
   a hit on itself: `onClick={(e) => { e.stopPropagation(); if (e.target ===
-  e.currentTarget) close(); }}`. The dialog panel inside carries NO click
+e.currentTarget) close(); }}`. The dialog panel inside carries NO click
   handler — the old `onClick={(e) => e.stopPropagation()}` on the panel was
   never an interaction. The backdrop keeps the propagation stop because
   overlays are portaled and React bubbles a click inside them to the tile
@@ -2847,31 +2847,12 @@ animation is itself reduced-motion gated, so this is safe).
 
 ### Device tilt
 
-Gyro tilt is a foil-and-preview-only interaction — foil/etched cards only, in
-the card-preview surface only. The listener attaches on preview open and detaches
-on dismiss (zero idle battery cost).
-
-**Mandatory gates (all must hold for the listener to attach):**
-
-1. The card is foil or etched (`card.foil` truthy — `classifyFoil` returns a
-   style other than `'none'`).
-2. Touch device — NOT `(hover: none)`: Samsung WebViews report `hover: hover`
-   on touch (the documented Galaxy trap), so the robust check is the inverse
-   of the full desktop gate: `!matchMedia('(hover: hover) and (pointer: fine)')`.
-3. `prefers-reduced-motion: reduce` is NOT set. Vestibular motion triggered by
-   hand movement is exactly what that media feature is for — hard-disabled, not
-   just reduced.
-4. Swipe suppression: during a parent-owned swipe gesture, `shouldSuppressTilt`
-   returns true and the tilt eases to neutral (same handshake as the cursor path).
-
-**Baseline-delta mapping** — the first orientation sample captured at preview
-open becomes the neutral reference. All subsequent samples map only the _delta_
-from that baseline, so nobody needs to hold the phone flat for the effect to
-work. The pure mapping math lives in `lib/tilt-mapping.ts` (unit-tested).
-
-**No new settings UI.** The gyro interaction is gated by foil + preview-open
-interaction context and disabled under OS reduced-motion — no additional toggle
-needed.
+**No gyro tilt.** The card preview never follows the phone's physical motion.
+A device-orientation foil tilt shipped in #601 and was removed as distracting:
+the card drifting while you simply hold the phone reads as jitter, not as a
+binder in the hand. The cursor-driven tilt on hover devices stays (it only moves
+when the user moves the pointer). Don't reintroduce a `deviceorientation`
+listener; `use-holographic.test.tsx` guards against one.
 
 ### Reduced motion
 

@@ -1639,6 +1639,51 @@ reference.
   arithmetic. When a panel splits, **suppress the panel-wide tap zones**: a
   zone spanning both halves swallows every tap and credits it to the primary.
 
+### Playtest board — density, type rows, hover preview, card menus
+
+The solo/online card table (`/decks/:id/playtest`) follows five rulings
+(2026-09-10, after a side-by-side against Moxfield, Archidekt, EDHPlay and
+Untap):
+
+- **Card density scales with the board.** `--pt-card-w` on
+  `body:has(.playtest-page)` is `clamp(90px, min(7vw, (100vh - 340px) / 4.6),
+  140px)` — 7% of the viewport, capped by what three type rows fit in the
+  height left after the chrome, never below the old 90px. Both card vars are
+  **registered `@property`s** so `getComputedStyle` hands the drop math a
+  resolved length, not the `clamp()` text. Hand cards are the same size as
+  battlefield cards (`.playtest-card--sm` reads the same vars); the hand strip
+  is one card tall plus padding, never a fixed height. The ≤1023px and
+  short-landscape tiers keep their own fixed sizes.
+- **The battlefield is inset by `--pt-edge`** (half a tapped card's overhang)
+  inside `.playtest-battlefield-wrap`, which paints the playmat and clips. A
+  tapped card at x = 0 or x = 1 is therefore never cut off. PlaytestBoard's
+  `getBattlefieldGeometry` subtracts the same inset — the two move together.
+- **Type rows, whole cards first.** `auto-place.ts` lays permanents /
+  creatures / lands in three rows and fills each with whole cards side by
+  side; only a full row shingles down by 35% of a card so every title stays
+  readable. It never overlaps cards while the row has room (the old 30%
+  cascade hid names from the second card on). A face-down play lands in the
+  creature row — it is a 2/2 whatever it was printed as.
+- **Hover / focus preview on fine pointers.** `CardHoverPreview` shows the
+  full face beside any card carrying `data-preview-id` (set by
+  `PlaytestCardFace`; absent when face-down — the URL resolves from React state, never from the DOM) after a 220ms rest, immediately
+  on keyboard focus, hidden while dragging or while any sheet is open. Touch
+  gets no hover — its path is long-press → menu → Preview.
+- **Every card surface has a menu, and it says what it will do.** Battlefield
+  permanents and hand cards both open a menu (right-click, long-press, the
+  Context Menu key or Shift+Enter — on every pointer type, desktop included)
+  built on `CtxMenuShell` (floating popover ≥1024px, bottom sheet below). A
+  hand card's menu is its whole vocabulary: Play / Play tapped / Play face
+  down, Discard, Exile, top / bottom of library, Command zone. Labels name
+  the change, never a toggle: "Tap" / "Untap", "Turn face down" / "Turn face
+  up". A long-press that opened a sheet cancels the touch's default so the
+  release click can't land on the sheet's items (`useLongPress`). Permanent
+  counters, face flips and transforms are logged (`card-counter` / `face`
+  kinds, public on the ticker); a face-down play is logged without the name.
+- **Life and mana share one row** (`.playtest-trackers`) wherever both fit —
+  two bordered chrome rows above the board were 45px of battlefield at every
+  tier; below 1024px they wrap to two rows again.
+
 ### Opponent rail — never hide a seat
 
 The opponent presence rail (`playtest/components/OpponentRail.tsx`) is the

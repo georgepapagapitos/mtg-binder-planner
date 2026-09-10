@@ -8,6 +8,8 @@ interface Props extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const MAX_VISIBLE_STICKERS = 3;
+/** Same cap for counters: the smallest card tier clips a fourth badge. */
+const MAX_VISIBLE_COUNTERS = 3;
 
 /**
  * Pure presentational card face — image / face-down back / placeholder plus
@@ -41,6 +43,11 @@ export const PlaytestCardFace = memo(
         className={`playtest-card playtest-card--${size}${tapped ? ' playtest-card--tapped' : ''}${
           attached ? ' playtest-card--attached' : ''
         }${phased ? ' playtest-card--phased' : ''}${className ? ` ${className}` : ''}`}
+        // Hover/focus preview hook (CardHoverPreview.tsx): only the instance
+        // id goes in the DOM — the preview resolves the image from React
+        // state, never from a DOM attribute. Absent for a face-down card so
+        // resting on one never reveals it.
+        data-preview-id={!faceDown && src ? card.id : undefined}
         {...rest}
       >
         {attached && (
@@ -90,11 +97,24 @@ export const PlaytestCardFace = memo(
         )}
         {Object.entries(counters).length > 0 && (
           <div className="playtest-card__counters">
-            {Object.entries(counters).map(([k, v]) => (
-              <span key={k} className="playtest-card__counter" title={k}>
-                {k === '+1/+1' ? '+1' : k.slice(0, 3)}:{v}
+            {Object.entries(counters)
+              .slice(0, MAX_VISIBLE_COUNTERS)
+              .map(([k, v]) => (
+                <span key={k} className="playtest-card__counter" title={k}>
+                  {k === '+1/+1' ? '+1' : k.slice(0, 3)}:{v}
+                </span>
+              ))}
+            {Object.entries(counters).length > MAX_VISIBLE_COUNTERS && (
+              <span
+                className="playtest-card__counter"
+                title={Object.entries(counters)
+                  .slice(MAX_VISIBLE_COUNTERS)
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join(', ')}
+              >
+                +{Object.entries(counters).length - MAX_VISIBLE_COUNTERS}
               </span>
-            ))}
+            )}
           </div>
         )}
       </div>

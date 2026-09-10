@@ -31,7 +31,15 @@ export type LogEntryKind =
   | 'attach'
   | 'counter'
   | 'phase'
-  | 'mana';
+  | 'mana'
+  /** A counter on a permanent (+1/+1, loyalty, a named counter) — distinct
+   *  from `counter`, which is a PLAYER counter (poison, energy) and stays
+   *  local; permanents are public, so this kind rides the table ticker. */
+  | 'card-counter'
+  /** A permanent turned face down / face up, or a two-faced card
+   *  transformed. Public either way: a card on the battlefield was already
+   *  visible, and turning one face up IS the reveal. */
+  | 'face';
 
 export interface GameLogEntry {
   /** Monotonic within a session — always ascending in log order. */
@@ -170,11 +178,19 @@ function buildRawLogEntries(
     case 'MOVE_TO_BATTLEFIELD': {
       const loc = locate(current, action.cardId);
       if (!loc || loc.from === 'battlefield') return []; // reposition, not a play
+      // A face-down play (morph, manifest, Ixidron…) must not name the card:
+      // this line is public (it rides the table ticker), and the name is
+      // exactly the hidden information.
+      if (action.faceDown) {
+        return [
+          { turn, kind: 'play', text: `A card played face down from ${ZONE_LABEL[loc.from]}` },
+        ];
+      }
       return [
         {
           turn,
           kind: 'play',
-          text: `${loc.card.name} played from ${ZONE_LABEL[loc.from]}`,
+          text: `${loc.card.name} played from ${ZONE_LABEL[loc.from]}${action.tapped ? ' tapped' : ''}`,
           cardName: loc.card.name,
         },
       ];
@@ -291,6 +307,59 @@ function buildRawLogEntries(
           kind: 'attach',
           text: `${card.name} attached to ${host.name}`,
           cardName: card.name,
+        },
+      ];
+    }
+
+    case 'SET_COUNTER': {
+      const before = current.battlefield.find((b) => b.card.id === action.cardId);
+      const after = next.battlefield.find((b) => b.card.id === action.cardId);
+      if (!before || !after) return [];
+      const value = after.counters[action.counter] ?? 0;
+      if (value === (before.counters[action.counter] ?? 0)) return []; // floored at zero
+      const name = after.card.isToken ? `${after.card.name} token` : after.card.name;
+      return [
+        {
+          turn,
+          kind: 'card-counter',
+          text: `${name}: ${action.counter} counter${value === 1 ? '' : 's'} → ${value}`,
+          cardName: after.card.name,
+        },
+      ];
+    }
+
+    case 'FLIP_FACE': {
+      const before = current.battlefield.find((b) => b.card.id === action.cardId);
+      const after = next.battlefield.find((b) => b.card.id === action.cardId);
+      if (!before || !after || before.faceDown === after.faceDown) return [];
+      return after.faceDown
+        ? [
+            {
+              turn,
+              kind: 'face',
+              text: `${before.card.name} turned face down`,
+              cardName: before.card.name,
+            },
+          ]
+        : [
+            {
+              turn,
+              kind: 'face',
+              text: `A face-down card turned face up: ${after.card.name}`,
+              cardName: after.card.name,
+            },
+          ];
+    }
+
+    case 'TRANSFORM': {
+      const after = next.battlefield.find((b) => b.card.id === action.cardId);
+      if (next === current || !after) return [];
+      return [
+        {
+          turn,
+          kind: 'face',
+          text: `${after.card.name} transformed`,
+          cardName: after.card.name,
         },
       ];
     }

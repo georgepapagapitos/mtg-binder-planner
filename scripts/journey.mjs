@@ -23,9 +23,17 @@
 // (macOS app bundles, Linux /usr/bin). puppeteer-core drives Chrome over CDP
 // and Firefox over WebDriver BiDi; no browser download.
 import { mkdir, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import puppeteer from 'puppeteer-core';
+
+// Expected sample-pack card count, read straight from the source constant
+// (not re-typed here) so it can't drift from lib/samples.ts.
+const SAMPLE_CARD_COUNT = (
+  readFileSync(new URL('../frontend/src/lib/samples.ts', import.meta.url), 'utf8').match(
+    /\{ name:/g
+  ) ?? []
+).length;
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => {
@@ -135,7 +143,24 @@ async function main() {
         consoleErrors.length = 0;
         await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 60_000 });
         await sleep(SETTLE_MS);
-        await record(label);
+        return record(label);
+      };
+      /**
+       * Behavioural check against the page already `record()`ed as `rec` —
+       * a screen can pass the generic no-error/no-overflow checks while
+       * showing the wrong data entirely (E.g. a card count of 0). Folds
+       * into the same `rec` (screenshot already taken) instead of a
+       * separate assertion channel, so a failure still uploads the
+       * screenshot for the screen it's about.
+       */
+      const assertPage = async (rec, description, check) => {
+        const { ok, expected, observed } = await check();
+        if (!ok) {
+          const msg = `assert failed on ${rec.label} — ${description}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(observed)}`;
+          rec.consoleErrors.push(msg);
+          rec.fail = true;
+          console.log(`        ${msg}`);
+        }
       };
       const record = async (label) => {
         await sleep(300);
@@ -173,6 +198,7 @@ async function main() {
               : '')
         );
         if (errs.length) for (const e of errs) console.log(`        ${e}`);
+        return rec;
       };
 
       // --- Guest: the marketing landing, a guide, and a route nobody owns.
@@ -244,13 +270,44 @@ async function main() {
         // Commander is the default format: pick the first suggested commander,
         // then "Start blank" (the commander only, every card by hand).
         await page.waitForSelector('.commander-result-card', { timeout: 60_000 });
+        const pickedCommander = await page.evaluate(
+          () =>
+            document
+              .querySelector('.commander-result-card .commander-result-name')
+              ?.textContent?.trim() ?? null
+        );
         await page.evaluate(() => document.querySelector('.commander-result-card')?.click());
         await clickText(page, /^Start blank$/, { timeout: 60_000 });
         await page.waitForFunction(() => /^\/decks\/deck_/.test(location.pathname), {
           timeout: 60_000,
         });
         await sleep(SETTLE_MS);
-        await record('/decks/{deck} (just created)');
+        const deckRec = await record('/decks/{deck} (just created)');
+        // defaultDeckName() (store/decks.ts) takes everything before the
+        // first comma of the commander's name — pin that relationship
+        // rather than a hardcoded fixture name, since which commander gets
+        // suggested first can change.
+        if (pickedCommander) {
+          const expectedDeckName = pickedCommander.split(',')[0].trim();
+          await assertPage(deckRec, 'deck editor name', async () => {
+            const observed = await page.evaluate(
+              () => document.querySelector('.deck-editor-name')?.textContent?.trim() ?? null
+            );
+            return { ok: observed === expectedDeckName, expected: expectedDeckName, observed };
+          });
+        }
+        // "Start blank" seeds the deck with just the commander.
+        await assertPage(deckRec, 'deck editor initial card count', async () => {
+          const observed = await page.evaluate(() => {
+            const text = (document.querySelector('.deck-hero-totals')?.textContent ?? '').replace(
+              / /g,
+              ' '
+            );
+            const m = text.match(/(\d+)\s+cards?\b/);
+            return m ? Number(m[1]) : null;
+          });
+          return { ok: observed === 1, expected: 1, observed };
+        });
         deckHref = await page.evaluate(() => location.pathname);
       } else {
         await visit('/decks');
@@ -295,7 +352,29 @@ async function main() {
         '/rules',
         `/u/${seeded.username}`,
       ].filter(Boolean);
-      for (const r of routes) await visit(r);
+      for (const r of routes) {
+        const rec = await visit(r);
+        if (r === '/collection') {
+          await assertPage(rec, 'collection card count', async () => {
+            const observed = await page.evaluate(() => {
+              const text = document
+                .querySelector('[aria-label="Collection totals"]')
+                ?.textContent?.replace(/ /g, ' ');
+              const m = text?.match(/^([\d,]+)\s+cards?/);
+              return m ? Number(m[1].replace(/,/g, '')) : null;
+            });
+            return { ok: observed === SAMPLE_CARD_COUNT, expected: SAMPLE_CARD_COUNT, observed };
+          });
+        }
+        if (r === '/collection/binders') {
+          await assertPage(rec, 'binder rows render', async () => {
+            const observed = await page.evaluate(
+              () => document.querySelectorAll('a[href*="/collection/binders/"]').length
+            );
+            return { ok: observed >= 1, expected: '>= 1', observed };
+          });
+        }
+      }
       await context.close();
     }
   } finally {

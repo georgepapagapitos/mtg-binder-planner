@@ -90,6 +90,9 @@ export default defineConfig({
         'src/lib/**/*.{ts,tsx}',
         'src/store/**/*.{ts,tsx}',
         'src/deck-builder/**/*.{ts,tsx}',
+        'src/components/**/*.{ts,tsx}',
+        'src/pages/**/*.{ts,tsx}',
+        'src/playtest/**/*.{ts,tsx}',
       ],
       // Thin browser-API wrappers that need a real runtime (worker/WASM,
       // Screen Wake Lock + visibilitychange) and can't be exercised
@@ -145,11 +148,20 @@ export default defineConfig({
         'src/deck-builder/services/tagger/client.ts',
       ],
       // Per-directory floors. `src/lib/**` stays the long-standing 80.
-      // `src/store/**` and `src/deck-builder/**` are newly gated: the
-      // floors are their current measured baselines, rounded down with a
-      // small margin, so coverage can no longer regress. Ratchet these
-      // upward as tests are added — never lower them, and never drop the
-      // src/lib/** 80.
+      // `src/store/**`, `src/deck-builder/**`, `src/components/**`,
+      // `src/pages/**` and `src/playtest/**` are all gated on their current
+      // measured baseline, rounded down a point as a small margin, so
+      // coverage can no longer regress. Ratchet these upward as tests are
+      // added — never lower them, and never drop the src/lib/** 80.
+      //
+      // Measuring a baseline: the text reporter's directory row (e.g.
+      // `playtest | 92.4`) counts ONLY the files directly in that directory,
+      // while a `src/playtest/**` threshold aggregates every subdirectory
+      // (62% once playtest/components is in). Read the numbers the threshold
+      // checker prints for a glob (set it to 100 and read the ERROR lines) or
+      // sum the per-file rows; never the directory row. And measure with the
+      // full, unfiltered suite: a CLI `--exclude` changes which files run and
+      // moves the aggregate.
       thresholds: {
         'src/lib/**': {
           statements: 80,
@@ -168,6 +180,24 @@ export default defineConfig({
           branches: 41,
           functions: 58,
           lines: 55,
+        },
+        'src/components/**': {
+          statements: 53,
+          branches: 47,
+          functions: 47,
+          lines: 53,
+        },
+        'src/pages/**': {
+          statements: 46,
+          branches: 39,
+          functions: 40,
+          lines: 47,
+        },
+        'src/playtest/**': {
+          statements: 60,
+          branches: 51,
+          functions: 51,
+          lines: 61,
         },
       },
     },

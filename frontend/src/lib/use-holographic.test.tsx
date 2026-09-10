@@ -112,6 +112,7 @@ describe('useHolographic', () => {
       removeEventListener: () => {},
       dispatchEvent: () => false,
     });
+    const addWindowListener = vi.spyOn(window, 'addEventListener');
     const { result } = renderHook(() => useHolographic(true));
     const el = makeEl();
     act(() => result.current(el));
@@ -121,6 +122,9 @@ describe('useHolographic', () => {
       flushRaf();
     });
     expect(el.style.getPropertyValue('--active')).toBe('');
+    // Guard: the card must never follow the phone's physical motion (the gyro
+    // tilt was removed as distracting) — no device-orientation listener, ever.
+    expect(addWindowListener).not.toHaveBeenCalledWith('deviceorientation', expect.anything());
   });
 
   it('suppresses tilt while shouldSuppressTilt returns true', () => {

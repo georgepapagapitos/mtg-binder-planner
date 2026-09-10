@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { flushSync } from '../lib/sync';
 import { useCollectionStore } from './collection';
 import { useDecksStore } from './decks';
 import { clearCollection } from '../lib/local-cards';
@@ -70,6 +71,9 @@ beforeEach(async () => {
     hydrating: false,
   });
 });
+
+// Drop the push debounce a mutation armed, so no timer outlives the test.
+afterEach(() => flushSync());
 
 describe('delete collection → re-upload same CSV (the persistence question)', () => {
   it('re-attaches a binder pin to the equivalent new copy after a delete + re-import', async () => {

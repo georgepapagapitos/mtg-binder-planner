@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { pending } from '@/test/pending';
 import type { Deck } from '../../store/decks';
 import type { EnrichedCard, BinderDef, ListDef, ListEntry } from '../../types';
 import type { ArrivalCandidateCard } from '../../lib/new-arrivals';
@@ -129,8 +130,8 @@ beforeEach(() => {
 
 describe('ValueMoversCard', () => {
   it('shows the loading skeleton while the IndexedDB read is in flight', () => {
-    mockGetValueHistory.mockReturnValue(new Promise(() => {}));
-    mockGetLatestMovers.mockReturnValue(new Promise(() => {}));
+    mockGetValueHistory.mockReturnValue(pending([]));
+    mockGetLatestMovers.mockReturnValue(pending(null));
     renderIn(<ValueMoversCard />);
     expect(screen.getByLabelText('Loading')).toBeTruthy();
   });

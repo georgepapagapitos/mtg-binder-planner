@@ -9,6 +9,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { pending } from '@/test/pending';
 import type { DiscoverDeck } from '../../lib/discover-client';
 
 const { mockListDiscoverDecks } = vi.hoisted(() => ({ mockListDiscoverDecks: vi.fn() }));
@@ -115,7 +116,7 @@ describe('FreshDecksRail', () => {
   });
 
   it('reserves the rail height with a skeleton before the fetch resolves', () => {
-    mockListDiscoverDecks.mockReturnValue(new Promise(() => {}));
+    mockListDiscoverDecks.mockReturnValue(pending({ decks: [], page: 1, hasMore: false }));
 
     const { container } = renderRail();
     expect(screen.getByRole('status').textContent).toMatch(/loading public decks/i);

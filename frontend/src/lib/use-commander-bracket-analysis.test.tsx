@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { pending } from '@/test/pending';
 import { renderHook, act } from '@testing-library/react';
 import type { Deck } from '../store/decks';
 import type { ComboMatchResponse } from '../types/combos';
@@ -251,7 +252,7 @@ describe('useCommanderBracketAnalysis — status/retry (E162)', () => {
   it('flips to error status when the analysis stalls past the timeout ceiling', async () => {
     // A promise that never settles — simulates a hung fetch (no
     // AbortController/timeout on the EDHREC client's own fetch call).
-    vi.mocked(analyzeCommanderDeck).mockReturnValue(new Promise(() => {}));
+    vi.mocked(analyzeCommanderDeck).mockReturnValue(pending(null));
     const a = args();
     const { result } = renderHook(() => useCommanderBracketAnalysis(a));
     await act(async () => {

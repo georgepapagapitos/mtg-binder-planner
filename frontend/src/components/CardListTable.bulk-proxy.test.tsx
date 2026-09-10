@@ -16,6 +16,13 @@ import { useCollectionStore } from '../store/collection';
 import { useToastsStore } from '../store/toasts';
 import { setPrices, _resetForTests as resetPriceCache } from '../lib/card-prices';
 
+// These tests assert on the in-memory store; the IndexedDB save behind it
+// would otherwise wait on a collection hydration that never happens here.
+vi.mock('../lib/local-cards', async (importActual) => ({
+  ...(await importActual<typeof import('../lib/local-cards')>()),
+  saveCollection: async () => {},
+}));
+
 // Render every virtual row so real rows are clickable in happy-dom (no layout).
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({

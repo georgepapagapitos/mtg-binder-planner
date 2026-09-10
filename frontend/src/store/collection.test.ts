@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { flushSync } from '../lib/sync';
 
 // Wrap local-cards so persistence stays real by default but the hydrate
 // error path can be forced per-test (ESM named exports aren't reassignable).
@@ -119,8 +120,10 @@ beforeEach(async () => {
   useCollectionStore.setState({ ...RESET });
 });
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
+  // Drop the push debounce a mutation armed, so no timer outlives the test.
+  await flushSync();
 });
 
 describe('hydrateCards', () => {

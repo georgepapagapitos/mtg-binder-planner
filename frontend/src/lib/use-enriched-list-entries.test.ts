@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { pending } from '@/test/pending';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import type { ScryfallCard } from '@/deck-builder/types';
 import type { ListEntry } from '../types';
@@ -125,7 +126,7 @@ describe('useEnrichedListEntries', () => {
     try {
       // Resolution never settles in this test, so `loading` stays true long
       // enough to observe the timer flip (e.g. a stuck rate-limit backoff).
-      vi.mocked(getCardsByIds).mockReturnValue(new Promise(() => {}));
+      vi.mocked(getCardsByIds).mockReturnValue(pending(new Map()));
 
       const { result } = renderHook(() => useEnrichedListEntries([entry()]));
       expect(result.current.loading).toBe(true);

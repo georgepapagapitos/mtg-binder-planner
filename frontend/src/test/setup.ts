@@ -12,6 +12,9 @@
  */
 
 import { afterEach } from 'vitest';
+// Registers pending()'s settle hook FIRST, so it runs LAST (afterEach hooks run
+// in reverse registration order) — after React Testing Library has unmounted.
+import './pending';
 
 /**
  * E272 (slice 2) — let IndexedDB work settle before a test is torn down.
@@ -35,6 +38,31 @@ afterEach(async () => {
   // ponytail: 8 hops covers open -> get/count -> close chains; raise if the
   // leak count climbs back.
   for (let i = 0; i < 8; i++) await new Promise<void>((r) => realSetImmediate(r));
+});
+
+/**
+ * E272 (slice 3) — an unread `Response` body is a leaked promise.
+ *
+ * A fetch stub like `mockResolvedValue(new Response('nope', { status: 404 }))`
+ * whose body the code under test never reads (every early-return error path)
+ * leaves undici's body stream open, and `--detectAsyncLeaks` counts its pending
+ * promise — 30 of the 110 leaks at the slice-3 baseline, across 17 client
+ * tests. A null body, a consumed body or a cancelled body all settle. Rather
+ * than touching every stub, track each Response a test constructs and cancel
+ * whatever it left unread once the test is over.
+ */
+const openResponses: Response[] = [];
+const NativeResponse = globalThis.Response;
+globalThis.Response = class extends NativeResponse {
+  constructor(...args: ConstructorParameters<typeof NativeResponse>) {
+    super(...args);
+    openResponses.push(this);
+  }
+} as typeof Response;
+afterEach(async () => {
+  for (const res of openResponses.splice(0)) {
+    if (res.body && !res.bodyUsed) await res.body.cancel().catch(() => {});
+  }
 });
 
 if (typeof globalThis.localStorage === 'undefined') {

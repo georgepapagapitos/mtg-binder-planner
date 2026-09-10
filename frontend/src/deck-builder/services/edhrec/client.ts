@@ -145,14 +145,18 @@ interface RawEDHRECResponse {
   num_decks_avg?: number;
   deck_size?: number; // Non-commander deck size
   // Similar commanders
-  similar?: Array<{
-    name: string;
-    sanitized: string;
-    color_identity?: string[];
-    cmc?: number;
-    image_uris?: Array<{ normal: string }>;
-    url?: string;
-  }>;
+  // Live payloads (2026-09) ship bare names; older ones carried objects.
+  similar?: Array<
+    | string
+    | {
+        name: string;
+        sanitized: string;
+        color_identity?: string[];
+        cmc?: number;
+        image_uris?: Array<{ normal: string }>;
+        url?: string;
+      }
+  >;
 
   // Panels with themes, mana curve, etc.
   panels?: {
@@ -436,14 +440,22 @@ export function parseEdhrecResponse(
   const cardlists = parseCardlists(response);
 
   // Parse similar commanders
-  const similarCommanders: EDHRECSimilarCommander[] = (response.similar || []).map((s) => ({
-    name: s.name,
-    sanitized: s.sanitized,
-    colorIdentity: s.color_identity || [],
-    cmc: s.cmc || 0,
-    imageUrl: s.image_uris?.[0]?.normal,
-    url: s.url || `/commanders/${s.sanitized}`,
-  }));
+  // E282: EDHREC now ships `similar` as bare names (verified live 2026-09-10 —
+  // every consumer had been reading `undefined` names since the drift).
+  const similarCommanders: EDHRECSimilarCommander[] = (response.similar || []).map((s) => {
+    if (typeof s === 'string') {
+      const sanitized = formatCommanderNameForUrl(s);
+      return { name: s, sanitized, colorIdentity: [], cmc: 0, url: `/commanders/${sanitized}` };
+    }
+    return {
+      name: s.name,
+      sanitized: s.sanitized,
+      colorIdentity: s.color_identity || [],
+      cmc: s.cmc || 0,
+      imageUrl: s.image_uris?.[0]?.normal,
+      url: s.url || `/commanders/${s.sanitized}`,
+    };
+  });
 
   const data: EDHRECCommanderData = {
     themes,

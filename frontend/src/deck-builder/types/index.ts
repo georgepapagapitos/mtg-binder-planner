@@ -174,7 +174,7 @@ export interface EDHRECCard {
    *  and exempts the card from the two "absent from the commander page" misfit
    *  reasons (cardFit.ts) — that absence is why it was injected, not evidence
    *  against it. */
-  blendSource?: 'archetype-blend';
+  blendSource?: 'archetype-blend' | 'similar-commanders'; // E221 tag page / E282 similar commanders (owned-only)
   image_uris?: Array<{
     normal: string;
     art_crop?: string;
@@ -585,6 +585,10 @@ export interface BuildReport {
    *  a blended card isn't flagged for the absence that caused its injection —
    *  see cardFit.ts's `blendedNames`. Undefined when nothing was injected. */
   archetypeBlendNames?: string[];
+  /** E282: owned-only builds — cards you own that reached the deck through
+   *  similar commanders' pages, and the disclosure naming those commanders. */
+  similarPoolNote?: string;
+  similarPoolNames?: string[];
   /** Disclosure (E110) when a casual-bracket ask (bracket <= 2) with no budget
    *  set still produced a high-total deck — bracket caps power, not price.
    *  Note-only; the total is unchanged. Undefined off the casual end, when a
@@ -843,6 +847,8 @@ export interface GeneratedDeck {
   bracketPoolFallbackNote?: string; // e.g. bracket-narrowed EDHREC page was too thin — laddered down to a broader page (E93)
   archetypeBlendNote?: string; // e.g. N cards backfilled from the theme's EDHREC tag page because the commander's own page is thin (E221)
   archetypeBlendNames?: string[]; // the names that note refers to — threaded into the misfit pass so they aren't flagged for the absence that caused them (E221)
+  similarPoolNote?: string; // E282: N owned cards came from similar commanders' decks (owned-only builds)
+  similarPoolNames?: string[]; // the names that note refers to
   comboUpsideNotes?: ComboUpsideNote[]; // expensive combo pieces kept for still-incomplete-combo upside
   comboCompletionNotes?: string[]; // one per combo the build's own picks completed with cards already in the deck
   roleDeficitNotes?: string[]; // e.g. removal shipped under target and the pool's next options were outcompeted at pick time (E160)

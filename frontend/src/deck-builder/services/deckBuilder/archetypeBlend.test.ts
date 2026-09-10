@@ -10,6 +10,7 @@ import {
   blendWeight,
   resolveArchetypeBlend,
   summarizeSeatedBlend,
+  TAIL_INCLUSION,
 } from './archetypeBlend';
 
 function card(name: string, inclusion: number, numDecks = 10_000): EDHRECCard {
@@ -60,6 +61,49 @@ describe('resolveArchetypeBlend', () => {
     expect(resolveArchetypeBlend({})).toBe(false);
     expect(resolveArchetypeBlend({ archetypeBlend: false })).toBe(false);
     expect(resolveArchetypeBlend({ archetypeBlend: true })).toBe(true);
+  });
+
+  it('defaults ON for an owned-only build, and an explicit setting still wins (E282)', () => {
+    expect(resolveArchetypeBlend({ archetypeBlend: undefined }, true)).toBe(true);
+    expect(resolveArchetypeBlend({ archetypeBlend: false }, true)).toBe(false);
+    expect(resolveArchetypeBlend({ archetypeBlend: true }, false)).toBe(true);
+  });
+});
+
+describe('blendTagPageIntoPool — tail mode (E282)', () => {
+  const lists = (cards: EDHRECCard[]) => ({
+    creatures: cards,
+    instants: [],
+    sorceries: [],
+    artifacts: [],
+    enchantments: [],
+    planeswalkers: [],
+    lands: [],
+    allNonLand: cards,
+  });
+
+  it('injects below every pool card: pinned inclusion, zero synergy, no high-synergy tier', () => {
+    const pool = lists([card('Page Card', 3)]);
+    const tagPage = lists([{ ...card('Owned Extra', 60), synergy: 0.9 }]);
+    const { cardlists, injectedNames } = blendTagPageIntoPool({
+      pool,
+      tagPageCardlists: tagPage,
+      highSynergyNames: ['Owned Extra'],
+      tagPagePotentialDecks: 10_000,
+      commanderNumDecks: 60,
+      tail: true,
+      source: 'similar-commanders',
+    });
+    expect(injectedNames).toEqual(['Owned Extra']);
+    const injected = cardlists.creatures.find((c) => c.name === 'Owned Extra')!;
+    expect(injected.inclusion).toBe(TAIL_INCLUSION);
+    expect(injected.synergy).toBe(0);
+    expect(injected.isThemeSynergyCard).toBeUndefined();
+    expect(injected.blendSource).toBe('similar-commanders');
+    // The page's own card still outranks it.
+    expect(cardlists.creatures.find((c) => c.name === 'Page Card')!.inclusion).toBeGreaterThan(
+      TAIL_INCLUSION
+    );
   });
 });
 

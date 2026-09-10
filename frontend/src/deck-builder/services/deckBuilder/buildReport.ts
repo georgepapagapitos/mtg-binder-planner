@@ -162,6 +162,9 @@ export function assembleBuildReport(input: {
   if (generated.bracketPoolFallbackNote)
     report.bracketPoolFallbackNote = generated.bracketPoolFallbackNote;
   if (generated.archetypeBlendNote) report.archetypeBlendNote = generated.archetypeBlendNote;
+  if (generated.similarPoolNote) report.similarPoolNote = generated.similarPoolNote;
+  if (generated.similarPoolNames && generated.similarPoolNames.length > 0)
+    report.similarPoolNames = generated.similarPoolNames;
   // Load-bearing, not just disclosure: the analysis hook reads these back out
   // of the persisted report to exempt blended cards from the misfit pass. Drop
   // them here and the Coach starts recommending cuts of the injected cards.

@@ -187,6 +187,7 @@ vi.mock('@/deck-builder/services/edhrec/client', async (orig) => ({
   fetchSaltIndex: vi.fn(async () => new Map()),
   fetchAverageDeckMultiCopies: vi.fn(async () => null),
   fetchCardLiftPool: vi.fn(async () => []),
+  fetchTagPageData: vi.fn(async () => null),
 }));
 
 vi.mock('@/deck-builder/services/scryfall/client', async (orig) => {
@@ -242,6 +243,7 @@ import {
   getGameChangerNames,
 } from '@/deck-builder/services/scryfall/client';
 import type { ScryfallSearchResponse } from '@/deck-builder/types';
+import { fetchCommanderData } from '@/deck-builder/services/edhrec/client';
 
 function searchResult(data: ScryfallCard[]): ScryfallSearchResponse {
   return { object: 'list', total_cards: data.length, has_more: false, data };
@@ -414,6 +416,35 @@ const colorless = (name: string, oracle_text: string): ScryfallCard => ({
 });
 const RUBY_MEDALLION = colorless('Ruby Medallion', 'Red spells you cast cost {1} less to cast.');
 const FILLER_ROCKS = [1, 2].map((i) => colorless(`Filler Rock ${i}`, '{T}: Add {C}.'));
+
+// E282: a similar commander whose players run cards the user OWNS that the
+// base page never lists. Owned-only builds pull them into the pool.
+const SIM_NAMES = [1, 2, 3, 4, 5, 6].map((i) => `Sim_${i}`);
+const SIM_COMMANDER = {
+  name: 'Sim Guy',
+  sanitized: 'sim-guy',
+  colorIdentity: ['G'],
+  cmc: 3,
+  url: '',
+};
+function simCommanderData(): EDHRECCommanderData {
+  const creatures = SIM_NAMES.map((n) => mkEC(n, 'Creature', 60));
+  return {
+    themes: [],
+    stats: STATS,
+    similarCommanders: [],
+    cardlists: {
+      creatures,
+      instants: [],
+      sorceries: [],
+      artifacts: [],
+      enchantments: [],
+      planeswalkers: [],
+      lands: [],
+      allNonLand: creatures,
+    },
+  };
+}
 
 const CASES: Case[] = [
   { name: 'baseline' },
@@ -728,6 +759,41 @@ const CASES: Case[] = [
       vi.mocked(searchCards)
         .mockReset()
         .mockImplementation(async () => searchResult([]));
+    },
+  },
+  {
+    // E282: a thin owned pool widens from similar commanders' pages — owned
+    // cards only — instead of falling straight to the identity-only search.
+    name: 'collectionMode full: owned cards from similar commanders widen the pool',
+    ctx: (ctx) => {
+      ctx.customization = {
+        ...ctx.customization,
+        collectionMode: true,
+        collectionStrategy: 'full',
+      };
+      for (const n of SIM_NAMES) POOL.scMap.set(n, mkSC(n, 'Creature', 3, 5));
+      const owned = [
+        ...POOL.cardlists.creatures.slice(0, 12),
+        ...POOL.cardlists.artifacts.slice(0, 4),
+        ...POOL.cardlists.lands,
+      ].map((c) => c.name);
+      ctx.collectionNames = new Set([...owned, ...SIM_NAMES]);
+    },
+    setup: () => {
+      vi.mocked(fetchCommanderData).mockImplementation(async (name: string) =>
+        name === SIM_COMMANDER.name
+          ? simCommanderData()
+          : { ...edhrecData(), similarCommanders: [SIM_COMMANDER] }
+      );
+    },
+    extra: (deck) => {
+      const names = allCards(deck).map((c) => c.name);
+      expect(names.some((n) => SIM_NAMES.includes(n))).toBe(true);
+      expect(deck.similarPoolNote).toContain('Sim Guy');
+      expect(deck.similarPoolNames?.every((n) => SIM_NAMES.includes(n))).toBe(true);
+      vi.mocked(fetchCommanderData)
+        .mockReset()
+        .mockImplementation(async () => edhrecData());
     },
   },
   {

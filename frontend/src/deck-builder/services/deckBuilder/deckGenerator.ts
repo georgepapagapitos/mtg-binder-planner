@@ -975,6 +975,33 @@ export function buildComboUpsideNotes(
 export const THIN_POOL_FILL_LABEL = 'Filled in by a broader card search for this slot';
 
 /**
+ * E282: narrow the similar-commander pool injections to what actually shipped
+ * (mirrors summarizeSeatedBlend) and compose the disclosure + provenance label.
+ */
+export function summarizeSeatedSimilarPool(
+  injectedNames: readonly string[],
+  commanders: readonly string[],
+  finalDeck: readonly { name: string }[],
+  ownedOnPage?: number
+): { names: string[] | undefined; note: string | undefined; provenance: string | undefined } {
+  if (injectedNames.length === 0 || commanders.length === 0)
+    return { names: undefined, note: undefined, provenance: undefined };
+  const inDeck = new Set(finalDeck.map((c) => c.name.toLowerCase()));
+  const names = injectedNames.filter((n) => inDeck.has(n.toLowerCase()));
+  if (names.length === 0) return { names: undefined, note: undefined, provenance: undefined };
+  const who = commanders.join(', ');
+  return {
+    names,
+    note:
+      `${names.length} card${names.length === 1 ? '' : 's'} you own came from similar commanders' decks (${who})` +
+      (ownedOnPage != null
+        ? `, because only ${ownedOnPage} cards you own appear on this commander's page.`
+        : '.'),
+    provenance: `From similar commanders' decks (${who})`,
+  };
+}
+
+/**
  * E282: owned-only thin-pool disclosure. Names the nonland slots the
  * commander's own EDHREC data couldn't fill from the collection (provenance
  * = the broader-search label), weakest first — no lift link to the deck,
@@ -3261,6 +3288,10 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // "Wanted X → used your Y" rows for owned cards substituted in to complete an
   // owned-only deck (the smart relaxation below). Surfaced in the build report.
   const substitutionRows: SubstituteRow[] = [];
+  // E282: "owned-only" means the strategy constrains to the collection AND a
+  // collection is attached — the customization default strategy is 'full'
+  // even when collection mode is off, so the strategy alone is not the gate.
+  const ownedOnlyBuild = constrainsToCollection(collectionStrategy) && !!context.collectionNames;
   // Partial mode only: total distinct owned names found in this commander's
   // candidate pool (seated or not) — the honest denominator for the "only N
   // owned cards fit this pool" build-report disclosure (see the partial-mode
@@ -3530,7 +3561,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     };
 
     currentCount = countAllCards();
-    if (currentCount < targetDeckSize && constrainsToCollection(collectionStrategy)) {
+    if (currentCount < targetDeckSize && ownedOnlyBuild) {
       // ── Tier 1: closest owned substitutes for the most-wanted unowned staples ──
       const ownedPool = context.collectionPool ?? [];
       if (ownedPool.length > 0 && state.edhrecData) {
@@ -4690,7 +4721,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     comboFloorAdd,
     themeNames: selectedThemesWithSlugs.map((t) => t.name),
   });
-  const thinPoolFillNote = constrainsToCollection(collectionStrategy)
+  const thinPoolFillNote = ownedOnlyBuild
     ? buildThinPoolFillNote({ nonLandCards, cardProvenance, liftScoreOf })
     : undefined;
 
@@ -4736,6 +4767,17 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     [...nonLandCards, ...categories.lands],
     state.archetypeBlendTheme
   );
+  // E282: same narrowing for the similar-commander widening, plus provenance
+  // for the seated cards so the "why is this here" chip names the lineage.
+  const similarPoolSeated = summarizeSeatedSimilarPool(
+    state.similarPoolNames,
+    state.similarPoolCommanders,
+    [...nonLandCards, ...categories.lands],
+    state.similarPoolOwnedOnPage
+  );
+  for (const name of similarPoolSeated.names ?? []) {
+    if (name in cardProvenance) cardProvenance[name] = similarPoolSeated.provenance!;
+  }
 
   return {
     commander,
@@ -4772,6 +4814,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     bracketPoolFallbackNote: state.bracketPoolFallbackNote,
     archetypeBlendNote: archetypeBlendSeated.note,
     archetypeBlendNames: archetypeBlendSeated.names,
+    similarPoolNote: similarPoolSeated.note,
+    similarPoolNames: similarPoolSeated.names,
     integrityNotes: integrityNotes.length > 0 ? integrityNotes : undefined,
     generationMode: mode,
     generationModeDetail: altPool?.detail,

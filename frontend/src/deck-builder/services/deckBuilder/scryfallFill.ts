@@ -11,6 +11,7 @@ import {
   notInCollection,
   isOwnedBudgetExempt,
   isOwnedRarityExempt,
+  isDeadInIdentity,
   notOnArena,
   exceedsCmcCap,
   notLegalForFormat,
@@ -133,6 +134,7 @@ export async function fillWithScryfall(
     for (const card of response.data) {
       if (usedNames.has(card.name)) continue; // Commander format is always singleton
       if (bannedCards.has(card.name)) continue; // Skip banned cards
+      if (isDeadInIdentity(card, colorIdentity)) continue; // E282: off-color payoff (a medallion in the wrong color)
       if (cardAllowed && !cardAllowed(card)) continue;
       if (constrainsToCollection(collectionStrategy) && notInCollection(card.name, collectionNames))
         continue;

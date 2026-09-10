@@ -23,6 +23,7 @@
 // 400s on Node's default UA; EDHREC doesn't care).
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import type { SubstituteCandidate } from './substituteFinder';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -53,14 +54,16 @@ const OUT_DIR = process.env.LIVE_GEN_OUTDIR ?? join(tmpdir(), 'spellcontrol-live
 // (defaults to 'prefer' once a collection is supplied — the one E122 exists
 // to test).
 const COLLECTION_PATH = process.env.LIVE_GEN_COLLECTION;
-const COLLECTION_NAMES: Set<string> | undefined = COLLECTION_PATH
-  ? new Set<string>(
-      (() => {
-        const parsed: unknown = JSON.parse(readFileSync(resolve(COLLECTION_PATH), 'utf8'));
-        return Array.isArray(parsed) ? parsed : (parsed as { names: string[] }).names;
-      })()
-    )
+const COLLECTION_FILE: string[] | { names: string[]; pool?: SubstituteCandidate[] } | undefined =
+  COLLECTION_PATH ? JSON.parse(readFileSync(resolve(COLLECTION_PATH), 'utf8')) : undefined;
+const COLLECTION_NAMES: Set<string> | undefined = COLLECTION_FILE
+  ? new Set<string>(Array.isArray(COLLECTION_FILE) ? COLLECTION_FILE : COLLECTION_FILE.names)
   : undefined;
+// E282: `{ names, pool }` also carries the lean owned pool the app passes as
+// collectionPool (name + identity + cmc + typeLine), so the owned-substitute
+// tier runs in the harness exactly as it does in the app.
+const COLLECTION_POOL: SubstituteCandidate[] | undefined =
+  COLLECTION_FILE && !Array.isArray(COLLECTION_FILE) ? COLLECTION_FILE.pool : undefined;
 const COLLECTION_STRATEGY: CollectionStrategy | undefined =
   (process.env.LIVE_GEN_COLLECTION_STRATEGY as CollectionStrategy | undefined) ??
   (COLLECTION_NAMES ? 'prefer' : undefined);
@@ -609,6 +612,7 @@ describe.skipIf(!process.env.LIVE_GEN)('deckGenerator LIVE eval', () => {
                 ]
               : [],
           collectionNames,
+          collectionPool: collectionNames ? COLLECTION_POOL : undefined,
         };
 
         const deck = await generateDeck(ctx);

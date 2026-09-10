@@ -7,6 +7,7 @@ import {
   notInCollection,
   isOwnedBudgetExempt,
   isOwnedRarityExempt,
+  isDeadInIdentity,
   notOnArena,
   exceedsCmcCap,
   notCommanderLegal,
@@ -48,6 +49,42 @@ describe('fitsColorIdentity', () => {
 
   it('fails when the card has a color outside the commander identity', () => {
     expect(fitsColorIdentity(makeCard({ color_identity: ['W', 'R'] }), ['W', 'B'])).toBe(false);
+  });
+});
+
+describe('isDeadInIdentity (E282)', () => {
+  const rubyMedallion = makeCard({
+    name: 'Ruby Medallion',
+    type_line: 'Artifact',
+    color_identity: [],
+    oracle_text: 'Red spells you cast cost {1} less to cast.',
+  });
+
+  it('flags a colorless cost reducer whose color the deck cannot cast', () => {
+    expect(isDeadInIdentity(rubyMedallion, ['W'])).toBe(true);
+  });
+
+  it('passes the same card in a deck that casts that color', () => {
+    expect(isDeadInIdentity(rubyMedallion, ['R'])).toBe(false);
+    expect(isDeadInIdentity(rubyMedallion, ['W', 'R'])).toBe(false);
+  });
+
+  it('ignores cards whose text does not name a color payoff', () => {
+    expect(
+      isDeadInIdentity(makeCard({ oracle_text: 'Artifact spells you cast cost {1} less.' }), ['W'])
+    ).toBe(false);
+    expect(isDeadInIdentity(makeCard({ oracle_text: '' }), ['W'])).toBe(false);
+  });
+
+  it('reads the back face of a double-faced card too', () => {
+    const dfc = makeCard({
+      oracle_text: undefined,
+      card_faces: [
+        { name: 'Front', oracle_text: 'Flying.' },
+        { name: 'Back', oracle_text: 'Green spells you cast cost {1} less to cast.' },
+      ],
+    } as Partial<ScryfallCard>);
+    expect(isDeadInIdentity(dfc, ['U'])).toBe(true);
   });
 });
 

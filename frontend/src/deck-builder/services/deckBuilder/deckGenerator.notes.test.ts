@@ -44,6 +44,8 @@ import {
   buildLandCountClampNote,
   buildPoolExhaustionNote,
   buildOverBudgetNote,
+  buildThinPoolFillNote,
+  THIN_POOL_FILL_LABEL,
   buildRoleCapOverflowNote,
   buildPriceSanityNote,
   countFinalPriceSanityPicks,
@@ -325,6 +327,45 @@ describe('buildGameChangerBracketConflictNote', () => {
 
   it('is undefined when the limit is already unlimited', () => {
     expect(buildGameChangerBracketConflictNote(5, Infinity)).toBeUndefined();
+  });
+});
+
+describe('buildThinPoolFillNote (E282)', () => {
+  const card = (name: string, edhrec_rank?: number): ScryfallCard =>
+    ({ name, edhrec_rank, type_line: 'Artifact', color_identity: [] }) as unknown as ScryfallCard;
+  const prov = (names: string[]) => Object.fromEntries(names.map((n) => [n, THIN_POOL_FILL_LABEL]));
+
+  it('is undefined when every slot came from the commander data', () => {
+    expect(
+      buildThinPoolFillNote({
+        nonLandCards: [card('A')],
+        cardProvenance: { A: 'EDHREC staple for this commander' },
+        liftScoreOf: () => 0,
+      })
+    ).toBeUndefined();
+  });
+
+  it('counts the fills and names the weakest five first (no lift, then least played)', () => {
+    const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    const note = buildThinPoolFillNote({
+      nonLandCards: names.map((n, i) => card(n, (i + 1) * 1000)),
+      cardProvenance: prov(names),
+      liftScoreOf: (n) => (n === 'G' ? 0 : n === 'A' ? 50 : 10),
+    });
+    expect(note).toContain('7 slots were filled from your collection');
+    // G has no lift link → first; then the highest (worst) global rank among the 10-lift cards, F..B; A (lift 50) never makes the five.
+    expect(note).toContain('Weakest first: G, F, E, D, C.');
+    expect(note).not.toContain('A,');
+  });
+
+  it('uses the singular for one slot', () => {
+    expect(
+      buildThinPoolFillNote({
+        nonLandCards: [card('Only')],
+        cardProvenance: prov(['Only']),
+        liftScoreOf: () => 0,
+      })
+    ).toContain('1 slot was filled');
   });
 });
 

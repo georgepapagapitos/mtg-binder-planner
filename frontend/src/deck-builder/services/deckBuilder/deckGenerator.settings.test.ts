@@ -403,6 +403,18 @@ interface Case {
   extra?: (deck: Awaited<ReturnType<typeof generateDeck>>, ctx: GenerationContext) => void;
 }
 
+// E282: colorless cards only the owned-only fill paths can reach. The
+// medallion names a color a mono-G deck can't cast (dead on the table); the
+// rocks are legal filler that must be DISCLOSED as thin-pool fills.
+const colorless = (name: string, oracle_text: string): ScryfallCard => ({
+  ...mkSC(name, 'Artifact', 2, 4),
+  colors: [],
+  color_identity: [],
+  oracle_text,
+});
+const RUBY_MEDALLION = colorless('Ruby Medallion', 'Red spells you cast cost {1} less to cast.');
+const FILLER_ROCKS = [1, 2].map((i) => colorless(`Filler Rock ${i}`, '{T}: Add {C}.'));
+
 const CASES: Case[] = [
   { name: 'baseline' },
   { name: 'deckBudget 20', customize: { deckBudget: 20 } },
@@ -676,6 +688,46 @@ const CASES: Case[] = [
     },
     extra: (deck) => {
       expect(deck.budgetNote ?? '').not.toContain('over your');
+    },
+  },
+  {
+    // E282: a thin owned pool falls through to the typed Scryfall fill, which
+    // is gated to owned cards by color identity only — so an owned Ruby
+    // Medallion (red cost reducer) used to ship in mono-green. The fill now
+    // rejects payoffs naming a color the deck can't cast, and every slot the
+    // commander's data couldn't fill from the collection is disclosed.
+    name: 'collectionMode full: thin owned pool never seats an off-color medallion and discloses the fills',
+    ctx: (ctx) => {
+      ctx.customization = {
+        ...ctx.customization,
+        collectionMode: true,
+        collectionStrategy: 'full',
+      };
+      const owned = [
+        ...POOL.cardlists.creatures.slice(0, 12),
+        ...POOL.cardlists.artifacts.slice(0, 4),
+        ...POOL.cardlists.lands,
+      ].map((c) => c.name);
+      ctx.collectionNames = new Set([
+        ...owned,
+        RUBY_MEDALLION.name,
+        ...FILLER_ROCKS.map((c) => c.name),
+      ]);
+    },
+    setup: () => {
+      vi.mocked(searchCards).mockImplementation(async () =>
+        searchResult([RUBY_MEDALLION, ...FILLER_ROCKS])
+      );
+    },
+    extra: (deck) => {
+      const names = allCards(deck).map((c) => c.name);
+      expect(names).not.toContain('Ruby Medallion');
+      expect(names).toContain('Filler Rock 1');
+      expect(deck.thinPoolFillNote).toContain('2 slots were filled from your collection');
+      expect(deck.thinPoolFillNote).toContain('Filler Rock');
+      vi.mocked(searchCards)
+        .mockReset()
+        .mockImplementation(async () => searchResult([]));
     },
   },
   {

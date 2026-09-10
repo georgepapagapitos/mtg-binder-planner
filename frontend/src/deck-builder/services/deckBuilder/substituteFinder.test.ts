@@ -139,6 +139,16 @@ describe('findOwnedSubstitute', () => {
     expect(row).toBeNull();
   });
 
+  it('never substitutes a land for a spell (E282)', () => {
+    const row = findOwnedSubstitute(
+      missing({ name: 'Talisman of Dominance', role: 'ramp', cmc: 2, typeLine: 'Artifact' }),
+      [owned({ name: 'Mind Stone', cmc: 2, typeLine: 'Land' })],
+      new Set(),
+      DIMIR
+    );
+    expect(row).toBeNull();
+  });
+
   it('excludes owned cards already in the deck', () => {
     const row = findOwnedSubstitute(
       missing({ name: 'Talisman of Dominance', role: 'ramp', cmc: 2 }),

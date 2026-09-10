@@ -28,6 +28,7 @@ import '@/styles/deck-builder-row-qty.css';
 import '@/styles/deck-builder-import-dialog.css';
 import '@/styles/deck-builder-analysis-panel.css';
 import { useMenuKeyboard } from '../lib/use-menu-keyboard';
+import { useDocumentTitle } from '../lib/use-document-title';
 import { computePopoverPlacement, getSafeViewport } from '../lib/popover-placement';
 import { haptics } from '../lib/haptics';
 import { scryfallArtCrop } from '../lib/offline/slim-to-scryfall';
@@ -225,6 +226,9 @@ export function DeckEditorPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const deck = useDecksStore((s) => s.decks.find((d) => d.id === id) ?? null);
+  // Names the browser print job / tab title — the print stylesheet has no
+  // other way to label a printed checklist with the deck's name.
+  useDocumentTitle(deck?.name);
   const decksHydrated = useDecksStore((s) => s.hydrated);
   // A fresh device hydrates an EMPTY IndexedDB first; the deck only arrives with the
   // first server pull. Treat that pull as part of loading, or a bookmarked deck reads

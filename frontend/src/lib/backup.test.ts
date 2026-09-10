@@ -49,18 +49,19 @@ const sampleBinder: BinderDef = {
 describe('buildBackup', () => {
   it('stamps format, version, and timestamp', () => {
     const before = Date.now();
-    const b = buildBackup(null, []);
+    const b = buildBackup(null, [], []);
     expect(b.format).toBe(BACKUP_FORMAT);
     expect(b.version).toBe(BACKUP_VERSION);
     expect(b.exportedAt).toBeGreaterThanOrEqual(before);
     expect(b.collection).toBeNull();
     expect(b.binders).toEqual([]);
+    expect(b.decks).toEqual([]);
   });
 });
 
 describe('parseBackup', () => {
   it('round-trips a valid backup', () => {
-    const original = buildBackup(null, []);
+    const original = buildBackup(null, [], []);
     const parsed = parseBackup(JSON.stringify(original));
     expect(parsed).toEqual(original);
   });
@@ -129,6 +130,59 @@ describe('parseBackup', () => {
   });
 });
 
+describe('v1 -> v2 compatibility', () => {
+  it('leaves decks undefined on a v1 backup (no decks field) — restore must not touch decks', () => {
+    const parsed = parseBackup(
+      JSON.stringify({ format: BACKUP_FORMAT, version: 1, binders: [], collection: null })
+    );
+    expect(parsed.decks).toBeUndefined();
+  });
+
+  it('buildBinderBackup and buildAllBindersBackup stay v1 and carry no decks field', () => {
+    const single = buildBinderBackup(sampleBinder, []);
+    const all = buildAllBindersBackup([sampleBinder], []);
+    expect(single.version).toBe(1);
+    expect(single.decks).toBeUndefined();
+    expect(all.version).toBe(1);
+    expect(all.decks).toBeUndefined();
+  });
+
+  it('parses a v2 backup and preserves its decks array, including an explicit empty one', () => {
+    const withDecks = parseBackup(
+      JSON.stringify({
+        format: BACKUP_FORMAT,
+        version: 2,
+        binders: [],
+        collection: null,
+        decks: [{ id: 'd1', name: 'Test deck' }],
+      })
+    );
+    expect(withDecks.decks).toEqual([{ id: 'd1', name: 'Test deck' }]);
+
+    const emptyDecks = parseBackup(
+      JSON.stringify({
+        format: BACKUP_FORMAT,
+        version: 2,
+        binders: [],
+        collection: null,
+        decks: [],
+      })
+    );
+    expect(emptyDecks.decks).toEqual([]);
+  });
+
+  it('round-trips buildBackup -> parseBackup with real decks', () => {
+    const deck = {
+      id: 'd1',
+      name: 'Atraxa Superfriends',
+    } as unknown as import('../store/decks').Deck;
+    const original = buildBackup(null, [], [deck]);
+    expect(original.version).toBe(BACKUP_VERSION);
+    const parsed = parseBackup(JSON.stringify(original));
+    expect(parsed.decks).toEqual([deck]);
+  });
+});
+
 describe('buildBinderBackup', () => {
   it('packages a single binder with its cards', () => {
     const cards = [card({ copyId: 'a' }), card({ copyId: 'b' })];
@@ -178,7 +232,7 @@ describe('downloadBackup', () => {
       if (tag === 'a') (el as HTMLAnchorElement).click = click;
       return el;
     });
-    downloadBackup(buildBackup(null, []), 'out.json');
+    downloadBackup(buildBackup(null, [], []), 'out.json');
     expect(click).toHaveBeenCalled();
     expect(createObjectURL).toHaveBeenCalled();
     createSpy.mockRestore();

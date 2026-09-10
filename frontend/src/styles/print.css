@@ -1,0 +1,88 @@
+/**
+ * Print stylesheet — the printable checklist (deck list, binder list) is the
+ * ONLY thing that ever prints; everything else (nav, tab bar, FABs, toasts,
+ * dialogs, the interactive card views) is hidden. Classic "hide everything,
+ * un-hide the target" recipe: `visibility` (not `display`) on the hidden
+ * side, so ancestor layout is preserved, then the target is pulled out of
+ * flow with `position: absolute` so the shell's now-invisible-but-still-
+ * occupying-space layout doesn't leave a blank first page.
+ *
+ * `.print-list` is shared by every printable checklist (DeckDisplay's deck
+ * list, BinderPage's binder list) — same structure (title, grouped
+ * sections, one row per printing: qty/name/set+collector-number), so one
+ * stylesheet covers both rather than duplicating per-surface CSS. Imported
+ * last in main.tsx so these rules always win in print regardless of
+ * specificity elsewhere in the cascade.
+ */
+
+.print-list {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-list,
+  .print-list * {
+    visibility: visible;
+  }
+
+  .print-list {
+    display: block;
+    position: absolute;
+    inset: 0;
+    padding: 0.5in;
+  }
+}
+
+.print-list-title {
+  font-size: 20pt;
+  font-weight: 700;
+  margin: 0 0 0.3in;
+}
+
+.print-list-section {
+  break-inside: avoid;
+  margin-bottom: 0.25in;
+}
+
+.print-list-section-title {
+  font-size: 13pt;
+  font-weight: 700;
+  border-bottom: 1pt solid #000;
+  margin: 0 0 0.1in;
+  padding-bottom: 0.05in;
+}
+
+.print-list-section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 2;
+  column-gap: 0.4in;
+}
+
+.print-list-section li {
+  display: flex;
+  gap: 0.15in;
+  font-size: 10.5pt;
+  padding: 0.03in 0;
+  break-inside: avoid;
+}
+
+.print-list-qty {
+  font-weight: 700;
+  min-width: 0.3in;
+}
+
+.print-list-name {
+  flex: 1 1 auto;
+}
+
+.print-list-printing {
+  color: #555;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

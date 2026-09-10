@@ -47,6 +47,11 @@ export default defineConfig({
         // quota) lives in ai/deck-review.ts and routes/ai.ts, which are
         // covered; the route tests mock this module.
         'src/ai/client.ts',
+        // Non-JS fixture data (a checked-in CSV, not source) — `include:
+        // ['src/**']` above sweeps it in, and v8/rolldown then tries to
+        // parse it as a module and logs a harmless "Excluding it from
+        // coverage" warning. Exclude it explicitly so CI output stays quiet.
+        'src/parsers/fixtures/**',
       ],
       thresholds: { statements: 80, branches: 80, functions: 80, lines: 80 },
     },

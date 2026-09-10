@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Clipboard, Download, X } from 'lucide-react';
+import { Check, Clipboard, Download, Printer, X } from 'lucide-react';
 import { Share } from '@capacitor/share';
 import { Modal } from '../Modal';
 import { SelectMenu } from '../SelectMenu';
@@ -11,6 +11,7 @@ const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = {
   mtga: 'MTGA',
   plain: 'Plaintext',
   moxfield: 'Moxfield',
+  mtgo: 'MTGO',
 };
 
 interface Props {
@@ -27,13 +28,15 @@ interface Props {
 }
 
 /**
- * Decklist export dialog: format picker (MTGA/Plaintext/Moxfield), a
- * read-only preview, and copy-to-clipboard / download-as-.txt actions, plus
- * a native OS share sheet (`Share…`) on Capacitor platforms only.
+ * Decklist export dialog: format picker (MTGA/Plaintext/Moxfield/MTGO), a
+ * read-only preview, and copy-to-clipboard / download (.txt, or .dek for
+ * MTGO) actions, plus a native OS share sheet (`Share…`) on Capacitor
+ * platforms, and a "Print list" checklist action on web (hidden on native,
+ * where `window.print()` has no equivalent).
  * Shared by the deck editor, its decks-index deep link, and the public
  * shared deck view — all three just supply `text` (from `buildExport`) and
- * `title` (the deck's name); copy/download/share are handled internally so
- * no caller re-implements clipboard/blob/share-sheet logic.
+ * `title` (the deck's name); copy/download/share/print are handled
+ * internally so no caller re-implements that logic.
  */
 export function DeckExportDialog({ text, format, onFormatChange, title, onClose }: Props) {
   const [copied, setCopied] = useState(false);
@@ -49,14 +52,21 @@ export function DeckExportDialog({ text, format, onFormatChange, title, onClose 
     setTimeout(() => setCopied(false), 1500);
   };
   const handleDownload = () => {
-    const blob = new Blob([text], { type: 'text/plain' });
+    const blob = new Blob([text], { type: format === 'mtgo' ? 'application/xml' : 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     const safeName = title.replace(/[^a-z0-9-_ ]/gi, '').trim() || 'deck';
-    a.download = `${safeName}.txt`;
+    a.download = `${safeName}.${format === 'mtgo' ? 'dek' : 'txt'}`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+  // Print the deck list behind this dialog as a checklist — close first so
+  // the modal overlay itself doesn't print; @media print hides everything
+  // but the list (see deck-builder-display.css).
+  const handlePrint = () => {
+    onClose();
+    requestAnimationFrame(() => window.print());
   };
   // Native system share sheet — parity with ShareDialog's handleNativeShare.
   // No `url` field: this hands off the raw decklist text, not a link.
@@ -95,6 +105,8 @@ export function DeckExportDialog({ text, format, onFormatChange, title, onClose 
             options={(Object.keys(EXPORT_FORMAT_LABEL) as ExportFormat[]).map((f) => ({
               value: f,
               label: EXPORT_FORMAT_LABEL[f],
+              itemLabel:
+                f === 'mtgo' ? `${EXPORT_FORMAT_LABEL[f]} (.dek file for Magic Online)` : undefined,
             }))}
           />
           <span className="export-dialog-meta">
@@ -126,6 +138,17 @@ export function DeckExportDialog({ text, format, onFormatChange, title, onClose 
             {isNativePlatform() && (
               <button type="button" className="btn" onClick={handleNativeShare}>
                 Share…
+              </button>
+            )}
+            {!isNativePlatform() && (
+              <button
+                type="button"
+                className="btn"
+                onClick={handlePrint}
+                aria-label="Print this decklist as a checklist"
+              >
+                <Printer width={14} height={14} strokeWidth={2} aria-hidden />
+                <span>Print list</span>
               </button>
             )}
           </div>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
+import { useDocumentTitle } from '../lib/use-document-title';
 import { AddCardSheet } from '../components/AddCardSheet';
 import { BackLink } from '../components/BackLink';
 import { EmptyStateMark } from '../components/shared/EmptyStateMark';
@@ -175,6 +176,33 @@ export function BinderPage() {
   // Mirrors the `active`/`activeId` derivation used after the early returns.
   const active = materialized.find((b) => b.def.id === routeId) ?? materialized[0];
   const activeId = active?.def.id ?? null;
+  // Names the browser print job / tab title for the printable checklist.
+  useDocumentTitle(active?.def.name);
+
+  // Printable checklist source: same section grouping as BinderListView,
+  // duplicate copies rolled into a Quantity like its qty pills do.
+  const printGroups = useMemo(() => {
+    if (!active) return [];
+    return active.sections.map((section) => {
+      const rows = new Map<
+        string,
+        { name: string; setCode: string; collectorNumber: string; qty: number }
+      >();
+      for (const card of section.cards) {
+        const key = `${card.name}|${card.setCode}|${card.collectorNumber}|${card.finish}`;
+        const existing = rows.get(key);
+        if (existing) existing.qty += 1;
+        else
+          rows.set(key, {
+            name: card.name,
+            setCode: card.setCode,
+            collectorNumber: card.collectorNumber,
+            qty: 1,
+          });
+      }
+      return { label: section.label, rows: [...rows.values()] };
+    });
+  }, [active]);
 
   // Pin auto-dissolve: a "Keep it here" pin that no longer does any work (the
   // card would route here via rules/other pins anyway) is silently dropped.
@@ -490,6 +518,31 @@ export function BinderPage() {
           onClose={() => setAddCardSheetOpen(false)}
         />
       )}
+      {/* Print-only checklist (name/qty/set-cn), grouped like the binder's
+          own sections. Invisible on screen (styles/print.css's
+          `.print-list`); BinderExportDialog's "Print checklist" action
+          closes itself and calls window.print(). */}
+      <div className="print-list" aria-hidden>
+        <h1 className="print-list-title">{active?.def.name ?? 'Binder'}</h1>
+        {printGroups
+          .filter((g) => g.rows.length > 0)
+          .map((g) => (
+            <section key={g.label} className="print-list-section">
+              <h2 className="print-list-section-title">{g.label}</h2>
+              <ul>
+                {g.rows.map((row) => (
+                  <li key={`${row.name}|${row.setCode}|${row.collectorNumber}`}>
+                    <span className="print-list-qty">{row.qty}</span>
+                    <span className="print-list-name">{row.name}</span>
+                    <span className="print-list-printing">
+                      {row.setCode.toUpperCase()} {row.collectorNumber}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+      </div>
       {confirmDialog}
     </>
   );

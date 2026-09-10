@@ -12,6 +12,7 @@ import { useDecksStore } from '../store/decks';
 import { THEMES } from '../lib/themes';
 import { toast } from '../store/toasts';
 import { buildBackup, downloadBackup } from '../lib/backup';
+import { collectionToCsv, collectionCsvFileName, downloadCsv } from '../lib/collection-export';
 import { Modal } from '../components/Modal';
 import { formatPricedDate, newestPricedAt } from '../lib/price-freshness';
 import { useCurrencyStore, type Currency } from '../lib/currency';
@@ -335,8 +336,13 @@ export function YouPage() {
 
   function handleExportFull() {
     const snapshot = buildBackupSnapshot();
-    downloadBackup(buildBackup(snapshot.collection, snapshot.binders));
+    downloadBackup(buildBackup(snapshot.collection, snapshot.binders, decks));
     toast.show({ message: 'Backup downloaded.', tone: 'success' });
+  }
+
+  function handleExportCsv() {
+    downloadCsv(collectionToCsv(cards), collectionCsvFileName());
+    toast.show({ message: 'CSV downloaded.', tone: 'success' });
   }
 
   function openSignOut() {
@@ -612,7 +618,7 @@ export function YouPage() {
               <>
                 Export full collection
                 <InfoTip
-                  label="binders and lists"
+                  label="binders, lists, and decks"
                   wide
                   text={
                     <>
@@ -624,23 +630,34 @@ export function YouPage() {
                       rule-driven dynamic lists.
                       <br />
                       <br />
-                      The backup includes both.
+                      The JSON backup includes binders, lists, and every deck; a re-import restores
+                      all of it. The CSV is cards only, for use with other collection tools.
                     </>
                   }
                 />
               </>
             }
             valueWithTip
-            hint="Download a JSON backup containing every card and binder definition."
+            hint="Download a JSON backup (every card, binder, list, and deck) or a plain CSV (cards only)."
             actions={
-              <button
-                type="button"
-                className="btn"
-                onClick={handleExportFull}
-                disabled={cardCount === 0}
-              >
-                Download backup
-              </button>
+              <div className="settings-row-action-group">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleExportCsv}
+                  disabled={cardCount === 0}
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleExportFull}
+                  disabled={cardCount === 0}
+                >
+                  Download backup
+                </button>
+              </div>
             }
           />
 

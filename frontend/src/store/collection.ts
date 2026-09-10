@@ -28,7 +28,7 @@ import {
 } from '../lib/local-cards';
 import { applyPrices, getPrice, setPrices, priceKey, type PriceEntry } from '../lib/card-prices';
 import { getCurrency } from '../lib/currency';
-import { buildBackup, type Backup } from '../lib/backup';
+import type { Backup } from '../lib/backup';
 import { scryfallToEnrichedCard } from '../lib/scryfall-to-enriched';
 import { fetchWithAbortTimeout } from '../lib/fetch-utils';
 import { SAMPLE_BINDERS, SAMPLE_IMPORT_LABEL } from '../lib/samples';
@@ -225,7 +225,14 @@ interface CollectionState {
   setError: (err: string | null) => void;
 
   // Backup actions
-  buildBackupSnapshot: () => Backup;
+  /**
+   * Collection + binders only — callers combine this with `useDecksStore`'s
+   * `decks` and pass all three to `buildBackup` themselves. Not a full
+   * `Backup`: the decks slice lives in a different store, and every caller
+   * here already needs `useDecksStore` anyway (for the export UI), so
+   * there's nothing to gain by round-tripping through a Backup shape twice.
+   */
+  buildBackupSnapshot: () => { collection: StoredCollection | null; binders: BinderDef[] };
   restoreFromBackup: (backup: Backup) => Promise<void>;
   /**
    * Restore a {@link CollectionSnapshot} captured before a destructive op
@@ -1141,7 +1148,7 @@ export const useCollectionStore = create<CollectionState>()(
                 lists: s.lists,
               }
             : null;
-        return buildBackup(collection, s.binders);
+        return { collection, binders: s.binders };
       },
 
       restoreFromBackup: async (backup) => {
@@ -1149,6 +1156,17 @@ export const useCollectionStore = create<CollectionState>()(
         const uploadedAt = collection?.uploadedAt ?? Date.now();
         const restoredHistory: ImportHistoryEntry[] = collection?.importHistory ?? [];
         const prevCards = get().cards;
+
+        // v2 backups carry decks; v1 (and the binder-scoped exports, which
+        // stay v1) omit the field, meaning "leave decks alone". When present,
+        // replace wholesale like cards/binders below — the store's own decks
+        // subscriber (persistDecksState) pushes the change normally, same
+        // last-write-wins semantics as every other restored kind. Set BEFORE
+        // remapCollectionDependents so its remapAllocations call remaps the
+        // restored decks against the restored collection, not the old ones.
+        if (backup.decks) {
+          useDecksStore.setState({ decks: backup.decks });
+        }
 
         set({
           cards: collection?.cards ?? [],

@@ -1,4 +1,5 @@
 import { useCollectionStore } from '../store/collection';
+import { useDecksStore } from '../store/decks';
 import { Modal } from './Modal';
 import type { MaterializedBinder, EnrichedCard } from '../types';
 import {
@@ -9,6 +10,8 @@ import {
   binderBackupFileName,
   allBindersBackupFileName,
 } from '../lib/backup';
+import { collectionToCsv, binderCsvFileName, downloadCsv } from '../lib/collection-export';
+import { isNativePlatform } from '../lib/platform';
 
 interface Props {
   binders: MaterializedBinder[];
@@ -17,10 +20,11 @@ interface Props {
   onClose: () => void;
 }
 
-type ExportKind = 'binder' | 'all-binders' | 'full';
+type ExportKind = 'binder' | 'binder-csv' | 'binder-print' | 'all-binders' | 'full';
 
 export function BinderExportDialog({ binders, activeId, onClose }: Props) {
   const buildBackupSnapshot = useCollectionStore((s) => s.buildBackupSnapshot);
+  const decks = useDecksStore((s) => s.decks);
 
   const active = binders.find((b) => b.def.id === activeId) ?? null;
   const allBinderCards = collectCards(binders);
@@ -31,6 +35,15 @@ export function BinderExportDialog({ binders, activeId, onClose }: Props) {
         if (!active) return;
         const cards = collectCards([active]);
         downloadBackup(buildBinderBackup(active.def, cards), binderBackupFileName(active.def.name));
+      } else if (kind === 'binder-csv') {
+        if (!active) return;
+        const cards = collectCards([active]);
+        downloadCsv(collectionToCsv(cards), binderCsvFileName(active.def.name));
+      } else if (kind === 'binder-print') {
+        if (!active) return;
+        // Closes below (the finally), then the print stylesheet renders the
+        // binder's own .print-list (BinderPage) instead of the modal.
+        requestAnimationFrame(() => window.print());
       } else if (kind === 'all-binders') {
         downloadBackup(
           buildAllBindersBackup(
@@ -40,9 +53,9 @@ export function BinderExportDialog({ binders, activeId, onClose }: Props) {
           allBindersBackupFileName()
         );
       } else {
-        // Full backup: collection + binders, same as the Settings-style export.
+        // Full backup: collection + binders + decks, same as the Settings-style export.
         const snapshot = buildBackupSnapshot();
-        downloadBackup(buildBackup(snapshot.collection, snapshot.binders));
+        downloadBackup(buildBackup(snapshot.collection, snapshot.binders, decks));
       }
     } finally {
       onClose();
@@ -78,6 +91,35 @@ export function BinderExportDialog({ binders, activeId, onClose }: Props) {
         <button
           type="button"
           className="choice-dialog-option"
+          onClick={() => handlePick('binder-csv')}
+          disabled={!active}
+        >
+          <span className="choice-dialog-option-title">
+            {active ? `This binder as CSV: ${active.def.name}` : 'This binder as CSV'}
+          </span>
+          <span className="choice-dialog-option-desc">
+            Cards only, for spreadsheets or other collection tools. No rule definitions.
+          </span>
+        </button>
+        {!isNativePlatform() && (
+          <button
+            type="button"
+            className="choice-dialog-option"
+            onClick={() => handlePick('binder-print')}
+            disabled={!active}
+          >
+            <span className="choice-dialog-option-title">
+              {active ? `Print checklist: ${active.def.name}` : 'Print checklist'}
+            </span>
+            <span className="choice-dialog-option-desc">
+              A plain checklist: name, quantity, set/collector number. Grouped the same way this
+              binder is.
+            </span>
+          </button>
+        )}
+        <button
+          type="button"
+          className="choice-dialog-option"
           onClick={() => handlePick('all-binders')}
           disabled={binders.length === 0}
         >
@@ -90,7 +132,7 @@ export function BinderExportDialog({ binders, activeId, onClose }: Props) {
         <button type="button" className="choice-dialog-option" onClick={() => handlePick('full')}>
           <span className="choice-dialog-option-title">Full collection</span>
           <span className="choice-dialog-option-desc">
-            Everything: all cards, including uncategorized, and all binder definitions.
+            Everything: all cards, including uncategorized, all binder definitions, and every deck.
           </span>
         </button>
       </div>

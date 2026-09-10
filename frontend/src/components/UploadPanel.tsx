@@ -21,6 +21,7 @@ import {
 import { formatRelativeTime } from '../lib/format-time';
 import { haptics } from '../lib/haptics';
 import { useCollectionStore, type ImportMode } from '../store/collection';
+import { useDecksStore } from '../store/decks';
 import {
   fetchImportLink,
   importFile,
@@ -207,6 +208,7 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
   // Decorate with oracle tags so "where did my import go?" respects tag rules
   // (no-op unless a binder uses one).
   const cards = useCardsWithTags(rawCards, bindersUseTags(binders));
+  const decks = useDecksStore((s) => s.decks);
   const isLoading = useCollectionStore((s) => s.isLoading);
   const error = useCollectionStore((s) => s.error);
   const unresolvedNames = useCollectionStore((s) => s.unresolvedNames);
@@ -666,10 +668,10 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
 
   const handlePickBackup = async () => {
     if (isLoading) return;
-    if (cards.length > 0 || binders.length > 0) {
+    if (cards.length > 0 || binders.length > 0 || decks.length > 0) {
       const ok = await confirm({
         title: 'Restore backup?',
-        body: "This will replace your current collection and binders. This can't be undone.",
+        body: "This will replace your current collection, binders, and decks. This can't be undone.",
         confirmLabel: 'Restore',
         danger: true,
       });
@@ -703,6 +705,9 @@ export function UploadPanel({ hideScanButton = false }: UploadPanelProps = {}) {
         parts.push(`${backup.collection.cards.length.toLocaleString()} cards`);
       }
       parts.push(`${backup.binders.length} binder${backup.binders.length === 1 ? '' : 's'}`);
+      if (backup.decks) {
+        parts.push(`${backup.decks.length} deck${backup.decks.length === 1 ? '' : 's'}`);
+      }
       setSuccessMsg(`Backup restored · ${parts.join(' · ')}`);
     } catch (err) {
       setError(userMessage(err, "Couldn't restore that import. Try again."));

@@ -5,14 +5,13 @@ import { PlaytestCardView } from './PlaytestCardView';
 interface Props {
   cards: PlaytestCard[];
   onCardClick?(cardId: string, index: number): void;
-  /** Read a card without playing it — right-click, the Context Menu key /
-   *  Shift+Enter, or (with `longPress`) a touch long-press, mirroring how
-   *  battlefield cards open their menu. Tap/click still plays the card. */
-  onCardPreview?(cardId: string): void;
-  longPress?: boolean;
+  /** Open the hand-card menu (HandCardMenu.tsx) — right-click, the Context
+   *  Menu key / Shift+Enter, or a touch long-press, mirroring how battlefield
+   *  cards open theirs. Tap/click still plays the card. */
+  onCardMenu?(cardId: string, x: number, y: number): void;
 }
 
-export function Hand({ cards, onCardClick, onCardPreview, longPress }: Props) {
+export function Hand({ cards, onCardClick, onCardMenu }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: 'hand' });
   return (
     <div ref={setNodeRef} className={`playtest-hand${isOver ? ' is-over' : ''}`} aria-label="Hand">
@@ -26,21 +25,15 @@ export function Hand({ cards, onCardClick, onCardPreview, longPress }: Props) {
             size="sm"
             onClick={onCardClick ? (cardId) => onCardClick(cardId, i) : undefined}
             onContextMenu={
-              onCardPreview
+              onCardMenu
                 ? (cardId, e) => {
                     e.preventDefault();
-                    onCardPreview(cardId);
+                    onCardMenu(cardId, e.clientX, e.clientY);
                   }
                 : undefined
             }
-            onLongPress={onCardPreview && longPress ? (cardId) => onCardPreview(cardId) : undefined}
-            title={
-              onCardPreview
-                ? longPress
-                  ? 'Tap to play · hold to read'
-                  : 'Click to play · right-click to read'
-                : undefined
-            }
+            onLongPress={onCardMenu}
+            title={onCardMenu ? 'Click to play · right-click or hold for options' : undefined}
           />
         ))}
       </div>

@@ -31,6 +31,8 @@ import { autoPlace } from '../lib/auto-place';
 import { haptics } from '@/lib/haptics';
 import { Battlefield } from './Battlefield';
 import { Hand } from './Hand';
+import { HandCardMenu } from './HandCardMenu';
+import { CardHoverPreview } from './CardHoverPreview';
 import { HandDrawer, SHORT_LANDSCAPE_QUERY } from './HandDrawer';
 import { useMediaQuery } from '@/lib/use-media-query';
 import { ZonePile } from './ZonePile';
@@ -73,6 +75,7 @@ interface Props {
 
 type ViewerMode = { zone: Zone } | null;
 type ContextState = { cardId: string; x: number; y: number } | null;
+type HandMenuState = { cardId: string; x: number; y: number } | null;
 
 // Backfill for a session snapshot saved before the mana pool existed —
 // `state.manaPool` is optional for exactly that reason (see types.ts).
@@ -98,6 +101,7 @@ const PLAYTEST_SHORTCUTS = [
   { keys: ['Ctrl/⌘+C'], description: 'Copy selected cards' },
   { keys: ['Ctrl/⌘+V'], description: 'Paste copied cards' },
   { keys: ['Esc'], description: 'Clear selection' },
+  { keys: ['Shift+Enter'], description: 'Open the focused card’s menu' },
 ];
 
 function parseDraggable(id: string): { source: 'bf' | 'hand' | 'zone'; cardId: string } | null {
@@ -154,6 +158,7 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
   const [handOpen, setHandOpen] = useState(false);
   const [viewer, setViewer] = useState<ViewerMode>(null);
   const [ctx, setCtx] = useState<ContextState>(null);
+  const [handMenu, setHandMenu] = useState<HandMenuState>(null);
   // B6-07: card previewed from a battlefield permanent's context menu — a
   // single-card CardPreview, same shared component OpeningHandSheet/
   // ZoneViewerModal use.
@@ -257,12 +262,11 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
       // A card dragged out of the short-landscape hand sheet: the play is the
       // dismissal, same as a tap.
       if (parsed.source === 'hand') setHandOpen(false);
-      const { width, height, cardW, cardH } = getBattlefieldGeometry();
-      const rect = battlefieldRef.current?.getBoundingClientRect();
+      const { width, height, left, top, cardW, cardH } = getBattlefieldGeometry();
       const translated = event.active.rect.current.translated;
-      if (rect && translated) {
-        const x = (translated.left - rect.left) / Math.max(1, width - cardW);
-        const y = (translated.top - rect.top) / Math.max(1, height - cardH);
+      if (width > 0 && translated) {
+        const x = (translated.left - left) / Math.max(1, width - cardW);
+        const y = (translated.top - top) / Math.max(1, height - cardH);
         dispatch({ type: 'MOVE_TO_BATTLEFIELD', cardId: parsed.cardId, x, y });
       } else {
         dispatch({ type: 'MOVE_TO_BATTLEFIELD', cardId: parsed.cardId, ...FALLBACK_DROP_POS });
@@ -351,13 +355,25 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
   // (playtest.css), so this stays correct across the 320–1440px range without
   // the caller needing to know which breakpoint is active. Falls back to the
   // desktop density before the battlefield has mounted.
+  // The positioned surface is inset `--pt-edge` on each side of the wrap
+  // this ref measures (playtest.css: room for a tapped card's rotation), so
+  // the width and left edge here are the wrap's minus that inset — the box
+  // the cards' `left: calc(x * (100% - w))` actually resolves against.
   function getBattlefieldGeometry() {
     const el = battlefieldRef.current;
     const rect = el?.getBoundingClientRect();
     const cs = el ? getComputedStyle(el) : null;
     const cardW = parseFloat(cs?.getPropertyValue('--pt-card-w') ?? '') || FALLBACK_CARD_W;
     const cardH = parseFloat(cs?.getPropertyValue('--pt-card-h') ?? '') || FALLBACK_CARD_H;
-    return { width: rect?.width ?? 0, height: rect?.height ?? 0, cardW, cardH };
+    const edge = Math.max(0, (cardH - cardW) / 2);
+    return {
+      width: rect ? Math.max(0, rect.width - 2 * edge) : 0,
+      height: rect?.height ?? 0,
+      left: (rect?.left ?? 0) + edge,
+      top: rect?.top ?? 0,
+      cardW,
+      cardH,
+    };
   }
 
   function getBattlefieldRect() {
@@ -369,12 +385,25 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
     return autoPlace(card, state.battlefield, getBattlefieldRect());
   }
 
-  function handleHandCardClick(cardId: string) {
+  function playFromHand(cardId: string, opts?: { tapped?: boolean; faceDown?: boolean }) {
     const handCard = state.zones.hand.find((c) => c.id === cardId);
     if (!handCard) return;
-    const { x, y } = placeOnBattlefield(handCard);
-    dispatch({ type: 'MOVE_TO_BATTLEFIELD', cardId, x, y });
+    // A face-down permanent is a 2/2 creature (morph, manifest) whatever its
+    // printed type — it belongs in the creature row.
+    const { x, y } = placeOnBattlefield(
+      opts?.faceDown ? { ...handCard, typeLine: 'Creature' } : handCard
+    );
+    dispatch({ type: 'MOVE_TO_BATTLEFIELD', cardId, x, y, ...opts });
   }
+
+  function handleHandCardClick(cardId: string) {
+    playFromHand(cardId);
+  }
+
+  const handleHandCardMenu = useCallback((cardId: string, x: number, y: number) => {
+    setHandMenu({ cardId, x, y });
+  }, []);
+  const handMenuCard = handMenu ? state.zones.hand.find((c) => c.id === handMenu.cardId) : null;
 
   const ctxCard = ctx ? state.battlefield.find((b) => b.card.id === ctx.cardId) : null;
   // Candidate hosts exclude the card itself and its current host (re-attaching
@@ -393,6 +422,7 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
     handOpen ||
     viewer !== null ||
     ctx !== null ||
+    handMenu !== null ||
     tokenCreator ||
     showScry ||
     showStats ||
@@ -535,12 +565,12 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
           if (made) setClipboard(made);
         }
       }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (key === 'z') {
         e.preventDefault();
         handleTakebackClick();
         return;
       }
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (key === 'd') {
         if (state.zones.library.length === 0) return;
         e.preventDefault();
@@ -623,40 +653,42 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
         selectionSize={selected.size}
         hasUnreadLog={hasUnreadLog}
       />
-      <LifeStrip
-        life={state.life}
-        opponents={state.opponents}
-        commanderDamageThreshold={state.commanderDamageThreshold}
-        isNarrow={isNarrow}
-        monarch={state.monarch}
-        initiative={state.initiative}
-        citysBlessing={state.citysBlessing}
-        playerCounters={state.playerCounters ?? {}}
-        onAdjustLife={(player, delta) => {
-          haptics.tap();
-          dispatch({ type: 'ADJUST_LIFE', player, delta });
-        }}
-        onAdjustCommanderDamage={(opponent, delta) => {
-          haptics.tap();
-          dispatch({ type: 'ADJUST_COMMANDER_DAMAGE', opponent, delta });
-        }}
-        onAdjustCounter={(player, kind, delta) => {
-          haptics.tap();
-          dispatch({ type: 'SET_PLAYER_COUNTER', player, counter: kind, delta });
-        }}
-        onOpenChange={setLifePanelOpen}
-      />
-      <ManaPool
-        pool={state.manaPool ?? ZERO_MANA_POOL}
-        onAdjust={(color, delta) => {
-          haptics.tap();
-          dispatch({ type: 'ADJUST_MANA', color, delta });
-        }}
-        onEmpty={() => {
-          haptics.tap();
-          dispatch({ type: 'EMPTY_MANA_POOL' });
-        }}
-      />
+      <div className="playtest-trackers">
+        <LifeStrip
+          life={state.life}
+          opponents={state.opponents}
+          commanderDamageThreshold={state.commanderDamageThreshold}
+          isNarrow={isNarrow}
+          monarch={state.monarch}
+          initiative={state.initiative}
+          citysBlessing={state.citysBlessing}
+          playerCounters={state.playerCounters ?? {}}
+          onAdjustLife={(player, delta) => {
+            haptics.tap();
+            dispatch({ type: 'ADJUST_LIFE', player, delta });
+          }}
+          onAdjustCommanderDamage={(opponent, delta) => {
+            haptics.tap();
+            dispatch({ type: 'ADJUST_COMMANDER_DAMAGE', opponent, delta });
+          }}
+          onAdjustCounter={(player, kind, delta) => {
+            haptics.tap();
+            dispatch({ type: 'SET_PLAYER_COUNTER', player, counter: kind, delta });
+          }}
+          onOpenChange={setLifePanelOpen}
+        />
+        <ManaPool
+          pool={state.manaPool ?? ZERO_MANA_POOL}
+          onAdjust={(color, delta) => {
+            haptics.tap();
+            dispatch({ type: 'ADJUST_MANA', color, delta });
+          }}
+          onEmpty={() => {
+            haptics.tap();
+            dispatch({ type: 'EMPTY_MANA_POOL' });
+          }}
+        />
+      </div>
       {showTableDefeatedBanner && lastSessionRecord ? (
         // The richer E141 recap supersedes the plain "Table defeated" line —
         // it already names the kill turn plus mulligans/interaction survived.
@@ -730,7 +762,7 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
               onBackgroundClick={clearSelection}
               onCardClick={handleCardClick}
               onCardContextMenu={handleCardContext}
-              onCardLongPress={isNarrow ? handleCardLongPress : undefined}
+              onCardLongPress={handleCardLongPress}
             />
             {/* Selection readout. Renders nothing at all when nothing is selected,
             so it never displaces the board — and a selection can only exist on a
@@ -798,16 +830,16 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
             onOpen={() => setHandOpen(true)}
             onClose={() => setHandOpen(false)}
             onCardClick={handleHandCardClick}
-            onCardPreview={setPreviewCardId}
+            onCardMenu={handleHandCardMenu}
           />
         ) : (
           <Hand
             cards={state.zones.hand}
             onCardClick={handleHandCardClick}
-            onCardPreview={setPreviewCardId}
-            longPress={isNarrow}
+            onCardMenu={handleHandCardMenu}
           />
         )}
+        <CardHoverPreview suspended={activeId !== null || anySheetOpen} />
         {/* Above `--z-overlay` so a card dragged out of the hand sheet renders
             over the sheet, not behind it. */}
         <DragOverlay dropAnimation={null} zIndex={1200}>
@@ -884,6 +916,8 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
               : undefined
           }
           canTransform={Boolean(ctxCard.card.backImageUrl)}
+          tapped={ctxCard.tapped}
+          faceDown={ctxCard.faceDown}
           phased={ctxCard.phased ?? false}
           variant={isNarrow ? 'sheet' : 'floating'}
           onClose={() => setCtx(null)}
@@ -925,6 +959,26 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
             dispatch({ type: 'MOVE_TO_ZONE', cardId: ctx.cardId, to: zone, toIndex });
             setCtx(null);
           }}
+        />
+      )}
+
+      {handMenu && handMenuCard && (
+        <HandCardMenu
+          x={handMenu.x}
+          y={handMenu.y}
+          cardName={handMenuCard.name}
+          variant={isNarrow ? 'sheet' : 'floating'}
+          onClose={() => setHandMenu(null)}
+          onPreview={
+            cardLookup?.has(handMenu.cardId) ? () => setPreviewCardId(handMenu.cardId) : undefined
+          }
+          onPlay={(opts) => {
+            setHandOpen(false);
+            playFromHand(handMenu.cardId, opts);
+          }}
+          onMoveTo={(zone, toIndex) =>
+            dispatch({ type: 'MOVE_TO_ZONE', cardId: handMenu.cardId, to: zone, toIndex })
+          }
         />
       )}
 

@@ -41,9 +41,37 @@ body:has(.playtest-page) .modal-backdrop {
    rail slot) can override them locally. Scoped to `body:has(...)` rather
    than `.playtest-page` itself so dnd-kit's `<DragOverlay>` — portaled to
    `document.body`, outside the page's own subtree — still inherits it. */
+/* Registered so `getComputedStyle(...).getPropertyValue('--pt-card-w')`
+   returns a resolved px length: PlaytestBoard's drop math parses it, and an
+   unregistered custom property would hand back the literal `clamp(...)`
+   text (→ NaN → the 90px fallback, mis-placing every drop at any other
+   density). */
+@property --pt-card-w {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 90px;
+}
+
+@property --pt-card-h {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 126px;
+}
+
 body:has(.playtest-page) {
-  --pt-card-w: 90px;
-  --pt-card-h: 126px;
+  /* Desktop density scales with the board instead of a fixed 90px: 7% of
+     the viewport width, capped by what three type rows (permanents /
+     creatures / lands, see auto-place.ts) can hold in the height left after
+     the header, action bar, trackers and hand (~340px), floored at the old
+     90px and ceilinged at 140px (Moxfield/Archidekt territory). 1440×900 →
+     100px, 1920×1080 → 134px. The ≤1023px and short-landscape tiers below
+     override both with their own fixed sizes. */
+  --pt-card-w: clamp(90px, min(7vw, (100vh - 340px) / 4.6), 140px);
+  --pt-card-h: calc(var(--pt-card-w) * 1.4);
+  /* Half the extra width a tapped (90°-rotated) card sticks out past its
+     slot: the battlefield keeps this much clear on each side so a tapped
+     card at x = 0 or x = 1 is never clipped by the wrap's overflow. */
+  --pt-edge: calc((var(--pt-card-h) - var(--pt-card-w)) / 2);
 }
 
 .playtest-page__header {
@@ -553,19 +581,22 @@ body:has(.playtest-page) {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.playtest-battlefield {
-  position: relative;
-  width: 100%;
-  height: 100%;
   /* Recessed "playmat": the chrome (header / action bar / hand / piles) sits
      on --surface, the mat drops to --bg, and the two radial glows pick up
-     the theme's accent so each guild tints the play surface. */
+     the theme's accent so each guild tints the play surface. Painted on the
+     wrap (not the inset battlefield below) so the edge gutters match. */
   background:
     radial-gradient(circle at 30% 30%, var(--accent-light), transparent 60%),
     radial-gradient(circle at 70% 70%, var(--accent-light), transparent 60%), var(--bg);
-  overflow: auto;
+}
+
+/* The positioned surface is inset by `--pt-edge` on each side so a tapped
+   card at the far left/right (rotated 90° about its centre, so wider than
+   its slot) stays fully inside the wrap's clip. PlaytestBoard's geometry
+   read subtracts the same inset — keep the two in step. */
+.playtest-battlefield {
+  position: absolute;
+  inset: 0 var(--pt-edge);
 }
 
 .playtest-battlefield.is-over {
@@ -760,7 +791,36 @@ body:has(.playtest-page) {
   padding: 10px var(--space-4);
   border-top: 0.5px solid var(--border);
   background: var(--surface);
-  min-height: 140px;
+  /* Hand cards match the battlefield density (below), so the strip is one
+     card tall plus its padding — never a fixed 140px that either clipped a
+     bigger card or floated a smaller one in dead space. */
+  min-height: calc(var(--pt-card-h) + 24px);
+}
+
+/* Life totals + floating mana share one chrome row on desktop (the life
+   chips are content-sized, the mana pool takes the remaining width). Each
+   strip used to be its own full-width bordered row — 45px of battlefield
+   given back at every tier where both fit. Below 1024px they wrap to two
+   rows again (each strip scrolls its own overflow). */
+.playtest-trackers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface);
+}
+
+.playtest-trackers > .playtest-life-strip {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: none;
+}
+
+.playtest-trackers > .playtest-mana-pool {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  border-bottom: none;
 }
 
 .playtest-hand.is-over {
@@ -951,8 +1011,47 @@ body:has(.playtest-page) {
 }
 
 .playtest-card--sm {
-  width: 80px;
-  height: 112px;
+  width: var(--pt-card-w);
+  height: var(--pt-card-h);
+}
+
+/* ── Hover / focus card preview (fine pointer only) ───────────────────── */
+/*  Battlefield and hand cards are ~100px wide — legible for shape and art,
+    not for rules text. Resting the pointer on (or focusing) any card shows
+    the full-size face in a fixed panel beside the board, the way Moxfield,
+    Archidekt and Untap all do it. Pointer-events: none so it never steals
+    the hover it's answering; z above the table chrome, below every sheet. */
+.playtest-hover-preview {
+  position: fixed;
+  z-index: var(--z-table-panel);
+  width: min(20rem, 28vw);
+  aspect-ratio: 5 / 7;
+  border-radius: 4.5% / 3.2%;
+  overflow: hidden;
+  box-shadow: var(--shadow-modal);
+  background: var(--surface-raised);
+  pointer-events: none;
+  animation: playtest-hover-preview-in 120ms ease-out;
+}
+
+.playtest-hover-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@keyframes playtest-hover-preview-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playtest-hover-preview {
+    animation: none;
+  }
 }
 
 .playtest-card--lg {
@@ -978,10 +1077,14 @@ body:has(.playtest-page) {
   padding: 6px;
 }
 
+/* A face-down permanent reads as a sleeved card back — the same deep-blue
+   gradient as the library pile, with an inset rim so it's a card, not a
+   missing image. */
 .playtest-card__back {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #2b3340, #1a2030);
+  background: linear-gradient(135deg, #3a4a6a 0%, #1a2a4a 100%);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.08);
 }
 
 .playtest-card--tapped {
@@ -2729,7 +2832,7 @@ body:has(.playtest-page) {
   }
 
   .playtest-hand {
-    min-height: 72px;
+    min-height: 0;
     padding: var(--space-1) var(--space-3);
   }
 

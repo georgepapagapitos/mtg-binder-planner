@@ -92,6 +92,30 @@ describe('autoPlace', () => {
     expect(next.x - first.x).toBeGreaterThan(0);
   });
 
+  it('places whole cards side by side — no overlap — while the row has room', () => {
+    const wide = { width: 1200, height: 560, cardW: 100, cardH: 140 };
+    const lands = Array.from({ length: 5 }, (_, i) => bf(card(`L${i}`, { typeLine: 'Land' })));
+    const first = autoPlace(card('L0', { typeLine: 'Land' }), [], wide);
+    const sixth = autoPlace(card('L5', { typeLine: 'Land' }), lands, wide);
+    // Six cards, five gaps of at least a full card width each.
+    const px = (fx: number) => fx * (wide.width - wide.cardW);
+    expect(px(sixth.x) - px(first.x)).toBeGreaterThanOrEqual(5 * wide.cardW);
+    expect(sixth.y).toBe(first.y);
+  });
+
+  it('shingles a full row down by a fraction of a card so every title stays visible', () => {
+    const wide = { width: 1200, height: 560, cardW: 100, cardH: 140 };
+    // 1200 - 32 padding = 1168 usable → 10 whole cards of 100 + 8 gap.
+    const lands = Array.from({ length: 10 }, (_, i) => bf(card(`L${i}`, { typeLine: 'Land' })));
+    const first = autoPlace(card('L0', { typeLine: 'Land' }), [], wide);
+    const eleventh = autoPlace(card('L10', { typeLine: 'Land' }), lands, wide);
+    expect(eleventh.x).toBe(first.x); // back to column 0
+    const py = (fy: number) => fy * (wide.height - wide.cardH);
+    const dy = py(eleventh.y) - py(first.y);
+    expect(dy).toBeGreaterThan(0);
+    expect(dy).toBeLessThan(wide.cardH / 2); // never a full card: the row above stays readable
+  });
+
   it('wraps to a sub-row when the row fills past battlefield width', () => {
     const narrow = { width: 360, height: 540 };
     const creatures = Array.from({ length: 12 }, (_, i) =>

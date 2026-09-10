@@ -33,11 +33,13 @@ const CARD_H = 126;
 /** Reasonable defaults if we can't measure the battlefield yet. */
 const FALLBACK_RECT = { width: 800, height: 540, cardW: CARD_W, cardH: CARD_H };
 
-/** Horizontal overlap between cascading siblings — ~30% (more dense, less stack). */
-const X_OVERLAP_FRACTION = 0.3;
+/** Gap between whole cards in a row. */
+const GAP = 8;
 
-/** Vertical offset applied when a row wraps to a sub-row. */
-const SUB_ROW_DY = 22;
+/** Share of a card's height a sub-row steps down by once a row is full: the
+ *  name band and most of the art of the row above stay readable under the
+ *  cards stacked over it — the way a physical table shingles a full row. */
+const SUB_ROW_DY_FRACTION = 0.35;
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
@@ -68,8 +70,8 @@ interface Rect {
  * from hand (tap-to-play) or from a zone viewer ("→ Battlefield"). Drag
  * placements ignore this — only initial placement uses it.
  *
- * Cards cascade horizontally inside their row, wrapping to a sub-row when
- * the row fills past the battlefield width. Returns x/y as 0..1 fractions of
+ * Cards sit side by side inside their type row, wrapping to a shingled
+ * sub-row when the row fills past the battlefield width. Returns x/y as 0..1 fractions of
  * the battlefield box (see `BattlefieldCard.x` in lib/playtest/types.ts) —
  * the packing math below works in the same pixel space `rect` is measured in,
  * then normalizes at the end.
@@ -84,20 +86,25 @@ export function autoPlace(
   const cardW = r.cardW ?? CARD_W;
   const cardH = r.cardH ?? CARD_H;
 
-  const xStep = cardW * (1 - X_OVERLAP_FRACTION);
   const leftPad = 16;
   const rightPad = 16;
   const usableWidth = Math.max(cardW, r.width - leftPad - rightPad);
-  // How many cards fit before we need to wrap. At least 1.
-  const perSubRow = Math.max(1, Math.floor((usableWidth - cardW) / xStep) + 1);
-
   const inRow = battlefield.filter((b) => rowForCard(b.card) === row).length;
-  const subRow = Math.floor(inRow / perSubRow);
-  const col = inRow % perSubRow;
+
+  // Whole cards side by side until the row is full (a real table: lands in
+  // a row, not a shingled stack), then wrap to a sub-row stepped down by a
+  // fraction of a card so every title stays visible. A pure function can't
+  // re-space the cards already placed, so the step is never a function of
+  // how many are in the row — that would land every later card on the same
+  // spot.
+  const wholeFit = Math.max(1, Math.floor((usableWidth + GAP) / (cardW + GAP)));
+  const col = inRow % wholeFit;
+  const subRow = Math.floor(inRow / wholeFit);
+  const xStep = cardW + GAP;
 
   const yCenter = r.height * ROW_Y_FRACTION[row];
   const x = leftPad + col * xStep;
-  const y = yCenter - cardH / 2 + subRow * SUB_ROW_DY;
+  const y = yCenter - cardH / 2 + subRow * cardH * SUB_ROW_DY_FRACTION;
 
   // Keep within bounds so a tall hand placement never drifts off the
   // battlefield's left edge or above the top, then normalize to the fraction

@@ -277,7 +277,7 @@ describe('buildLogEntries', () => {
     ]);
   });
 
-  it('does not log per-card taps, stickers, counters, or repositions', () => {
+  it('does not log per-card taps, stickers, or repositions', () => {
     const s = init(5, 1, 0);
     const withToken = applyAction(s, {
       type: 'CREATE_TOKEN',
@@ -288,14 +288,64 @@ describe('buildLogEntries', () => {
     const cardId = 'tok1';
     for (const action of [
       { type: 'TAP', cardId } as const,
-      { type: 'SET_COUNTER', cardId, counter: '+1/+1', delta: 1 } as const,
       { type: 'ADD_STICKER', cardId, text: 'flying' } as const,
       { type: 'MOVE_BF_POSITION', cardId, x: 1, y: 1 } as const,
-      { type: 'FLIP_FACE', cardId } as const,
     ]) {
       const next = applyAction(withToken, action);
       expect(buildLogEntries(withToken, action, next)).toEqual([]);
     }
+  });
+
+  it('logs permanent counters with the running total (public kind)', () => {
+    const s = init(5, 1, 0);
+    const withToken = applyAction(s, {
+      type: 'CREATE_TOKEN',
+      card: card('tok1', { name: 'Squirrel', isToken: true }),
+      x: 0,
+      y: 0,
+    });
+    const action = { type: 'SET_COUNTER', cardId: 'tok1', counter: '+1/+1', delta: 1 } as const;
+    const next = applyAction(withToken, action);
+    expect(buildLogEntries(withToken, action, next)).toEqual([
+      {
+        turn: 1,
+        kind: 'card-counter',
+        text: 'Squirrel token: +1/+1 counter → 1',
+        cardName: 'Squirrel',
+        verdict: 'free',
+      },
+    ]);
+    // A no-op (removing from zero) logs nothing.
+    const noop = { type: 'SET_COUNTER', cardId: 'tok1', counter: 'charge', delta: -1 } as const;
+    expect(buildLogEntries(withToken, noop, applyAction(withToken, noop))).toEqual([]);
+  });
+
+  it('logs turning face down by name, and turning face up as the reveal', () => {
+    const s = init(5, 1, 0);
+    const withToken = applyAction(s, {
+      type: 'CREATE_TOKEN',
+      card: card('tok1', { name: 'Squirrel', isToken: true }),
+      x: 0,
+      y: 0,
+    });
+    const flip = { type: 'FLIP_FACE', cardId: 'tok1' } as const;
+    const down = applyAction(withToken, flip);
+    expect(buildLogEntries(withToken, flip, down)[0].text).toBe('Squirrel turned face down');
+    const up = applyAction(down, flip);
+    expect(buildLogEntries(down, flip, up)[0].text).toBe(
+      'A face-down card turned face up: Squirrel'
+    );
+  });
+
+  it('never names a card played face down', () => {
+    const s = init(5, 1, 1);
+    const cardId = s.zones.hand[0].id;
+    const action = { type: 'MOVE_TO_BATTLEFIELD', cardId, x: 0, y: 0, faceDown: true } as const;
+    const next = applyAction(s, action);
+    const [entry] = buildLogEntries(s, action, next);
+    expect(entry.text).toBe('A card played face down from hand');
+    expect(entry.cardName).toBeUndefined();
+    expect(entry.text).not.toContain(s.zones.hand[0].name);
   });
 
   describe('life (E138)', () => {

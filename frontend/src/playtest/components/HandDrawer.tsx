@@ -18,7 +18,7 @@ interface Props {
   onOpen(): void;
   onClose(): void;
   onCardClick(cardId: string, index: number): void;
-  onCardPreview?(cardId: string): void;
+  onCardMenu?(cardId: string, x: number, y: number): void;
 }
 
 /**
@@ -28,14 +28,9 @@ interface Props {
  * sheet; the strip stays a drop target so a permanent can still be dragged
  * back to hand while the sheet is closed.
  */
-export function HandDrawer({ cards, open, onOpen, onClose, onCardClick, onCardPreview }: Props) {
+export function HandDrawer({ cards, open, onOpen, onClose, onCardClick, onCardMenu }: Props) {
   return open ? (
-    <HandSheet
-      cards={cards}
-      onClose={onClose}
-      onCardClick={onCardClick}
-      onCardPreview={onCardPreview}
-    />
+    <HandSheet cards={cards} onClose={onClose} onCardClick={onCardClick} onCardMenu={onCardMenu} />
   ) : (
     <HandStrip cards={cards} onOpen={onOpen} />
   );
@@ -72,7 +67,7 @@ function HandStrip({ cards, onOpen }: Pick<Props, 'cards' | 'onOpen'>) {
   );
 }
 
-function HandSheet({ cards, onClose, onCardClick, onCardPreview }: Omit<Props, 'open' | 'onOpen'>) {
+function HandSheet({ cards, onClose, onCardClick, onCardMenu }: Omit<Props, 'open' | 'onOpen'>) {
   const { isClosing, beginClose, onAnimationEnd } = useSheetExit(onClose, 'binder-sheet-slide-out');
   useEscapeKey(beginClose);
   return (
@@ -99,8 +94,7 @@ function HandSheet({ cards, onClose, onCardClick, onCardPreview }: Omit<Props, '
               onCardClick(cardId, index);
               beginClose();
             }}
-            onCardPreview={onCardPreview}
-            longPress
+            onCardMenu={onCardMenu}
           />
         )}
         <div className="card-picker-footer">

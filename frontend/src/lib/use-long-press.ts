@@ -66,9 +66,19 @@ export function useLongPress({ delayMs = 500, onLongPress, onCancelByMove }: Opt
     [cancel, onCancelByMove]
   );
 
-  const onTouchEnd = useCallback(() => {
-    cancel();
-  }, [cancel]);
+  // `e` is optional: use-touch-peek composes this hook and calls it bare.
+  const onTouchEnd = useCallback(
+    (e?: React.TouchEvent) => {
+      cancel();
+      // A long-press that fired opened something (a menu sheet) UNDER the
+      // finger. Lifting it would still synthesize a click — delivered to
+      // whatever now sits at that point, i.e. a random item of the menu the
+      // press just opened. Cancelling the touch's default cancels that click
+      // (React registers touchend non-passively, so this is honoured).
+      if (fired.current && e?.cancelable) e.preventDefault();
+    },
+    [cancel]
+  );
 
   const consumedClick = useCallback(() => {
     if (fired.current) {

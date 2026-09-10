@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { useLockBodyScroll } from '@/lib/use-lock-body-scroll';
-import { useEscapeKey } from '@/lib/use-escape-key';
-import { useSheetExit } from '@/lib/use-sheet-exit';
-import { getSafeViewport } from '@/lib/popover-placement';
+import { useState } from 'react';
 import { usePressRepeat } from '@/lib/use-press-repeat';
 import type { Zone } from '@/lib/playtest';
 import { MOVE_DESTINATIONS, destinationKey } from '../lib/zones';
+import { CtxMenuShell } from './CtxMenuShell';
 
 interface Props {
   x: number;
@@ -25,6 +22,11 @@ interface Props {
   tax?: number;
   /** Only true two-faced cards (transform/MDFC) offer Transform. */
   canTransform?: boolean;
+  /** Current tapped / face-down state — the menu names the action that
+   *  changes it ("Untap", "Turn face up") rather than a "Tap / Untap"
+   *  toggle the player has to resolve against the board. */
+  tapped?: boolean;
+  faceDown?: boolean;
   /** Current phased-out state — purely a "doesn't interact right now"
    *  reminder flag, no rules enforcement. See `BattlefieldCard.phased`. */
   phased?: boolean;
@@ -51,8 +53,6 @@ interface Props {
 
 const COUNTER_KINDS = ['+1/+1', '-1/-1', 'loyalty', 'charge'];
 const MAX_COUNTER_NAME = 20;
-
-const MENU_MARGIN = 8;
 
 /** A ± counter step that repeats while held. Own component because the hook
  *  can't be called inside the `.map` below. */
@@ -84,6 +84,8 @@ export function CardContextMenu({
   onAttach,
   tax,
   canTransform = false,
+  tapped = false,
+  faceDown = false,
   phased = false,
   variant = 'floating',
   onClose,
@@ -100,45 +102,8 @@ export function CardContextMenu({
   selectionSize = 1,
   onMoveTo,
 }: Props) {
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  // Sheet variant's items container — separate from menuRef (the floating
-  // variant's own outer element) since the two render entirely different DOM.
-  const itemsRef = useRef<HTMLDivElement | null>(null);
-  const [clamped, setClamped] = useState<{ left: number; top: number } | null>(null);
   const [stickerText, setStickerText] = useState('');
   const [counterText, setCounterText] = useState('');
-  const { isClosing, beginClose, onAnimationEnd } = useSheetExit(onClose, 'binder-sheet-slide-out');
-
-  useLockBodyScroll();
-  useEscapeKey(variant === 'sheet' ? beginClose : onClose);
-
-  useEffect(() => {
-    if (variant !== 'floating') return;
-    const el = menuRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const safe = getSafeViewport();
-    const vw = safe.right;
-    const vh = safe.bottom;
-    const left = Math.max(MENU_MARGIN, Math.min(x, vw - rect.width - MENU_MARGIN));
-    const top = Math.max(MENU_MARGIN, Math.min(y, vh - rect.height - MENU_MARGIN));
-    setClamped({ left, top });
-  }, [x, y, variant]);
-
-  // Keyboard-opened menus (no right-click, no long-press) land the menu with
-  // nothing focused unless something moves focus into it — a right-click/
-  // long-press open leaves focus wherever it already was, which is fine
-  // there since the pointer is right on top of the menu it just opened.
-  // `visibility: hidden` (floating, pre-clamp) can't receive focus, so this
-  // waits for `clamped` before trying on that variant.
-  useEffect(() => {
-    if (variant === 'floating' && !clamped) return;
-    const container = variant === 'floating' ? menuRef.current : itemsRef.current;
-    const first = container?.querySelector<HTMLElement>(
-      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)'
-    );
-    first?.focus();
-  }, [variant, clamped]);
 
   function submitSticker() {
     const text = stickerText.trim();
@@ -173,10 +138,10 @@ export function CardContextMenu({
         </button>
       )}
       <button type="button" className="playtest-ctx-action" onClick={onTap}>
-        Tap / Untap
+        {tapped ? 'Untap' : 'Tap'}
       </button>
       <button type="button" className="playtest-ctx-action" onClick={onFlip}>
-        Flip face
+        {faceDown ? 'Turn face up' : 'Turn face down'}
       </button>
       <button
         type="button"
@@ -333,55 +298,9 @@ export function CardContextMenu({
     </>
   );
 
-  if (variant === 'sheet') {
-    return (
-      <div className="card-picker-root">
-        {/* The backdrop fully covers the root (both `inset: 0`), so it — not
-            root — is what a "click outside the sheet" actually lands on;
-            role="presentation" since it carries no dim of its own (that
-            comes from the root's `:where()` rule) and no meaning beyond
-            being a dismiss hit area. */}
-        <div className="card-picker-backdrop" role="presentation" onClick={() => beginClose()} />
-        <div
-          className={`card-picker-sheet playtest-ctx-sheet${isClosing ? ' is-closing' : ''}`}
-          role="dialog"
-          aria-modal="true"
-          aria-label={cardName}
-          onAnimationEnd={onAnimationEnd}
-        >
-          <div className="card-picker-handle" aria-hidden />
-          <div className="card-picker-header">
-            <h2 className="card-picker-title">{cardName}</h2>
-          </div>
-          <div className="playtest-ctx-menu" ref={itemsRef}>
-            {items}
-          </div>
-          <div className="card-picker-footer">
-            <button type="button" className="btn" onClick={() => beginClose()}>
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
-      <div className="playtest-ctx__backdrop" role="presentation" onClick={onClose} />
-      <div
-        ref={menuRef}
-        className="playtest-ctx playtest-ctx-menu"
-        style={{
-          left: clamped?.left ?? x,
-          top: clamped?.top ?? y,
-          visibility: clamped ? 'visible' : 'hidden',
-        }}
-        role="menu"
-        aria-label={cardName}
-      >
-        {items}
-      </div>
-    </>
+    <CtxMenuShell x={x} y={y} title={cardName} variant={variant} onClose={onClose}>
+      {items}
+    </CtxMenuShell>
   );
 }

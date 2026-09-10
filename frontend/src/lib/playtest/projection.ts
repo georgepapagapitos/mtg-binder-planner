@@ -69,6 +69,11 @@ const TICKER_KINDS: ReadonlySet<LogEntryKind> = new Set([
   'designation',
   'undo',
   'reset',
+  // Permanents are public: a counter on one, or one turning face up/down
+  // or transforming, is table-visible. (`counter` — PLAYER counters — stays
+  // local; see game-log.ts.)
+  'card-counter',
+  'face',
 ]);
 
 /**

@@ -192,6 +192,8 @@ export function similarityScore(
  * (takes the top-N). Returns null when the staple has no matchable role or no
  * owned candidate clears the gates. The validated weights / sort are untouched.
  */
+const isLandLine = (typeLine?: string): boolean => /\bLand\b/.test(typeLine ?? '');
+
 function rankCandidates(
   missing: GapAnalysisCard,
   ownedPool: readonly SubstituteCandidate[],
@@ -213,6 +215,10 @@ function rankCandidates(
     if (card.name === missing.name) continue; // never substitute a card for itself
     if (deckNames.has(card.name)) continue; // already in the deck
     if (!fitsIdentity(card, identity)) continue; // outside the deck's identity
+    // E282: a land can't stand in for a spell — it lands in the LAND bucket and
+    // the deck ships one land over its tuned count (Branch of Vitu-Ghazi seated
+    // for Dark Ritual, live). Lands substitute only for lands, and vice versa.
+    if (isLandLine(card.typeLine) !== isLandLine(missing.typeLine)) continue;
     if (!cardMatchesRole(card.name, role)) continue; // wrong role
 
     const subtypeMatch = wantedSubtype != null && getCardSubtype(card.name) === wantedSubtype;

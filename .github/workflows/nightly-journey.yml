@@ -48,7 +48,6 @@ jobs:
     env:
       DATABASE_URL: postgres://spellcontrol:spellcontrol@localhost:5432/spellcontrol
       JWT_SECRET: nightly-journey-jwt-secret-not-a-secret
-      NODE_ENV: development
       # Reference-data ingests are hours of network; the journey needs none.
       SCRYFALL_BULK_INGEST_DISABLED: '1'
       COMBOS_INGEST_DISABLED: '1'
@@ -85,9 +84,25 @@ jobs:
       - name: Build the frontend
         run: npm run build --prefix frontend
 
+      # Vite honours a pre-set NODE_ENV during `vite build`: with NODE_ENV=
+      # development in scope, import.meta.env.DEV is true and the bundle bakes
+      # the dev-server proxy paths (/edhrec-api, /scryfall-api) that only Vite
+      # serves — every EDHREC and Scryfall call then 404s against the backend
+      # and the commander picker reads "No commanders found" (first run, E278).
+      # NODE_ENV=development is scoped to the backend step below for that reason.
+      - name: Assert the bundle is a production build
+        run: |
+          if grep -rlE --include='*.js' '/(edhrec|scryfall)-api' frontend/dist; then
+            echo '::error::dev-server proxy paths in the bundle — NODE_ENV leaked into the frontend build'
+            exit 1
+          fi
+
       # server.ts serves backend/public when it exists — the Dockerfile copies
       # frontend/dist there; a symlink is the same thing here.
       - name: Start the backend serving the bundle
+        # development: plain-http localhost needs non-Secure auth cookies (auth.ts).
+        env:
+          NODE_ENV: development
         run: |
           ln -s "$PWD/frontend/dist" backend/public
           (cd backend && nohup ./node_modules/.bin/tsx src/server.ts > ../backend.log 2>&1 &)

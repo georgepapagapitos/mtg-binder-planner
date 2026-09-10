@@ -366,3 +366,41 @@ describe('coarse-pointer touch floor', () => {
     });
   }
 });
+
+describe('segmented-control options carry the coarse floor on the SPAN', () => {
+  // Label-wrapping-a-hidden-radio segmented controls (share ladder, binder
+  // mode toggle, rule editor pills, scry mode): the inner <span> owns the
+  // padding and text. A 44px floor on the LABEL wrapper grows the pill but
+  // leaves the span text-height and top-aligned inside it — the Private /
+  // Public toggle shipped that way on phones (2026-09-10). The floor lives on
+  // the span, and the span centers (same placement as .home-hero-scope-option
+  // and .settings-currency-option).
+  const OPTIONS: Array<[string, string]> = [
+    ['styles/shared.css', '.share-audience-option'],
+    ['styles/binder-card-management.css', '.binder-mode-pill'],
+    ['styles/binder-rules-editor.css', '.rule-segmented-pill'],
+    ['playtest/components/ScrySheet.css', '.playtest-scry-mode'],
+    ['components/home/HomeHero.css', '.home-hero-scope-option'],
+    ['styles/settings-sync.css', '.settings-currency-option'],
+  ];
+
+  for (const [file, option] of OPTIONS) {
+    it(`${option} span reaches 44px on touch and centers its text`, () => {
+      const css = read(file);
+      const span = blocks(css, `${option} span`);
+      expect(span, `no rule for ${option} span in ${file}`).not.toEqual([]);
+      expect(
+        span.some((b) => /min-height:\s*(?:44px|2\.75rem)/.test(b)),
+        `${option} span (${file}) has no coarse 44px floor — put it on the span, not the label`
+      ).toBe(true);
+      expect(
+        span.some((b) => /display:\s*(?:inline-)?flex/.test(b) && /align-items:\s*center/.test(b)),
+        `${option} span (${file}) must be a centering flex box, or the floor top-aligns its text`
+      ).toBe(true);
+      expect(
+        blocks(css, option).some((b) => /min-height:\s*(?:44px|2\.75rem)/.test(b)),
+        `${option} (${file}) carries the floor on the label wrapper — move it to the span`
+      ).toBe(false);
+    });
+  }
+});

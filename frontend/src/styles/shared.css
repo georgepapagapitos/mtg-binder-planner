@@ -791,7 +791,9 @@
 }
 
 .share-audience-option span {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.4rem var(--space-2);
   text-align: center;
 }
@@ -824,9 +826,11 @@
 }
 
 /* Touch floor: the Private/Public ladder rungs are ~32px of padding + text,
-   short of the 44px target (WCAG 2.5.5). */
+   short of the 44px target (WCAG 2.5.5). On the SPAN, not the label: the span
+   owns the padding and centers its text, so a floor on the label wrapper left
+   the label text sitting at the top of a 44px pill (2026-09-10). */
 @media (pointer: coarse) {
-  .share-audience-option {
+  .share-audience-option span {
     min-height: 44px;
   }
 }

@@ -167,6 +167,23 @@
   padding: 1px var(--space-1);
 }
 
+/* "(N new)" — arrivals in this seat's public zones since the viewer last
+   opened their board (use-unseen-changes.ts). Accent-tinted, not the solid
+   turn chip: it is a nudge to look, not a state of the table. Never hidden
+   in presence density — a change you missed is exactly what a crowded strip
+   must still tell you. */
+.opponent-entry__new {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 0.5px solid var(--accent);
+  border-radius: 999px;
+  padding: 1px var(--space-2);
+  white-space: nowrap;
+}
+
 .opponent-entry__life {
   flex: 0 0 auto;
   font-size: var(--text-base);

@@ -9,6 +9,27 @@ export function isPlaytestLand(typeLine?: string): boolean {
   return (typeLine ?? '').toLowerCase().includes('land');
 }
 
+/**
+ * True for the permanents that attach to something by rule — an Aura,
+ * Equipment or Fortification. Drag-to-attach is gated on this so that
+ * dropping an ordinary creature onto a neighbour (a nudge in a full row)
+ * can never attach it by accident; anything else still attaches through
+ * the card menu's "Attach to…" picker.
+ */
+export function isPlaytestAttachment(typeLine?: string): boolean {
+  return /\b(aura|equipment|fortification)\b/i.test(typeLine ?? '');
+}
+
+/** The droppable id a battlefield permanent registers as a potential host. */
+export function hostDroppableId(cardId: string): string {
+  return `host:${cardId}`;
+}
+
+/** Inverse of `hostDroppableId`; null for any other droppable. */
+export function hostFromDroppableId(id: string | null | undefined): string | null {
+  return id && id.startsWith('host:') ? id.slice(5) : null;
+}
+
 export interface MoveDestination {
   key: Zone;
   label: string;

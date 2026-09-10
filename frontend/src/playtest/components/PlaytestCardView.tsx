@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { useDraggable } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { hostDroppableId } from '../lib/zones';
 import type { BattlefieldCard, PlaytestCard } from '@/lib/playtest';
 import { useLongPress } from '@/lib/use-long-press';
 import { PlaytestCardFace } from './PlaytestCardFace';
@@ -42,6 +43,12 @@ export const PlaytestCardView = memo(function PlaytestCardView({
     id: draggableId,
     data: { cardId: card.id },
   });
+  // A battlefield permanent is also a drop target for an Aura / Equipment
+  // dragged onto it (drag-to-attach). PlaytestBoard's collision detection
+  // only ever reports a host while an attachment is being dragged, so this
+  // is inert for every other drag. Disabled off the battlefield (hand cards
+  // aren't hosts) — the hook must still be called unconditionally.
+  const host = useDroppable({ id: hostDroppableId(card.id), disabled: !positioned });
 
   const longPress = useLongPress({
     onLongPress: (x, y) => onLongPress?.(card.id, x, y),
@@ -82,14 +89,21 @@ export const PlaytestCardView = memo(function PlaytestCardView({
 
   return (
     <PlaytestCardFace
-      ref={setNodeRef}
+      ref={(el) => {
+        setNodeRef(el);
+        host.setNodeRef(el);
+      }}
       card={card}
       bf={bf}
       size={size}
       style={style}
       {...attributes}
       {...listeners}
-      className={selected ? 'playtest-card--selected' : undefined}
+      className={
+        [selected && 'playtest-card--selected', host.isOver && 'is-attach-target']
+          .filter(Boolean)
+          .join(' ') || undefined
+      }
       onClick={activate}
       onKeyDown={(e) => {
         // Keyboard route to the context menu (counters/stickers/move/attach) —

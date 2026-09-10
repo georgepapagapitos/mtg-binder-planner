@@ -168,6 +168,7 @@ export function WelcomePage() {
             <a href="/guides/">Import guides</a>
             <a href="/guides/compare.html">Compare</a>
             <a href="/privacy.html">Privacy</a>
+            <a href="/terms.html">Terms</a>
           </nav>
           <p className="welcome-disclaimer">
             SpellControl is unofficial Fan Content permitted under the Wizards of the Coast Fan

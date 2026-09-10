@@ -635,8 +635,13 @@ function nextOpenSeat(state: GameState, max: number): number {
  * a swept game would sit on screen looking live forever. `broadcastGameDeleted`
  * is the same teardown host-leave already uses, so this also evicts the
  * code's `boards` entry (see the comment above the `boards` map).
+ *
+ * Exported so the daily retention sweep (`retention.ts`) reuses this instead
+ * of duplicating the 24h game_sessions cleanup — this inline call on session
+ * create stays as-is; retention.ts is the backstop for sessions created and
+ * then abandoned with no further /api/games POST to trigger a sweep.
  */
-async function sweepStale(): Promise<void> {
+export async function sweepStale(): Promise<number> {
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   const db = getDb();
   const deleted = await db
@@ -644,6 +649,7 @@ async function sweepStale(): Promise<void> {
     .where(lt(gameSessions.updatedAt, cutoff))
     .returning({ code: gameSessions.code });
   for (const { code } of deleted) broadcastGameDeleted(code);
+  return deleted.length;
 }
 
 /** POST /api/games — create a new session (host). */

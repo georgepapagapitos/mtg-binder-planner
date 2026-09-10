@@ -16,6 +16,7 @@ export const STATIC_URLS: ReadonlyArray<{ path: string; priority: number }> = [
   { path: '/guides/import-mtga.html', priority: 0.5 },
   { path: '/guides/import-csv.html', priority: 0.5 },
   { path: '/privacy.html', priority: 0.3 },
+  { path: '/terms.html', priority: 0.3 },
 ];
 
 export interface SitemapEntry {

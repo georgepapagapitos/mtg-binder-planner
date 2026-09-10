@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { attachRequestId, unhandledErrorHandler } from './request-context';
 import { scheduleHeartbeat } from './heartbeat';
 import { precompressed } from './precompressed';
 import cookieParser from 'cookie-parser';
@@ -56,6 +57,7 @@ import { aiRouter } from './routes/ai';
 import { getMatcher } from './scanner/matcher';
 import { lastSuccessfulIngestAt, runScheduledIngest } from './combos/ingest';
 import { scheduleRulesIngest } from './rules/ingest';
+import { scheduleRetentionSweep } from './retention';
 import { lastSuccessfulRollupAt, runScheduledRollup } from './aggregates/rollup';
 import {
   resolveCards,
@@ -241,6 +243,7 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 app.use(cookieParser());
+app.use(attachRequestId);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (!req.path.startsWith('/api/')) return next();
@@ -249,8 +252,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     const len = res.getHeader('content-length');
     // Strip query string — OAuth callback URLs contain the auth code.
     const url = req.originalUrl.split('?')[0];
+    // req.user is populated by requireAuth/optionalAuth inside the route
+    // handler, which runs before 'finish' fires — read it here, not above.
+    const user = req.user ? ` user=${req.user.id}` : '';
     logger.info(
-      `[req] ${req.method} ${url} ${res.statusCode} ${Date.now() - start}ms${len ? ` ${len}b` : ''}`
+      `[req] ${req.method} ${url} ${res.statusCode} ${Date.now() - start}ms${len ? ` ${len}b` : ''} req=${res.locals.requestId}${user}`
     );
   });
   next();
@@ -1228,14 +1234,7 @@ if (existsSync(SPA_DIR)) {
   });
 }
 
-app.use((err: Error, _req: Request, res: Response, _next: unknown) => {
-  if ((err as NodeJS.ErrnoException & { code?: string }).code === 'LIMIT_FILE_SIZE') {
-    res.status(413).json({ error: 'File is too large. Maximum size is 20 MB.' });
-    return;
-  }
-  logger.error('[server] unhandled error:', err);
-  res.status(500).json({ error: 'Something went wrong on the server. Try again in a moment.' });
-});
+app.use(unhandledErrorHandler);
 
 /**
  * Kicks off the combo dataset refresh. Skips when a successful run finished
@@ -1428,6 +1427,10 @@ async function start() {
     // Comprehensive Rules for the AI rules Q&A (E261) — ~1MB text, quarterly
     // updates, skipped entirely when the published URL hasn't moved.
     afterBoot('rules ingest', 45_000, scheduleRulesIngest);
+  }
+
+  if (process.env.RETENTION_DISABLED !== '1') {
+    afterBoot('retention sweep', 75_000, scheduleRetentionSweep);
   }
 
   // Passive uptime monitor (E266): only armed when the ping URL secret is set.

@@ -656,6 +656,29 @@ const CASES: Case[] = [
     },
   },
   {
+    // E281: "owned cards don't count" must reach the final budget note, not
+    // only the pick-time gate and the converge phase — a deck built entirely
+    // from the collection costs $0 to buy whatever its sticker price, so a
+    // $1 budget must not be reported as blown. Failed before the fix: the
+    // note summed every card's sticker price.
+    name: 'ignoreOwnedBudget: the budget note sums only cards you would buy',
+    ctx: (ctx) => {
+      ctx.customization = {
+        ...ctx.customization,
+        collectionMode: true,
+        collectionStrategy: 'full',
+        deckBudget: 1,
+        ignoreOwnedBudget: true,
+      };
+      ctx.collectionNames = new Set(
+        [...POOL.cardlists.allNonLand, ...POOL.cardlists.lands].map((c) => c.name)
+      );
+    },
+    extra: (deck) => {
+      expect(deck.budgetNote ?? '').not.toContain('over your');
+    },
+  },
+  {
     name: 'mtgFormat paupercommander',
     ctx: (ctx) => {
       ctx.customization = { ...ctx.customization, mtgFormat: 'paupercommander' };

@@ -29,6 +29,8 @@ import { TakebackPendingBanner } from './TakebackPendingBanner';
 import { TakebackConsentPrompt } from './TakebackConsentPrompt';
 import { toast } from '@/store/toasts';
 import { autoPlace } from '../lib/auto-place';
+import { makePlaytestCollision } from '../lib/attach-drop';
+import { hostFromDroppableId } from '../lib/zones';
 import { haptics } from '@/lib/haptics';
 import { Battlefield } from './Battlefield';
 import { Hand } from './Hand';
@@ -101,6 +103,7 @@ const PLAYTEST_SHORTCUTS = [
   { keys: ['Z'], description: 'Take back' },
   { keys: ['Ctrl/⌘+C'], description: 'Copy selected cards' },
   { keys: ['Ctrl/⌘+V'], description: 'Paste copied cards' },
+  { keys: ['T'], description: 'Tap / untap the selected cards' },
   { keys: ['Esc'], description: 'Clear selection' },
   { keys: ['Shift+Enter'], description: 'Open the focused card’s menu' },
 ];
@@ -225,6 +228,18 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
     return null;
   }, [activeId, state.battlefield, state.zones.hand]);
 
+  // Any card the pointer could be dragging — battlefield or hand — by id,
+  // so the collision function can tell an Aura from a creature.
+  const collisionDetection = useMemo(
+    () =>
+      makePlaytestCollision(
+        (id) =>
+          state.battlefield.find((b) => b.card.id === id)?.card ??
+          state.zones.hand.find((c) => c.id === id)
+      ),
+    [state.battlefield, state.zones.hand]
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor)
@@ -239,6 +254,20 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
     const parsed = parseDraggable(String(event.active.id));
     if (!parsed) return;
     const overId = event.over?.id ? String(event.over.id) : null;
+
+    const hostId = hostFromDroppableId(overId);
+    if (hostId) {
+      // Drag-to-attach (Aura / Equipment / Fortification — see attach-drop.ts).
+      // From hand: cast it straight onto the creature — enter the battlefield,
+      // then attach; the reducer snaps it to the host.
+      if (parsed.source === 'hand') {
+        setHandOpen(false);
+        dispatch({ type: 'MOVE_TO_BATTLEFIELD', cardId: parsed.cardId, ...FALLBACK_DROP_POS });
+      }
+      dispatch({ type: 'ATTACH', cardId: parsed.cardId, targetId: hostId });
+      haptics.tap();
+      return;
+    }
 
     if (parsed.source === 'bf') {
       if (overId === 'battlefield' || overId === null) {
@@ -323,6 +352,29 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
   const clearSelection = useCallback(
     () => setSelected((prev) => (prev.size === 0 ? prev : new Set())),
     []
+  );
+
+  // Batch actions over the selection (Archidekt/Moxfield `T` parity). Each
+  // card is its own reducer step — the takeback trail counts them, which is
+  // honest: a "tap all" of five creatures is five taps at the table too.
+  const selectedCards = state.battlefield.filter((b) => selected.has(b.card.id));
+  const anySelectedUntapped = selectedCards.some((b) => !b.tapped);
+  const tapSelection = useCallback(() => {
+    const cards = state.battlefield.filter((b) => selected.has(b.card.id));
+    if (cards.length === 0) return;
+    // Any untapped → tap them all (attacking / paying); all tapped → untap all.
+    const tapped = cards.some((b) => !b.tapped);
+    for (const b of cards)
+      if (b.tapped !== tapped) dispatch({ type: 'TAP', cardId: b.card.id, tapped });
+    haptics.tap();
+  }, [dispatch, selected, state.battlefield]);
+  const moveSelection = useCallback(
+    (to: Zone) => {
+      for (const id of selected) dispatch({ type: 'MOVE_TO_ZONE', cardId: id, to });
+      setSelected(new Set());
+      haptics.tap();
+    },
+    [dispatch, selected]
   );
 
   /**
@@ -602,6 +654,11 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
         handleTakebackClick();
         return;
       }
+      if (key === 't' && selected.size > 0) {
+        e.preventDefault();
+        tapSelection();
+        return;
+      }
       if (key === 'd') {
         if (state.zones.library.length === 0) return;
         e.preventDefault();
@@ -625,6 +682,7 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
     clipboard,
     cloneCards,
     clearSelection,
+    tapSelection,
   ]);
 
   return (
@@ -800,6 +858,7 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
       )}
       <DndContext
         sensors={sensors}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
@@ -832,6 +891,18 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
                   {selected.size} selected
                   {clipboard.length > 0 && ` · ${clipboard.length} copied`}
                 </span>
+                <button type="button" onClick={tapSelection}>
+                  {anySelectedUntapped ? 'Tap' : 'Untap'} <kbd>T</kbd>
+                </button>
+                <button type="button" onClick={() => moveSelection('graveyard')}>
+                  Graveyard
+                </button>
+                <button type="button" onClick={() => moveSelection('exile')}>
+                  Exile
+                </button>
+                <button type="button" onClick={() => moveSelection('hand')}>
+                  Hand
+                </button>
                 <button type="button" onClick={() => setClipboard([...selected])}>
                   Copy <kbd>Ctrl/⌘C</kbd>
                 </button>

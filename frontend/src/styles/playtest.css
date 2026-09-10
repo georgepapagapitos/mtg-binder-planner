@@ -940,6 +940,8 @@ body:has(.playtest-page) {
   z-index: 5;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: var(--space-2);
   max-width: calc(100% - 2 * var(--space-3));
@@ -1099,6 +1101,15 @@ body:has(.playtest-page) {
 
 .playtest-card--tapped {
   /* tap rotation applied via inline transform */
+}
+
+/* The host an Aura / Equipment is about to be dropped on (drag-to-attach):
+   the same gold as the attached ring, so the relation reads the same before
+   and after the drop. */
+.playtest-card.is-attach-target {
+  box-shadow:
+    0 0 0 3px var(--mtg-counter-gold),
+    0 0 14px var(--mtg-counter-gold);
 }
 
 /* An attached permanent is tucked under its host by the reducer's position

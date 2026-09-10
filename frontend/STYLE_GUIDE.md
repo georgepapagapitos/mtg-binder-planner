@@ -1680,6 +1680,26 @@ Untap):
   release click can't land on the sheet's items (`useLongPress`). Permanent
   counters, face flips and transforms are logged (`card-counter` / `face`
   kinds, public on the ticker); a face-down play is logged without the name.
+- **Drag-to-attach is gated by type, never by geometry.** Every battlefield
+  permanent is a host droppable, but `attach-drop.ts`'s collision detection
+  reports a host only while the dragged card is an Aura / Equipment /
+  Fortification (`isPlaytestAttachment`), and the host under the POINTER wins
+  over the battlefield; any other drag never sees a host, so a permanent
+  nudged over a neighbour in a full row is a reposition, not an attachment.
+  The host lights with the same gold as the attached ring. An attachment
+  dragged straight from hand enters the battlefield and attaches in one
+  gesture (cast an Aura onto a creature). Anything else still attaches
+  through the card menu's picker.
+- **A selection acts as one.** The selection pill offers Tap / Untap (`T`:
+  any untapped → tap all, else untap all), Graveyard, Exile and Hand
+  alongside Copy / Paste / Clear. Each card is its own reducer step — the
+  takeback trail counts them honestly.
+- **Opponent entries badge unseen changes.** `use-unseen-changes.ts` counts
+  arrivals in a seat's public zones since the viewer last opened that board
+  ("2 new", in the entry's accessible name too); opening the inspector clears
+  it and keeps it at zero while open; a pending seat's first board seeds the
+  baseline. It is never hidden in presence density — a change you missed is
+  exactly what a crowded strip must still tell you.
 - **Life and mana share one row** (`.playtest-trackers`) wherever both fit —
   two bordered chrome rows above the board were 45px of battlefield at every
   tier; below 1024px they wrap to two rows again.

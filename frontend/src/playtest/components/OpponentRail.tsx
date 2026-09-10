@@ -5,6 +5,7 @@ import { paletteForIndex } from '@/lib/seat-palette';
 import type { PublicBattlefieldCard, PublicBoard } from '@/lib/playtest/projection';
 import { DESIGNATIONS } from '../lib/designations';
 import { useNewCardIds } from '../hooks/use-new-card-ids';
+import { useUnseenChanges } from '../hooks/use-unseen-changes';
 import { useMediaQuery } from '../hooks/use-media-query';
 import { useTablePointer } from '../hooks/use-table-pointer';
 import { OpponentBoardModal } from './OpponentBoardModal';
@@ -128,6 +129,7 @@ export function OpponentRail({ opponents, activeSeat, children }: OpponentRailPr
             active={opp.board.seat === activeSeat}
             sweeping={opp.board.seat === sweepSeat}
             pointed={opp.board.seat === pointer?.targetSeat}
+            watching={opp.board.seat === inspecting}
             onOpen={() => setInspecting(opp.board.seat)}
           />
         ))}
@@ -150,6 +152,7 @@ function OpponentEntry({
   active,
   sweeping,
   pointed,
+  watching,
   onOpen,
 }: {
   opp: OpponentSeat;
@@ -158,12 +161,28 @@ function OpponentEntry({
   sweeping: boolean;
   /** Somebody at the table is currently pointing at this seat's board. */
   pointed: boolean;
+  /** This seat's full-board inspector is open — every arrival is being seen. */
+  watching: boolean;
   onOpen: () => void;
 }) {
   const { name, board, pending } = opp;
   const palette = paletteForIndex(board.seat);
   const held = DESIGNATIONS.filter((d) => board[d.key]);
   const permanentCount = board.battlefield.length;
+  // "(N new)" since this viewer last opened the board: arrivals in any
+  // public zone — a permanent entering, a spell hitting the graveyard, an
+  // exile — so a wipe or a big turn taken while you were looking at your own
+  // board is flagged without having to diff the tiles by eye.
+  // A pending seat (no board published yet) counts as "being looked at":
+  // its placeholder board is empty, so the first real board would otherwise
+  // read as N arrivals. Seeding through the pending state makes that first
+  // board the baseline instead.
+  const unseen = useUnseenChanges(
+    [board.battlefield, board.graveyard, board.exile, board.command].flatMap((zone) =>
+      zone.map((c) => ('card' in c ? c.card.id : c.id))
+    ),
+    watching || Boolean(pending)
+  );
 
   // Screen readers get the full picture regardless of density — the visual
   // trim in presence mode is a space constraint, not an information one.
@@ -182,6 +201,7 @@ function OpponentEntry({
     // has to be told it is lit. TableSignals separately ANNOUNCES the point
     // as it arrives; this is what the entry still says on arrival there.
     pointed && 'being pointed at',
+    unseen > 0 && `${unseen} change${unseen === 1 ? '' : 's'} since you last looked`,
   ]
     .filter(Boolean)
     .join(', ');
@@ -220,6 +240,11 @@ function OpponentEntry({
           {active && (
             <span className="opponent-entry__turn-chip" aria-hidden="true">
               Turn
+            </span>
+          )}
+          {unseen > 0 && (
+            <span className="opponent-entry__new" aria-hidden="true">
+              {unseen} new
             </span>
           )}
           <span className="opponent-entry__life" aria-hidden="true">

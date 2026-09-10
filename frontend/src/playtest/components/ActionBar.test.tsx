@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ActionBar } from './ActionBar';
+import { ActionBar, type OnlineBarProps } from './ActionBar';
 
 function baseProps() {
   return {
@@ -93,5 +93,79 @@ describe('ActionBar — back button (B6-04)', () => {
       expect(screen.getByRole('button', { name: 'Draw' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Next turn' })).toBeTruthy();
     });
+
+    it('never folds Scry / Create token — they stay inline even when the bar folds', () => {
+      viewport(1440);
+      render(<ActionBar {...baseProps()} />);
+      expect(screen.getByRole('button', { name: 'Scry' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Create token' })).toBeTruthy();
+    });
+  });
+});
+
+describe('ActionBar — online table controls', () => {
+  function onlineProps(overrides: Partial<OnlineBarProps> = {}): OnlineBarProps {
+    return {
+      phase: undefined,
+      activeSeat: 0,
+      mySeat: 0,
+      activeName: 'Me',
+      dispatch: vi.fn(),
+      onPassTurn: vi.fn(),
+      ...overrides,
+    };
+  }
+
+  it('shows neither the phase clock nor pass turn in solo play', () => {
+    render(<ActionBar {...baseProps()} />);
+    expect(screen.queryByRole('button', { name: 'Pass turn' })).toBeNull();
+    expect(screen.queryByText('Start the phase clock')).toBeNull();
+  });
+
+  it('shows a primary Pass turn button when it is my turn, wired to onPassTurn', () => {
+    const online = onlineProps({ activeSeat: 0, mySeat: 0 });
+    render(<ActionBar {...baseProps()} online={online} />);
+    const btn = screen.getByRole('button', { name: 'Pass turn' });
+    fireEvent.click(btn);
+    expect(online.onPassTurn).toHaveBeenCalledOnce();
+  });
+
+  it('shows Pass turn for everyone when nobody has the turn yet (activeSeat null)', () => {
+    const online = onlineProps({ activeSeat: null, mySeat: 1 });
+    render(<ActionBar {...baseProps()} online={online} />);
+    expect(screen.getByRole('button', { name: 'Pass turn' })).toBeTruthy();
+  });
+
+  it("shows a non-interactive '{name}'s turn' chip on another seat's turn", () => {
+    const online = onlineProps({ activeSeat: 2, mySeat: 0, activeName: 'Maya' });
+    render(<ActionBar {...baseProps()} online={online} />);
+    expect(screen.queryByRole('button', { name: 'Pass turn' })).toBeNull();
+    expect(screen.getByText("Maya's turn")).toBeTruthy();
+  });
+
+  it('demotes local Next turn to a secondary action with an online-specific title', () => {
+    const online = onlineProps();
+    render(<ActionBar {...baseProps()} online={online} />);
+    const btn = screen.getByRole('button', { name: 'Next turn' });
+    expect(btn.title).toBe('Untap all and draw for your new turn');
+    expect(btn.className).not.toContain('playtest-actionbar__primary');
+  });
+
+  it('shows "Start the phase clock" only for the active seat when no phase is running', () => {
+    const online = onlineProps({ phase: undefined, activeSeat: 0, mySeat: 0 });
+    render(<ActionBar {...baseProps()} online={online} />);
+    const startBtn = screen.getByRole('button', { name: 'Start the phase clock' });
+    fireEvent.click(startBtn);
+    expect(online.dispatch).toHaveBeenCalledWith({
+      type: 'phase',
+      phase: 'beginning',
+      actorSeat: 0,
+    });
+  });
+
+  it('does not offer to start the phase clock from a non-active seat', () => {
+    const online = onlineProps({ phase: undefined, activeSeat: 1, mySeat: 0 });
+    render(<ActionBar {...baseProps()} online={online} />);
+    expect(screen.queryByText('Start the phase clock')).toBeNull();
   });
 });

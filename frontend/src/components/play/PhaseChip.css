@@ -1,0 +1,65 @@
+/* PhaseChip — advisory turn-structure clock (T101). Shared by OnlineGameView
+   (/play) and the playtest board's ActionBar (seated online), so its own
+   styles live here rather than in OnlineGameView.css — self-contained means
+   correct wherever the component renders. */
+
+.ogv-phase-start {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.ogv-phase-start:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ogv-phase-start:hover {
+    color: var(--text-secondary);
+    border-color: var(--accent);
+  }
+}
+
+/* Non-actionable by default (a pill label, like `.ogv-turn` beside it); the
+   tappable variant below overrides to a rect — the shape follows the role,
+   per STYLE_GUIDE's "rectangles act, pills label". */
+.ogv-phase-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-strong);
+  border-radius: 999px;
+}
+
+button.ogv-phase-chip--tappable {
+  color: var(--text-primary);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+button.ogv-phase-chip--tappable:not(:disabled):active {
+  background: var(--accent-light);
+}
+
+button.ogv-phase-chip--tappable:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+button.ogv-phase-chip--tappable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

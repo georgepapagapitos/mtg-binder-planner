@@ -72,63 +72,8 @@
   padding: 0 var(--space-3);
 }
 
-/* ── Phase clock (T101) ─────────────────────────────────────────────────── */
-
-.ogv-phase-start {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0 var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.ogv-phase-start:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .ogv-phase-start:hover {
-    color: var(--text-secondary);
-    border-color: var(--accent);
-  }
-}
-
-/* Non-actionable by default (a pill label, like `.ogv-turn` beside it); the
-   tappable variant below overrides to a rect — the shape follows the role,
-   per STYLE_GUIDE's "rectangles act, pills label". */
-.ogv-phase-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0 var(--space-3);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--surface-raised);
-  border: 0.5px solid var(--border-strong);
-  border-radius: 999px;
-}
-
-button.ogv-phase-chip--tappable {
-  color: var(--text-primary);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-button.ogv-phase-chip--tappable:not(:disabled):active {
-  background: var(--accent-light);
-}
-
-button.ogv-phase-chip--tappable:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
+/* Phase clock (T101) — PhaseChip.tsx owns its own CSS (PhaseChip.css), since
+   it's now shared with the playtest board's ActionBar. */
 
 /* ── Opponent tiles ─────────────────────────────────────────────────────── */
 
@@ -847,11 +792,6 @@ button.ogv-phase-chip--tappable:disabled {
   .ogv-life--primary .ogv-life-num {
     font-size: var(--text-2xl);
   }
-}
-
-button.ogv-phase-chip--tappable:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .ogv-hold-release:focus-visible {

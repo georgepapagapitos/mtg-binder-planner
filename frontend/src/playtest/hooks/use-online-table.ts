@@ -1,9 +1,12 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { usePlayStore } from '@/store/play';
 import { useAuth } from '@/store/auth';
 import { publishBoard } from '@/lib/games-board';
 import { toPublicBoard, toPublicTicker, type PublicBoard } from '@/lib/playtest/projection';
 import type { PlaytestState } from '@/lib/playtest';
+import { capture } from '@/lib/undo-stack';
+import { toast } from '@/store/toasts';
+import type { GameAction, GameDesignations, GamePhase, GamePlayer } from '@/lib/game-state';
 import { usePlaytestStore } from '../store';
 import type { OpponentSeat } from '../components/OpponentRail';
 
@@ -17,6 +20,25 @@ export interface OnlineTable {
    *  one). Consumed by the takeback cross-seat request channel to key
    *  `onlineRequests` (see store/play.ts), which is keyed by requester seat. */
   mySeat: number;
+  /** This device's own row in the table's authoritative `GameState` —
+   *  `me.life` is the REAL total; the local playtest `state.life` is a
+   *  separate (fake, while seated) counter — see LifeStrip's online mode. */
+  me: GamePlayer;
+  /** Every seated player, in seat order (own seat included). */
+  players: GamePlayer[];
+  /** Advisory phase clock — absent means the clock hasn't been started. */
+  phase: GamePhase | undefined;
+  poisonEnabled: boolean;
+  commanderDamageEnabled: boolean;
+  /** Table-level Monarch/Initiative holders (seat numbers or null) — the
+   *  authoritative source LifeStrip badges off in online mode, since a
+   *  holder claimed from `/play` must show here too, not just designations
+   *  claimed through this device's own DesignationsPicker. */
+  designations: GameDesignations;
+  /** Mirrors `OnlineGameView`'s `dispatchTracked`: snapshots the pre-action
+   *  table state for undo (`capture` no-ops for anything `isUndoable`
+   *  doesn't cover, e.g. `phase`/`pass-turn`), then dispatches to the server. */
+  dispatch(action: GameAction): void;
 }
 
 /** A seated player who hasn't published a board yet this session (just
@@ -100,11 +122,35 @@ export function useOnlineTable(state: PlaytestState): OnlineTable | null {
   // two destinations.
   const gameLog = usePlaytestStore((s) => s.gameLog);
   useEffect(() => {
-    if (code == null || mySeat == null) return;
+    if (code == null || mySeat == null || !mine) return;
     const ticker = toPublicTicker(gameLog);
-    publishBoard(code, { ...toPublicBoard(state, mySeat), ticker });
+    // Override the projection's local `life` with the table's authoritative
+    // total for this seat — `toPublicBoard` only knows the local playtest
+    // state, which is a second, disconnected life counter while seated (see
+    // the OnlineTable.me doc comment).
+    publishBoard(code, { ...toPublicBoard(state, mySeat), life: mine.life, ticker });
     usePlayStore.getState().ingestTicker(mySeat, ticker);
-  }, [code, mySeat, state, gameLog]);
+  }, [code, mySeat, mine, state, gameLog]);
+
+  const dispatchOnline = usePlayStore((s) => s.dispatchOnline);
+  const dispatch = useCallback(
+    (action: GameAction) => {
+      if (!online) return;
+      capture(online.id, online, action);
+      void dispatchOnline(action);
+    },
+    [online, dispatchOnline]
+  );
+
+  // Surface a server-rejected own-seat mutation (403 own-seat, 409 version
+  // conflict) the same way OnlineGameView does inline — nothing else renders
+  // `onlineError` on the playtest route, so without this a rejected life/
+  // cmd-dmg/pass-turn tap here would silently fail. Edge-triggered so a
+  // resolved-to-null error never fires a stale toast on mount.
+  const onlineError = usePlayStore((s) => s.onlineError);
+  useEffect(() => {
+    if (mySeat != null && onlineError) toast.show({ message: onlineError, tone: 'error' });
+  }, [mySeat, onlineError]);
 
   return useMemo(() => {
     if (!online || !mine) return null;
@@ -112,10 +158,25 @@ export function useOnlineTable(state: PlaytestState): OnlineTable | null {
       .filter((p) => p.seat !== mine.seat)
       .map((p) => {
         const board = onlineBoards[p.seat];
+        // Same authoritative-life override as the publish effect above, for
+        // every opponent: their rail chip must read the table's real life
+        // even if their own device never opens the strip.
         return board
-          ? { name: p.name, board }
+          ? { name: p.name, board: { ...board, life: p.life } }
           : { name: p.name, board: pendingBoard(p.seat, p.life), pending: true };
       });
-    return { activeSeat: online.activeSeat, opponents, mySeat: mine.seat };
-  }, [online, mine, onlineBoards]);
+    const players = [...online.players].sort((a, b) => a.seat - b.seat);
+    return {
+      activeSeat: online.activeSeat,
+      opponents,
+      mySeat: mine.seat,
+      me: mine,
+      players,
+      phase: online.phase,
+      poisonEnabled: online.poisonEnabled,
+      commanderDamageEnabled: online.commanderDamageEnabled,
+      designations: online.designations,
+      dispatch,
+    };
+  }, [online, mine, onlineBoards, dispatch]);
 }

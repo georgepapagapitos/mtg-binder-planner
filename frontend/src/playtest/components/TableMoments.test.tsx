@@ -64,7 +64,20 @@ function onlineGame(overrides: Partial<GameState> = {}): GameState {
 }
 
 function table(overrides: Partial<OnlineTable> = {}): OnlineTable {
-  return { activeSeat: null, opponents: [], mySeat: 0, ...overrides };
+  const me = makePlayer({ id: 'me-id', userId: 'me-id', seat: 0, name: 'Me', startingLife: 40 });
+  return {
+    activeSeat: null,
+    opponents: [],
+    mySeat: 0,
+    me,
+    players: [me],
+    phase: undefined,
+    poisonEnabled: false,
+    commanderDamageEnabled: false,
+    designations: { monarch: null, initiative: null },
+    dispatch: () => {},
+    ...overrides,
+  };
 }
 
 beforeEach(() => {

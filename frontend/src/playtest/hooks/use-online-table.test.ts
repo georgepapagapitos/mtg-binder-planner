@@ -8,6 +8,7 @@ import { usePlayStore } from '@/store/play';
 import { usePlaytestStore } from '../store';
 import { useAuth } from '@/store/auth';
 import { applyAction, createGameState, makePlayer, type GameState } from '@/lib/game-state';
+import { toast } from '@/store/toasts';
 
 vi.mock('@/lib/games-board', () => ({ publishBoard: vi.fn(), cancelBoardPublish: vi.fn() }));
 import { publishBoard } from '@/lib/games-board';
@@ -136,7 +137,11 @@ describe('useOnlineTable', () => {
 
     const rival = result.current!.opponents.find((o) => o.board.seat === 1)!;
     expect(rival.pending).toBeFalsy();
-    expect(rival.board).toBe(publishedBoard);
+    // The published board's own `life` (from ITS local playtest state, 20 —
+    // createPlaytestState's default) is overridden by the table's real life
+    // for that seat (40, from `makePlayer`'s `startingLife` above) — every
+    // other field passes through unchanged.
+    expect(rival.board).toEqual({ ...publishedBoard, life: 40 });
 
     const third = result.current!.opponents.find((o) => o.board.seat === 2)!;
     expect(third.pending).toBe(true);
@@ -152,10 +157,29 @@ describe('useOnlineTable', () => {
     const s1 = state();
     renderHook(({ st }) => useOnlineTable(st), { initialProps: { st: s1 } });
 
+    // life: 40 (my table life, from `onlineGame`'s makePlayer) overrides the
+    // projection's local `s1.life` (20, createPlaytestState's default) — the
+    // whole point of the fix: the published board is never the local, fake
+    // life total while seated.
     expect(mockPublish).toHaveBeenCalledExactlyOnceWith('ABCD', {
       ...toPublicBoard(s1, 0),
+      life: 40,
       ticker: [],
     });
+  });
+
+  it('publishes the table life, not the local playtest life, even when they diverge', () => {
+    usePlayStore.setState({
+      online: onlineGame({
+        players: onlineGame().players.map((p) => (p.seat === 0 ? { ...p, life: 25 } : p)),
+      }),
+      onlineBoards: {},
+    });
+    signIn('me-id');
+    renderHook(() => useOnlineTable(state({ life: 99 })));
+
+    const payload = mockPublish.mock.calls[0][1];
+    expect(payload.life).toBe(25);
   });
 
   it('re-publishes on a subsequent local board change, and never leaks hand/library contents', () => {
@@ -179,6 +203,7 @@ describe('useOnlineTable', () => {
     expect(mockPublish).toHaveBeenCalledTimes(2);
     expect(mockPublish).toHaveBeenLastCalledWith('ABCD', {
       ...toPublicBoard(s2, 0),
+      life: 40,
       ticker: [],
     });
     // The publish payload is the redacted projection, never the raw state —
@@ -233,5 +258,61 @@ describe('useOnlineTable', () => {
     const s2: PlaytestState = { ...s1, turn: s1.turn + 1 };
     rerender({ st: s2 });
     expect(mockPublish).not.toHaveBeenCalled();
+  });
+
+  it('exposes the table fields LifeStrip/ActionBar need: me, seat-ordered players, phase, designations, rule flags', () => {
+    const game = onlineGame({
+      activeSeat: 2,
+      phase: 'combat',
+      designations: { monarch: 1, initiative: null },
+    });
+    usePlayStore.setState({ online: game, onlineBoards: {} });
+    signIn('me-id');
+    const { result } = renderHook(() => useOnlineTable(state()));
+
+    expect(result.current!.me.seat).toBe(0);
+    expect(result.current!.me.life).toBe(40);
+    expect(result.current!.players.map((p) => p.seat)).toEqual([0, 1, 2]);
+    expect(result.current!.phase).toBe('combat');
+    expect(result.current!.designations).toEqual({ monarch: 1, initiative: null });
+    expect(result.current!.poisonEnabled).toBe(false);
+    expect(result.current!.commanderDamageEnabled).toBe(true);
+  });
+
+  it('opponents carry the table life even when their own published board disagrees', () => {
+    const game = onlineGame();
+    const staleBoard = { ...toPublicBoard(state(), 1), life: 999 };
+    usePlayStore.setState({ online: game, onlineBoards: { 1: staleBoard } });
+    signIn('me-id');
+    const { result } = renderHook(() => useOnlineTable(state()));
+
+    const rival = result.current!.opponents.find((o) => o.board.seat === 1)!;
+    expect(rival.board.life).toBe(40);
+  });
+
+  it('dispatch sends the action through dispatchOnline', () => {
+    const dispatchOnline = vi.fn().mockResolvedValue(undefined);
+    usePlayStore.setState({ online: onlineGame(), onlineBoards: {}, dispatchOnline });
+    signIn('me-id');
+    const { result } = renderHook(() => useOnlineTable(state()));
+
+    result.current!.dispatch({ type: 'pass-turn', actorSeat: 0 });
+    expect(dispatchOnline).toHaveBeenCalledWith({ type: 'pass-turn', actorSeat: 0 });
+  });
+
+  it('toasts a server-rejected own-seat mutation while seated (nothing else renders onlineError on this route)', () => {
+    const show = vi.spyOn(toast, 'show').mockReturnValue('toast-1');
+    usePlayStore.setState({ online: onlineGame(), onlineBoards: {}, onlineError: null });
+    signIn('me-id');
+    renderHook(() => useOnlineTable(state()));
+    expect(show).not.toHaveBeenCalled();
+
+    usePlayStore.setState({ onlineError: "That move isn't allowed right now." });
+    renderHook(() => useOnlineTable(state()));
+    expect(show).toHaveBeenCalledWith({
+      message: "That move isn't allowed right now.",
+      tone: 'error',
+    });
+    show.mockRestore();
   });
 });

@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { isOpponentDefeated, type OpponentLife } from '@/lib/playtest';
-import { LifeAdjustPanel } from './LifeAdjustPanel';
+import { paletteForIndex } from '@/lib/seat-palette';
+import { cmdDamageKey, type GamePlayer } from '@/lib/game-state';
+import { LifeAdjustPanel, type CmdDamageRow, type OnlinePanelData } from './LifeAdjustPanel';
+import type { OnlineTable } from '../hooks/use-online-table';
 
 interface Props {
   life: number;
@@ -20,14 +23,53 @@ interface Props {
   /** Lets the parent fold the adjust popover into its "any sheet open" gate
    *  (e.g. to suspend keyboard shortcuts while it's up). */
   onOpenChange?(open: boolean): void;
+  /** Non-null while seated at an online table — swaps the whole strip to the
+   *  table's real seats (see the module doc below). */
+  onlineTable: OnlineTable | null;
+  /** Opens the shared `OpponentBoardModal` for a seat — "View board" inside
+   *  an online opponent's panel. Required whenever `onlineTable` is set. */
+  onViewOpponentBoard?(seat: number): void;
 }
 
 type Selected = 'self' | number | null;
 
+/** "N to lethal"-style rows for every OTHER seated player's commander(s),
+ *  read from `me`'s own `commanderDamage` bag — the self panel's read-only
+ *  "Commander damage taken" list. Lists every seat unconditionally (even at
+ *  0), mirroring `OnlineGameView`'s own read-only cmd list. */
+function cmdDamageTakenRows(me: GamePlayer, players: GamePlayer[]): CmdDamageRow[] {
+  const rows: CmdDamageRow[] = [];
+  for (const p of players) {
+    if (p.seat === me.seat) continue;
+    rows.push({
+      key: `${p.seat}`,
+      name: p.commander ?? p.name,
+      value: me.commanderDamage[cmdDamageKey(p.seat)] ?? 0,
+    });
+    if (p.partner) {
+      rows.push({
+        key: `${p.seat}#p`,
+        name: p.partner,
+        value: me.commanderDamage[cmdDamageKey(p.seat, true)] ?? 0,
+      });
+    }
+  }
+  return rows;
+}
+
 /**
- * Compact life/commander-damage strip: you + N virtual opponents as tappable
- * chips (E138). One row, doesn't displace the battlefield — the adjust UI
- * lives entirely in a popover/sheet opened per chip.
+ * Compact life/commander-damage strip: you + N players as tappable chips
+ * (E138). One row, doesn't displace the battlefield — the adjust UI lives
+ * entirely in a popover/sheet opened per chip.
+ *
+ * Two independent worlds: **solo** (default) renders `opponents`, the
+ * virtual playtest opponents dispatched through local reducer actions.
+ * **Online** (`onlineTable` set) renders the table's real seats instead —
+ * the solo `opponents`/`life`/designation props are ignored entirely, since
+ * the table's `GameState` is now the one authoritative source (see
+ * `use-online-table.ts`'s `me`/`players` doc comments for why the local
+ * `life` prop would otherwise show a second, fake total next to the rail's
+ * real one).
  */
 export function LifeStrip({
   life,
@@ -42,6 +84,8 @@ export function LifeStrip({
   onAdjustCommanderDamage,
   onAdjustCounter,
   onOpenChange,
+  onlineTable,
+  onViewOpponentBoard,
 }: Props) {
   const [selected, setSelected] = useState<Selected>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
@@ -55,6 +99,22 @@ export function LifeStrip({
   function closePanel() {
     setSelected(null);
     onOpenChange?.(false);
+  }
+
+  if (onlineTable) {
+    return (
+      <OnlineLifeStrip
+        onlineTable={onlineTable}
+        isNarrow={isNarrow}
+        playerCounters={playerCounters}
+        onAdjustCounter={onAdjustCounter}
+        onViewOpponentBoard={onViewOpponentBoard}
+        selected={selected}
+        anchorRect={anchorRect}
+        openPanel={openPanel}
+        closePanel={closePanel}
+      />
+    );
   }
 
   const opponentLabel = (i: number) => (opponents.length > 1 ? `Opponent ${i + 1}` : 'Opponent');
@@ -153,6 +213,7 @@ export function LifeStrip({
           anchorRect={anchorRect}
           title={selected === 'self' ? 'You' : opponentLabel(selected)}
           life={selected === 'self' ? life : opponents[selected].life}
+          lifeEditable
           commanderDamage={selected === 'self' ? undefined : opponents[selected].commanderDamage}
           commanderDamageThreshold={commanderDamageThreshold}
           defeated={
@@ -168,5 +229,226 @@ export function LifeStrip({
         />
       )}
     </div>
+  );
+}
+
+/** The online-table half of `LifeStrip` — real seats, in seat order, off the
+ *  table's authoritative `GameState`. Split out rather than branched inline
+ *  throughout the solo JSX above so neither world has to read past the
+ *  other's markup. */
+function OnlineLifeStrip({
+  onlineTable,
+  isNarrow,
+  playerCounters,
+  onAdjustCounter,
+  onViewOpponentBoard,
+  selected,
+  anchorRect,
+  openPanel,
+  closePanel,
+}: {
+  onlineTable: OnlineTable;
+  isNarrow: boolean;
+  playerCounters: Record<string, number>;
+  onAdjustCounter(player: 'self' | number, kind: string, delta: number): void;
+  onViewOpponentBoard?(seat: number): void;
+  selected: Selected;
+  anchorRect: DOMRect | null;
+  openPanel(target: Selected, e: React.MouseEvent<HTMLButtonElement>): void;
+  closePanel(): void;
+}) {
+  const {
+    me,
+    players,
+    mySeat,
+    activeSeat,
+    designations,
+    poisonEnabled,
+    commanderDamageEnabled,
+    dispatch,
+  } = onlineTable;
+
+  const selectedPlayer =
+    typeof selected === 'number' ? players.find((p) => p.seat === selected) : null;
+
+  let panel: React.ReactNode = null;
+  if (selected === 'self') {
+    const online: OnlinePanelData = {
+      kind: 'self',
+      poison: poisonEnabled
+        ? {
+            value: me.poison,
+            onAdjust: (delta) =>
+              dispatch({ type: 'poison', seat: mySeat, delta, actorSeat: mySeat }),
+          }
+        : undefined,
+      cmdDamageTaken: commanderDamageEnabled ? cmdDamageTakenRows(me, players) : [],
+    };
+    panel = (
+      <LifeAdjustPanel
+        variant={isNarrow ? 'sheet' : 'floating'}
+        anchorRect={anchorRect}
+        title="You"
+        life={me.life}
+        lifeEditable
+        commanderDamageThreshold={21}
+        defeated={false}
+        counters={playerCounters}
+        countersLabel="Counters (this device)"
+        onClose={closePanel}
+        onAdjustLife={(delta) => dispatch({ type: 'life', seat: mySeat, delta, actorSeat: mySeat })}
+        onAdjustCounter={(kind, delta) => onAdjustCounter('self', kind, delta)}
+        online={online}
+      />
+    );
+  } else if (selectedPlayer) {
+    const rows: CmdDamageRow[] = commanderDamageEnabled
+      ? [
+          {
+            key: `${selectedPlayer.seat}`,
+            name: selectedPlayer.commander ?? selectedPlayer.name,
+            value: me.commanderDamage[cmdDamageKey(selectedPlayer.seat)] ?? 0,
+            onAdjust: (delta) =>
+              dispatch({
+                type: 'cmd-dmg',
+                seat: mySeat,
+                fromSeat: selectedPlayer.seat,
+                fromPartner: false,
+                delta,
+                actorSeat: mySeat,
+              }),
+          },
+          ...(selectedPlayer.partner
+            ? [
+                {
+                  key: `${selectedPlayer.seat}#p`,
+                  name: selectedPlayer.partner,
+                  value: me.commanderDamage[cmdDamageKey(selectedPlayer.seat, true)] ?? 0,
+                  onAdjust: (delta: number) =>
+                    dispatch({
+                      type: 'cmd-dmg',
+                      seat: mySeat,
+                      fromSeat: selectedPlayer.seat,
+                      fromPartner: true,
+                      delta,
+                      actorSeat: mySeat,
+                    }),
+                },
+              ]
+            : []),
+        ]
+      : [];
+    const online: OnlinePanelData = {
+      kind: 'opponent',
+      name: selectedPlayer.name,
+      cmdDamageFrom: rows,
+      onViewBoard: () => {
+        closePanel();
+        onViewOpponentBoard?.(selectedPlayer.seat);
+      },
+    };
+    panel = (
+      <LifeAdjustPanel
+        variant={isNarrow ? 'sheet' : 'floating'}
+        anchorRect={anchorRect}
+        title={selectedPlayer.name}
+        life={selectedPlayer.life}
+        lifeEditable={false}
+        commanderDamageThreshold={21}
+        defeated={false}
+        counters={{}}
+        onClose={closePanel}
+        onAdjustLife={() => {}}
+        onAdjustCounter={() => {}}
+        online={online}
+      />
+    );
+  }
+
+  return (
+    <div className="playtest-life-strip" role="group" aria-label="Life totals">
+      {players.map((p) => (
+        <SeatChip
+          key={p.seat}
+          player={p}
+          isMe={p.seat === mySeat}
+          isActive={p.seat === activeSeat}
+          poisonEnabled={poisonEnabled}
+          designations={designations}
+          onOpen={(e) => openPanel(p.seat === mySeat ? 'self' : p.seat, e)}
+        />
+      ))}
+      {selected !== null && panel}
+    </div>
+  );
+}
+
+function SeatChip({
+  player,
+  isMe,
+  isActive,
+  poisonEnabled,
+  designations,
+  onOpen,
+}: {
+  player: GamePlayer;
+  isMe: boolean;
+  isActive: boolean;
+  poisonEnabled: boolean;
+  designations: OnlineTable['designations'];
+  onOpen(e: React.MouseEvent<HTMLButtonElement>): void;
+}) {
+  const palette = paletteForIndex(player.seat);
+  const isDead = player.eliminated || player.life <= 0;
+  const held = [
+    designations.monarch === player.seat && { icon: '👑', label: 'Monarch' },
+    designations.initiative === player.seat && { icon: '🧭', label: 'Initiative' },
+  ].filter((v): v is { icon: string; label: string } => Boolean(v));
+
+  const ariaLabel = [
+    isMe ? `You (${player.name})` : player.name,
+    `${player.life} life`,
+    isActive && "this player's turn",
+    poisonEnabled && player.poison > 0 && `${player.poison} poison`,
+    held.length > 0 && `holds ${held.map((h) => h.label).join(', ')}`,
+    isDead && 'defeated',
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <button
+      type="button"
+      className={`playtest-life-chip playtest-life-chip--seat${isDead ? ' is-defeated' : ''}${
+        isActive ? ' is-active-turn' : ''
+      }`}
+      style={{ ['--opp-base' as never]: palette.base, ['--opp-edge' as never]: palette.edge }}
+      onClick={onOpen}
+      title={isMe ? player.name : undefined}
+      aria-label={ariaLabel}
+    >
+      <span className="playtest-life-chip__dot" aria-hidden />
+      <span className="playtest-life-chip__label">{isMe ? 'You' : player.name}</span>
+      {held.length > 0 && (
+        <span className="playtest-life-chip__designations" aria-hidden>
+          {held.map((h) => (
+            <span key={h.label} className="playtest-designation-badge">
+              {h.icon}
+            </span>
+          ))}
+        </span>
+      )}
+      <span className="playtest-life-chip__life">{player.life}</span>
+      {poisonEnabled && player.poison > 0 && (
+        <span className="playtest-life-chip__poison" aria-hidden>
+          ☠ {player.poison}
+        </span>
+      )}
+      {isDead && (
+        <span className="playtest-life-chip__skull" aria-hidden>
+          ☠
+        </span>
+      )}
+    </button>
   );
 }

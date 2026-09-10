@@ -5,6 +5,7 @@ import type { PlaytestCard } from '@/lib/playtest';
 import { usePlaytestStore } from '../store';
 import { usePlayStore } from '@/store/play';
 import type { GameRequest } from '@/lib/games-api';
+import { makePlayer } from '@/lib/game-state';
 import { useTakeback } from './use-takeback';
 import type { OnlineTable } from './use-online-table';
 
@@ -16,7 +17,25 @@ function deck(n: number): PlaytestCard[] {
 }
 
 function seatedTable(mySeat = 0): OnlineTable {
-  return { activeSeat: null, opponents: [], mySeat };
+  const me = makePlayer({
+    id: `p${mySeat}`,
+    userId: `u${mySeat}`,
+    seat: mySeat,
+    name: 'Me',
+    startingLife: 40,
+  });
+  return {
+    activeSeat: null,
+    opponents: [],
+    mySeat,
+    me,
+    players: [me],
+    phase: undefined,
+    poisonEnabled: false,
+    commanderDamageEnabled: false,
+    designations: { monarch: null, initiative: null },
+    dispatch: () => {},
+  };
 }
 
 function request(overrides: Partial<GameRequest> = {}): GameRequest {

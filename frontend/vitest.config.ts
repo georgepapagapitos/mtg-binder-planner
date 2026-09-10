@@ -90,6 +90,9 @@ export default defineConfig({
         'src/lib/**/*.{ts,tsx}',
         'src/store/**/*.{ts,tsx}',
         'src/deck-builder/**/*.{ts,tsx}',
+        'src/components/**/*.{ts,tsx}',
+        'src/pages/**/*.{ts,tsx}',
+        'src/playtest/**/*.{ts,tsx}',
       ],
       // Thin browser-API wrappers that need a real runtime (worker/WASM,
       // Screen Wake Lock + visibilitychange) and can't be exercised
@@ -145,11 +148,11 @@ export default defineConfig({
         'src/deck-builder/services/tagger/client.ts',
       ],
       // Per-directory floors. `src/lib/**` stays the long-standing 80.
-      // `src/store/**` and `src/deck-builder/**` are newly gated: the
-      // floors are their current measured baselines, rounded down with a
-      // small margin, so coverage can no longer regress. Ratchet these
-      // upward as tests are added — never lower them, and never drop the
-      // src/lib/** 80.
+      // `src/store/**`, `src/deck-builder/**`, `src/components/**`,
+      // `src/pages/**` and `src/playtest/**` are all gated on their current
+      // measured baseline, rounded down a point as a small margin, so
+      // coverage can no longer regress. Ratchet these upward as tests are
+      // added — never lower them, and never drop the src/lib/** 80.
       thresholds: {
         'src/lib/**': {
           statements: 80,
@@ -168,6 +171,24 @@ export default defineConfig({
           branches: 41,
           functions: 58,
           lines: 55,
+        },
+        'src/components/**': {
+          statements: 53,
+          branches: 47,
+          functions: 47,
+          lines: 55,
+        },
+        'src/pages/**': {
+          statements: 49,
+          branches: 42,
+          functions: 43,
+          lines: 50,
+        },
+        'src/playtest/**': {
+          statements: 91,
+          branches: 80,
+          functions: 87,
+          lines: 95,
         },
       },
     },

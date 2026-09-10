@@ -3315,6 +3315,17 @@ gated, so the test is what holds the line — mirror of `radius-tokens.test.ts`)
     theme.) The `.game-menu` sheet (End game / rules / roster / layout picker)
     is also themed, not always-dark, and correctly keeps the accent ring —
     don't "fix" it back to white.
+- **A zone-viewer tile carries one primary action plus an overflow, never a
+  stacked destination list.** `ZoneViewerModal`'s card tiles (library,
+  graveyard, exile, command) each get exactly one contextual primary button
+  ("To hand", or "Cast" from the command zone) plus an `OverflowMenu` kebab
+  for every other destination — not six stacked "→ Zone" buttons under every
+  card, which reads as a wall of chrome on a 1-card command zone and doesn't
+  say "command zone" at all (no tax, no Cast). Library renders top-first (the
+  array's own order — index 0 is the top); graveyard and exile render
+  most-recent-first (reversed — the reducer appends, so the array's last
+  entry is what's physically on top of the pile) with a "Top" badge on the
+  first tile either way.
 - **In an auth/onboarding form, every button** — submit, OAuth, dismiss/back —
   needs the ring; a ring on one button does not cover its siblings.
 - **Read-only validation indicators use `aria-live`, not `role="checkbox"`.**

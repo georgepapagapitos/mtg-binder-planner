@@ -132,6 +132,29 @@ describe('buildLogEntries', () => {
     ]);
   });
 
+  it('logs a shuffle of the graveyard into the library', () => {
+    let s = init(10, 1, 0);
+    s = applyAction(s, { type: 'MOVE_TO_ZONE', cardId: s.zones.library[0].id, to: 'graveyard' });
+    s = applyAction(s, { type: 'MOVE_TO_ZONE', cardId: s.zones.library[0].id, to: 'graveyard' });
+    const action = { type: 'SHUFFLE_ZONE_INTO_LIBRARY' as const, zone: 'graveyard' as const };
+    const next = applyAction(s, action);
+    expect(buildLogEntries(s, action, next)).toEqual([
+      {
+        turn: 1,
+        kind: 'shuffle',
+        text: 'Shuffled 2 cards from your graveyard into your library',
+        verdict: 'locked',
+      },
+    ]);
+  });
+
+  it('does not log SHUFFLE_ZONE_INTO_LIBRARY when the zone is already empty', () => {
+    const s = init(10, 1, 0);
+    const action = { type: 'SHUFFLE_ZONE_INTO_LIBRARY' as const, zone: 'exile' as const };
+    const next = applyAction(s, action);
+    expect(buildLogEntries(s, action, next)).toEqual([]);
+  });
+
   it('logs a mulligan to the resulting hand size', () => {
     const s = init(10, 1, 7);
     const next = applyAction(s, { type: 'MULLIGAN', handSize: 6 });

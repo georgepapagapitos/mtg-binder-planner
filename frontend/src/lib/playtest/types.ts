@@ -158,6 +158,10 @@ export type ScryMode = 'scry' | 'surveil' | 'mill';
 export type PlaytestAction =
   | { type: 'DRAW'; n?: number }
   | { type: 'SHUFFLE_LIBRARY' }
+  /** Elixir of Immortality / Feldon's Cane style effect: moves every card
+   *  currently in `zone` into the library and shuffles (same seeded RNG as
+   *  SHUFFLE_LIBRARY). No-op if the zone is already empty. */
+  | { type: 'SHUFFLE_ZONE_INTO_LIBRARY'; zone: 'graveyard' | 'exile' }
   | { type: 'MULLIGAN'; handSize?: number }
   | { type: 'MOVE_TO_ZONE'; cardId: string; to: Zone; toIndex?: number }
   | {

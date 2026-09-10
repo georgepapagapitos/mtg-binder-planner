@@ -100,6 +100,37 @@ describe('SHUFFLE_LIBRARY', () => {
   });
 });
 
+describe('SHUFFLE_ZONE_INTO_LIBRARY', () => {
+  function withGraveyard(n: number): PlaytestState {
+    let s = init(10, 1, 0);
+    for (let i = 0; i < n; i++) {
+      s = applyAction(s, { type: 'MOVE_TO_ZONE', cardId: s.zones.library[0].id, to: 'graveyard' });
+    }
+    return s;
+  }
+
+  it('moves every card from the zone into the library and empties the zone', () => {
+    const s = withGraveyard(3);
+    const before = allCardIds(s);
+    const next = applyAction(s, { type: 'SHUFFLE_ZONE_INTO_LIBRARY', zone: 'graveyard' });
+    expect(next.zones.graveyard).toEqual([]);
+    expect(next.zones.library).toHaveLength(s.zones.library.length + 3);
+    expect(allCardIds(next)).toEqual(before);
+  });
+
+  it('advances the RNG seed', () => {
+    const s = withGraveyard(2);
+    const next = applyAction(s, { type: 'SHUFFLE_ZONE_INTO_LIBRARY', zone: 'graveyard' });
+    expect(next.rngSeed).not.toBe(s.rngSeed);
+  });
+
+  it('is a no-op when the zone is already empty', () => {
+    const s = init(10, 1, 0);
+    const next = applyAction(s, { type: 'SHUFFLE_ZONE_INTO_LIBRARY', zone: 'exile' });
+    expect(next).toBe(s);
+  });
+});
+
 describe('MULLIGAN', () => {
   it('reshuffles hand back into library and redraws', () => {
     const s = init(20, 1);

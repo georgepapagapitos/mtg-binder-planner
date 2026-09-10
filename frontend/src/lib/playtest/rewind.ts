@@ -130,6 +130,17 @@ export function classifyAction(
         'The library order changed, and future draws depend on it. Un-shuffling would hand back an ordering nobody is entitled to know in advance.'
       );
 
+    case 'SHUFFLE_ZONE_INTO_LIBRARY':
+      // Same reasoning as SHUFFLE_LIBRARY: the RNG advanced and every future
+      // draw now depends on the new order. The moved cards were already
+      // public (graveyard/exile), so nothing hidden was *seen* — but the
+      // shuffle itself can't be handed back any more than SHUFFLE_LIBRARY's
+      // can.
+      return classification(
+        'locked',
+        'The cards were shuffled into the library, and future draws depend on the new order. Un-shuffling would hand back an ordering nobody is entitled to know in advance.'
+      );
+
     case 'RESOLVE_TOP':
       return classification(
         'locked',

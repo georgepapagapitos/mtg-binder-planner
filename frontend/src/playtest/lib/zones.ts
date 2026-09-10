@@ -50,3 +50,14 @@ export function commanderTaxAmount(
 ): number {
   return cardId ? (commanderTax[cardId] ?? 0) * 2 : 0;
 }
+
+/** Proper-case zone name for ZoneViewerModal's title/aria-label — a map, not
+ *  CSS `text-transform`, so "command" reads as "Command zone" rather than
+ *  "Command". */
+export const ZONE_VIEWER_LABEL: Record<Zone, string> = {
+  library: 'Library',
+  hand: 'Hand',
+  graveyard: 'Graveyard',
+  exile: 'Exile',
+  command: 'Command zone',
+};

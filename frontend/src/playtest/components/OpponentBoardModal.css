@@ -197,6 +197,22 @@
   flex: none;
 }
 
+/* E280: four zone tabs plus count badges need ~500px to read in full; on the
+   phone sheet the fitted strip ellipsized every label but Exile ("Bat… 3",
+   "Gra… 1", "Co… 0"). Wrap to a 2×2 grid instead — the same shape the share
+   audience ladder takes for its four rungs at narrow widths — so every label
+   stays a whole word. The strip is still one tablist: roving tabindex and
+   arrow keys walk it in order. */
+@media (max-width: 599px) {
+  .opponent-board-tabs {
+    flex-wrap: wrap;
+  }
+
+  .opponent-board-tabs .sc-tab {
+    flex: 1 1 calc(50% - var(--space-1));
+  }
+}
+
 .opponent-board-panel {
   flex: 1;
   min-height: 0;

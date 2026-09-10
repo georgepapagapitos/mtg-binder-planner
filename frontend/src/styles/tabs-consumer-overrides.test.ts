@@ -83,3 +83,29 @@ describe('boxed <Tabs> consumers position the strip with margin, not padding', (
     });
   }
 });
+
+describe('four-tab fitted strips wrap below the sheet breakpoint', () => {
+  // E280: a fitted strip shares the row equally, so four labelled tabs with
+  // count badges ellipsize on a 360px sheet ("Bat…", "Gra…", "Co…"). The
+  // strip wraps to 2×2 under 600px instead; this pins the wrap so a later
+  // "tidy" of the file cannot silently restore the truncation.
+  const STRIPS: Array<[string, string]> = [
+    ['playtest/components/OpponentBoardModal.css', '.opponent-board-tabs'],
+  ];
+
+  for (const [file, selector] of STRIPS) {
+    it(`${selector} wraps its tabs under 600px`, () => {
+      const text = readFileSync(join(srcRoot, file), 'utf8');
+      const narrow = /@media \(max-width: 599px\)\s*\{([\s\S]*?)\n\}/.exec(text)?.[1] ?? '';
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      expect(
+        new RegExp(`${escaped}\\s*\\{[^}]*flex-wrap:\\s*wrap`).test(narrow),
+        `${selector} (${file}) has no flex-wrap: wrap in a (max-width: 599px) block`
+      ).toBe(true);
+      expect(
+        new RegExp(`${escaped} \\.sc-tab\\s*\\{[^}]*flex:\\s*1 1 calc\\(50%`).test(narrow),
+        `${selector} .sc-tab (${file}) must take a ~50% basis so the strip wraps 2×2`
+      ).toBe(true);
+    });
+  }
+});

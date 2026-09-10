@@ -363,6 +363,18 @@ describe('buildOverBudgetNote', () => {
     expect(note).toContain('skipped');
   });
 
+  it('names the cards you would buy when owned cards are excluded (E281)', () => {
+    const note = buildOverBudgetNote({
+      finalTotal: 60,
+      deckBudget: 50,
+      currency: 'USD',
+      comboBudgetSkipCount: 0,
+      ownedExcluded: true,
+    });
+    expect(note).toContain("Cards you'd buy total $60.00");
+    expect(note).not.toContain('Deck totals');
+  });
+
   it('uses the euro symbol for EUR', () => {
     const note = buildOverBudgetNote({
       finalTotal: 60,

@@ -423,14 +423,17 @@ export function buildOverBudgetNote(params: {
   convergedSwapCount?: number;
   /** Honest reason convergence stopped short of budget — set only when still over. */
   residualReason?: string;
+  /** E281: finalTotal excludes owned cards (ignoreOwnedBudget) — say so. */
+  ownedExcluded?: boolean;
 }): string | undefined {
   const sym = params.currency === 'EUR' ? '€' : '$';
+  const subject = params.ownedExcluded ? "Cards you'd buy total" : 'Deck totals';
   const swaps = params.convergedSwapCount ?? 0;
   const swapWord = swaps === 1 ? 'substitution' : 'substitutions';
 
   if (params.finalTotal <= params.deckBudget) {
     if (swaps > 0) {
-      return `Deck totals ${sym}${params.finalTotal.toFixed(2)}. ${swaps} ${swapWord} kept it under your ${sym}${params.deckBudget} budget.`;
+      return `${subject} ${sym}${params.finalTotal.toFixed(2)}. ${swaps} ${swapWord} kept it under your ${sym}${params.deckBudget} budget.`;
     }
     return undefined;
   }
@@ -445,7 +448,7 @@ export function buildOverBudgetNote(params: {
     : params.comboBudgetSkipCount > 0
       ? '. Some combo upgrades were skipped to stay as close as possible.'
       : '.';
-  return `Deck totals ${sym}${params.finalTotal.toFixed(2)}, ${sym}${over.toFixed(2)} over your ${sym}${params.deckBudget} budget${substitutionClause}${tail}`;
+  return `${subject} ${sym}${params.finalTotal.toFixed(2)}, ${sym}${over.toFixed(2)} over your ${sym}${params.deckBudget} budget${substitutionClause}${tail}`;
 }
 
 // ─── Role-cap gate for backfill paths outside cardPicking.ts/scryfallFill.ts ──
@@ -4487,14 +4490,23 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   // disclosed a skip count, never a total, so it can't say whether the deck
   // actually landed over budget. Overwrite budgetNote with the honest number
   // when it did, folding in the skip disclosure as a secondary clause.
-  const finalTotal = [...nonLandCards, ...categories.lands].reduce((sum, c) => {
+  // E281: with "owned cards don't count" on, the budget is the cards you'd
+  // BUY — the same isOwnedBudgetExempt predicate phaseBudgetConverge's
+  // totalNow() sums by, or the note contradicts the phase that honored it.
+  // finalTotal stays the sticker price for the E110 disclosure below.
+  let finalTotal = 0;
+  let budgetTotal = 0;
+  for (const c of [...nonLandCards, ...categories.lands]) {
     const p = getCardPrice(c, currency);
-    return sum + (p ? parseFloat(p) || 0 : 0);
-  }, 0);
+    const n = p ? parseFloat(p) || 0 : 0;
+    finalTotal += n;
+    if (!isOwnedBudgetExempt(c.name, context.collectionNames, ignoreOwnedBudget)) budgetTotal += n;
+  }
   if (deckBudget !== null) {
     budgetNote =
       buildOverBudgetNote({
-        finalTotal,
+        finalTotal: budgetTotal,
+        ownedExcluded: budgetTotal !== finalTotal,
         deckBudget,
         currency,
         comboBudgetSkipCount,

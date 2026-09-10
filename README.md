@@ -15,7 +15,7 @@ Plan your Magic: The Gathering collection. Import a collection export from any p
 - **Playtest any deck** — goldfish on a full battlefield board: draw, mulligan, tap, move cards between zones, make tokens.
 - **Play at the table** — a shared life tracker (life, commander damage, step tracking) for local games, or host an online game with a join code: every player syncs live, opens their own board, points at cards, and chats.
 - **Run game nights** — a recurring series with invite links; results land in your game history.
-- **Play with friends** — friend requests and per-friend hubs, pods for your regular table, and trades that settle both collections when an offer is accepted.
+- **Play with friends** — friend requests and per-friend hubs, pods for your regular table, and trades that settle both collections when an offer is accepted. A friend request, trade offer or game-night invite also emails you when your account has a verified email (switch it off under Settings → Sign-in methods), unseen badges agree across devices, and a want-list card that drops under your target price raises an alert.
 - **Publish and discover decks** — share a deck at a public link, browse and save other people's public decks, and keep a public profile.
 - **Find cards** — card search with owned-copy badges, browse-by-tag discovery over Scryfall's oracle-tag corpus, and a combo finder over what you own.
 - **Look up rules** — a built-in Comprehensive Rules reference: keywords, glossary, and rule-number search, available from anywhere in the app.

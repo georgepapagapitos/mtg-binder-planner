@@ -71,6 +71,21 @@ describe('notifyUser', () => {
     expect(call.subject).toBe('Alice sent you a friend request on SpellControl');
   });
 
+  it('escapes a user-authored display name in the HTML body', async () => {
+    const id = await makeUser('notify-escape', 'notify-escape@example.com');
+
+    await notifyUser(id, 'friend_request', {
+      fromLabel: '<a href="https://evil.example">Alice</a>',
+      path: '/friends?tab=requests',
+    });
+
+    const call = mockSendMail.mock.calls[0][0] as { html: string; text: string };
+    expect(call.html).not.toContain('<a href="https://evil.example">');
+    expect(call.html).toContain('&lt;a href=&quot;https://evil.example&quot;&gt;Alice&lt;/a&gt;');
+    // The plain-text twin is not markup, so it carries the name verbatim.
+    expect(call.text).toContain('<a href="https://evil.example">Alice</a>');
+  });
+
   it('does not email an unverified address', async () => {
     const id = await makeUser('notify-unverified', 'notify-unverified@example.com', {
       verify: false,

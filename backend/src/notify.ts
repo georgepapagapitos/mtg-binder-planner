@@ -44,8 +44,18 @@ function contentFor(
   return {
     subject,
     text: `${body}\n\n${link}`,
-    html: `<p>${body}</p><p><a href="${link}">${link}</a></p>`,
+    // fromLabel / nightTitle are user-authored: escape them so a display
+    // name cannot inject markup into someone else's inbox.
+    html: `<p>${escapeHtml(body)}</p><p><a href="${link}">${link}</a></p>`,
   };
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /**

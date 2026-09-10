@@ -209,6 +209,7 @@ export function BuildReportPanel({
     landSqueezeTrimNote,
     bracketPoolFallbackNote,
     archetypeBlendNote,
+    similarPoolNote,
     integrityNotes,
     budgetNote,
     roleCapOverflowNote,
@@ -332,6 +333,9 @@ export function BuildReportPanel({
           deck, and the commander sample size that justified reaching for it. */}
       {archetypeBlendNote && (
         <p className="build-report-line build-report-source">{archetypeBlendNote}</p>
+      )}
+      {similarPoolNote && (
+        <p className="build-report-line build-report-source">{similarPoolNote}</p>
       )}
 
       {landCountNote && <p className="build-report-line build-report-source">{landCountNote}</p>}

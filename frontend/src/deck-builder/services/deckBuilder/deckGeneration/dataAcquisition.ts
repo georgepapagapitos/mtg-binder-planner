@@ -26,6 +26,7 @@ import { calculateCardPriority } from '../cardPicking';
 import { loadCardSimilar, hasCardSimilar } from '../cardSimilar';
 import { buildAlternatePool, type AlternatePoolResult } from '../phaseAlternatePool';
 import { blendTagPageIntoPool, resolveArchetypeBlend } from '../archetypeBlend';
+import { constrainsToCollection } from '../deckFilters';
 import type { GenerationState, GenerationContext } from './state';
 
 // ── Merge cardlists from multiple theme results ──
@@ -780,8 +781,116 @@ export async function acquireCardPoolPhase(
   }
 
   await applyArchetypeBlend(state);
+  await applyOwnedSimilarPool(state);
 
   return { altPool, scryfallQuery };
+}
+
+/** E282: an owned-only build — "Only my cards" / "Available only" with a
+ *  collection attached. Both pool wideners below key off this. */
+function isOwnedOnlyBuild(state: GenerationState): boolean {
+  return constrainsToCollection(state.cfg.collectionStrategy) && !!state.context.collectionNames;
+}
+
+/** Keep only the cards the user owns — a widener for an owned-only build must
+ *  not spend its per-category injection caps on cards the pick gate will drop. */
+function filterCardlistsToOwned(
+  cardlists: EDHRECCommanderData['cardlists'],
+  owned: ReadonlySet<string>
+): EDHRECCommanderData['cardlists'] {
+  const keep = (cards: EDHRECCard[]) => cards.filter((c) => owned.has(c.name));
+  return {
+    creatures: keep(cardlists.creatures),
+    instants: keep(cardlists.instants),
+    sorceries: keep(cardlists.sorceries),
+    artifacts: keep(cardlists.artifacts),
+    enchantments: keep(cardlists.enchantments),
+    planeswalkers: keep(cardlists.planeswalkers),
+    lands: keep(cardlists.lands),
+    allNonLand: keep(cardlists.allNonLand),
+  };
+}
+
+/** The commander page's most-played theme, when it carries enough of the
+ *  page's theme mass to stand in for a user-selected theme (E282 owned-only
+ *  blend). `popularityPercent` is the share of ALL taglinks, type tags
+ *  included, so the bar is deliberately modest. */
+const OWNED_ONLY_THEME_MIN_SHARE = 20;
+function topCommanderTheme(data: EDHRECCommanderData): ThemeResult | undefined {
+  const top = [...data.themes].sort((a, b) => b.count - a.count)[0];
+  if (!top?.slug || (top.popularityPercent ?? 0) < OWNED_ONLY_THEME_MIN_SHARE) return undefined;
+  return { name: top.name, slug: top.slug, source: 'edhrec', isSelected: true };
+}
+
+export const SIMILAR_POOL_SOURCE = 'similar-commanders';
+/** How many similar commanders' pages to draw from — enough to cover a thin
+ *  mono-color page, few enough that the injected inclusion (weighted like the
+ *  archetype blend) never outranks the commander's own staples. */
+const SIMILAR_COMMANDER_PAGES = 3;
+
+/**
+ * ── E282: owned-only pool widening from similar commanders ──
+ *
+ * When the commander's own page ∩ collection runs thin, the deck used to fall
+ * to a color-identity-only search of the collection (Ruby Medallion in mono-W).
+ * The cards a similar commander's players run — that the user OWNS — are a far
+ * better next rung: they enter the POOL here, discounted the same way the
+ * archetype blend discounts (weight from the commander's own deck count, per-
+ * category caps, the lift floor), so every pick gate still applies. Owned-only
+ * builds only; any failure leaves the pool exactly as it was.
+ */
+async function applyOwnedSimilarPool(state: GenerationState): Promise<void> {
+  const { collectionNames, colorIdentity, commander, partnerCommander } = state.context;
+  if (!collectionNames || !isOwnedOnlyBuild(state)) return;
+  if (!state.edhrecData) return;
+  if (state.dataSource === 'scryfall' || state.dataSource === 'paupercommander') return;
+
+  try {
+    // Theme/partner pages strip `similarCommanders`; the base page (cached
+    // from the pool ladder in the common case) always carries them.
+    let similar = state.edhrecData.similarCommanders;
+    if (similar.length === 0 && !partnerCommander) {
+      similar = (await fetchCommanderData(commander.name, state.cfg.budgetOption))
+        .similarCommanders;
+    }
+    const identity = new Set(colorIdentity);
+    const picked = similar
+      .filter((s) => s.name !== commander.name && s.colorIdentity.every((c) => identity.has(c)))
+      .slice(0, SIMILAR_COMMANDER_PAGES);
+    if (picked.length === 0) return;
+
+    const fetched = await Promise.all(
+      picked.map((s) =>
+        fetchCommanderData(s.name, state.cfg.budgetOption)
+          .then((data) => ({ name: s.name, data }))
+          .catch(() => null)
+      )
+    );
+    const pages = fetched.filter(
+      (p): p is { name: string; data: EDHRECCommanderData } => p != null
+    );
+    if (pages.length === 0) return;
+
+    const merged = mergeThemeCardlists(pages.map((p) => p.data)).cardlists;
+    const { cardlists, injectedNames, weight } = blendTagPageIntoPool({
+      pool: state.edhrecData.cardlists,
+      tagPageCardlists: filterCardlistsToOwned(merged, collectionNames),
+      tagPagePotentialDecks: Math.max(...pages.map((p) => p.data.stats.numDecks)),
+      commanderNumDecks: state.edhrecData.stats.numDecks,
+      source: SIMILAR_POOL_SOURCE,
+    });
+    if (injectedNames.length === 0) return;
+
+    state.edhrecData = { ...state.edhrecData, cardlists };
+    state.similarPoolNames = injectedNames;
+    state.similarPoolCommanders = pages.map((p) => p.name);
+    logger.debug(
+      `[DeckGen] E282: added ${injectedNames.length} owned cards from similar commanders ` +
+        `(${state.similarPoolCommanders.join(', ')}) at w=${weight.toFixed(2)}`
+    );
+  } catch (error) {
+    logger.warn('[DeckGen] E282: similar-commander pool widening skipped —', error);
+  }
 }
 
 /**
@@ -799,11 +908,17 @@ export async function acquireCardPoolPhase(
  * a missing tag page means the deck builds exactly as it would have.
  */
 async function applyArchetypeBlend(state: GenerationState): Promise<void> {
-  const { customization, colorIdentity } = state.context;
-  if (!resolveArchetypeBlend(customization)) return;
+  const { customization, colorIdentity, collectionNames } = state.context;
+  const ownedOnly = isOwnedOnlyBuild(state);
+  if (!resolveArchetypeBlend(customization, ownedOnly)) return;
+  if (!state.edhrecData) return;
 
-  const theme = state.cfg.selectedThemesWithSlugs[0];
-  if (!theme?.slug || !state.edhrecData) return;
+  // E282: an owned-only build with no theme chosen blends from the commander's
+  // own most-played theme — the thin pool is the whole reason to reach for it.
+  const theme =
+    state.cfg.selectedThemesWithSlugs[0] ??
+    (ownedOnly ? topCommanderTheme(state.edhrecData) : undefined);
+  if (!theme?.slug) return;
 
   // Alternative generators synthesize their own pool from Scryfall and have no
   // EDHREC commander page behind them, so there's no local sample to weight
@@ -817,7 +932,12 @@ async function applyArchetypeBlend(state: GenerationState): Promise<void> {
     const commanderNumDecks = state.edhrecData.stats.numDecks;
     const { cardlists, injectedNames, weight } = blendTagPageIntoPool({
       pool: state.edhrecData.cardlists,
-      tagPageCardlists: tagPage.cardlists,
+      // E282: owned-only builds spend the injection caps on cards the pick
+      // gate can actually seat.
+      tagPageCardlists:
+        ownedOnly && collectionNames
+          ? filterCardlistsToOwned(tagPage.cardlists, collectionNames)
+          : tagPage.cardlists,
       highSynergyNames: tagPage.highSynergyNames,
       tagPagePotentialDecks: tagPage.potentialDecks,
       commanderNumDecks,

@@ -50,9 +50,14 @@ export const ARCHETYPE_BLEND_SOURCE = 'archetype-blend';
  * panel.
  */
 export function resolveArchetypeBlend(
-  customization: Pick<Customization, 'archetypeBlend'>
+  customization: Pick<Customization, 'archetypeBlend'>,
+  /** E282: an owned-only build ("Only my cards" with a collection) IS the thin
+   *  pool this blend was built for — the E228 objection (rewriting decks that
+   *  had no thin pool) doesn't apply, so it defaults ON there. Explicit
+   *  true/false still wins. */
+  ownedOnlyBuild = false
 ): boolean {
-  return customization.archetypeBlend ?? false;
+  return customization.archetypeBlend ?? ownedOnlyBuild;
 }
 
 /**
@@ -105,6 +110,9 @@ export interface BlendInput {
   tagPagePotentialDecks: number;
   /** The COMMANDER page's deck count — sets the weight. */
   commanderNumDecks: number;
+  /** `blendSource` stamped on injected entries (defaults to the tag-page
+   *  source; the E282 similar-commander widening passes its own). */
+  source?: EDHRECCard['blendSource'];
 }
 
 export interface BlendResult {
@@ -124,6 +132,7 @@ export interface BlendResult {
  */
 export function blendTagPageIntoPool(input: BlendInput): BlendResult {
   const { pool, tagPageCardlists, tagPagePotentialDecks, commanderNumDecks } = input;
+  const source = input.source ?? ARCHETYPE_BLEND_SOURCE;
   const weight = blendWeight(commanderNumDecks);
 
   // Reuse the lift pipeline's adaptive floor (#965) rather than inventing a
@@ -171,7 +180,7 @@ export function blendTagPageIntoPool(input: BlendInput): BlendResult {
         ...candidate,
         inclusion: candidate.inclusion * weight,
         isThemeSynergyCard: true,
-        blendSource: ARCHETYPE_BLEND_SOURCE,
+        blendSource: source,
       });
       injectedNames.push(candidate.name);
     }
@@ -194,7 +203,7 @@ export function blendTagPageIntoPool(input: BlendInput): BlendResult {
       const injected: EDHRECCard = {
         ...candidate,
         inclusion: candidate.inclusion * weight,
-        blendSource: ARCHETYPE_BLEND_SOURCE,
+        blendSource: source,
       };
       next[category].push(injected);
       if (category !== 'lands') next.allNonLand.push(injected);

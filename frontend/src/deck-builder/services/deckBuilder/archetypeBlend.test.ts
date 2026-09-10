@@ -61,6 +61,12 @@ describe('resolveArchetypeBlend', () => {
     expect(resolveArchetypeBlend({ archetypeBlend: false })).toBe(false);
     expect(resolveArchetypeBlend({ archetypeBlend: true })).toBe(true);
   });
+
+  it('defaults ON for an owned-only build, and an explicit setting still wins (E282)', () => {
+    expect(resolveArchetypeBlend({ archetypeBlend: undefined }, true)).toBe(true);
+    expect(resolveArchetypeBlend({ archetypeBlend: false }, true)).toBe(false);
+    expect(resolveArchetypeBlend({ archetypeBlend: true }, false)).toBe(true);
+  });
 });
 
 describe('blendWeight', () => {

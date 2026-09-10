@@ -142,6 +142,11 @@ export interface GenerationState {
   archetypeBlendNames: string[];
   /** E221: the theme whose tag page was blended in, for the disclosure. */
   archetypeBlendTheme: string | undefined;
+  /** E282: owned cards injected into the pool from similar commanders' pages
+   *  (owned-only builds), and the commanders they came from. Pool-level; the
+   *  generator narrows to what shipped before it reaches the report. */
+  similarPoolNames: string[];
+  similarPoolCommanders: string[];
   themeOverlapCounts: Map<string, number>;
   roleTargets: Record<RoleKey, number> | null;
   roleTargetBreakdown: Record<RoleKey, RoleTargetBreakdown> | undefined;
@@ -236,6 +241,8 @@ export function createState(context: GenerationContext): GenerationState {
     bracketPoolFallbackNote: undefined,
     archetypeBlendNames: [],
     archetypeBlendTheme: undefined,
+    similarPoolNames: [],
+    similarPoolCommanders: [],
     themeOverlapCounts: new Map<string, number>(),
     roleTargets: null,
     roleTargetBreakdown: undefined,

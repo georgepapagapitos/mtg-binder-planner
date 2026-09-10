@@ -21,6 +21,7 @@ import { useOnlineTable } from '../hooks/use-online-table';
 import { usePlayStore } from '@/store/play';
 import { useTakeback } from '../hooks/use-takeback';
 import { OpponentRail } from './OpponentRail';
+import { OpponentBoardModal } from './OpponentBoardModal';
 import { TableMoments } from './TableMoments';
 import { TableTicker, tickerSeatName } from './TableTicker';
 import { TakebackModePicker } from './TakebackModePicker';
@@ -185,6 +186,9 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
   const [selectMode, setSelectMode] = useState(false);
   const [clipboard, setClipboard] = useState<readonly string[]>([]);
   const [lifePanelOpen, setLifePanelOpen] = useState(false);
+  // "View board" from an online opponent's LifeStrip panel — opens the same
+  // full-board inspector OpponentRail's own tap-to-open already uses.
+  const [viewingBoardSeat, setViewingBoardSeat] = useState<number | null>(null);
   // Banner dismissal is tracked by event id so a new opponent response (even
   // with an identical message) re-shows and re-announces the banner.
   const [dismissedResistanceId, setDismissedResistanceId] = useState<number | null>(null);
@@ -501,6 +505,18 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
     if (designation === 'citysBlessing') haptics.success();
     else haptics.tap();
     dispatch({ type: 'SET_DESIGNATION', designation, held });
+    // Mirror monarch/initiative onto the table so its published board (and
+    // every opponent's rail) agrees with what this seat just claimed/dropped.
+    // City's Blessing has no table-level field (GameDesignations tracks only
+    // monarch/initiative) — it stays local-only, same as solo playtest.
+    if (onlineTable && (designation === 'monarch' || designation === 'initiative')) {
+      onlineTable.dispatch({
+        type: 'set-designation',
+        designation,
+        seat: held ? onlineTable.mySeat : null,
+        actorSeat: onlineTable.mySeat,
+      });
+    }
   }
 
   // Resistance's only explanation used to be a hover `title` on the toggle —
@@ -667,6 +683,19 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
         onToggleSelectMode={toggleSelectMode}
         selectionSize={selected.size}
         hasUnreadLog={hasUnreadLog}
+        online={
+          onlineTable && {
+            phase: onlineTable.phase,
+            activeSeat: onlineTable.activeSeat,
+            mySeat: onlineTable.mySeat,
+            activeName: onlineTable.players.find((p) => p.seat === onlineTable.activeSeat)?.name,
+            dispatch: onlineTable.dispatch,
+            onPassTurn: () => {
+              haptics.tap();
+              onlineTable.dispatch({ type: 'pass-turn', actorSeat: onlineTable.mySeat });
+            },
+          }
+        }
       />
       <div className="playtest-trackers">
         <LifeStrip
@@ -691,6 +720,8 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
             dispatch({ type: 'SET_PLAYER_COUNTER', player, counter: kind, delta });
           }}
           onOpenChange={setLifePanelOpen}
+          onlineTable={onlineTable}
+          onViewOpponentBoard={setViewingBoardSeat}
         />
         <ManaPool
           pool={state.manaPool ?? ZERO_MANA_POOL}
@@ -748,6 +779,18 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
           here only decides conditional gating, not layout. */}
       {onlineTable && <TakebackConsentPrompt onlineTable={onlineTable} />}
       {onlineTable && <TableMoments onlineTable={onlineTable} />}
+      {onlineTable &&
+        viewingBoardSeat != null &&
+        (() => {
+          const opp = onlineTable.opponents.find((o) => o.board.seat === viewingBoardSeat);
+          return opp ? (
+            <OpponentBoardModal
+              opp={opp}
+              active={onlineTable.activeSeat === viewingBoardSeat}
+              onClose={() => setViewingBoardSeat(null)}
+            />
+          ) : null;
+        })()}
       {takeback.pendingRequest && (
         <TakebackPendingBanner
           request={takeback.pendingRequest}

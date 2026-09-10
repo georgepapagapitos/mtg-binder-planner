@@ -1,13 +1,7 @@
 import { Clock, Compass, Crown, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  DesignationKind,
-  GameAction,
-  GamePhase,
-  GamePlayer,
-  GameState,
-} from '../../lib/game-state';
-import { cmdDamageKey, GAME_PHASES } from '../../lib/game-state';
+import type { DesignationKind, GameAction, GamePlayer, GameState } from '../../lib/game-state';
+import { cmdDamageKey } from '../../lib/game-state';
 import type { GameRequest } from '../../lib/games-api';
 import { paletteForIndex } from '../../lib/seat-palette';
 import { useAnimatedNumber } from '../../lib/use-animated-number';
@@ -20,16 +14,10 @@ import { useAuth } from '../../store/auth';
 import { usePlayStore } from '../../store/play';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { GameRecap } from './GameRecap';
+import { PhaseChip } from './PhaseChip';
 import './OnlineGameView.css';
 
 import { userMessage } from '@/lib/user-error';
-const PHASE_LABELS: Record<GamePhase, string> = {
-  beginning: 'Beginning',
-  main1: 'Main 1',
-  combat: 'Combat',
-  main2: 'Main 2',
-  end: 'End',
-};
 
 // Mirrors playtest's TakebackConsentPrompt grace window (see its module doc):
 // native long-poll can drop a request's own terminal frame, so the banner
@@ -192,7 +180,12 @@ export function OnlineGameView({ game, errorMessage, onEnd, onLeave, onRematch }
             </span>
           )}
           {game.status === 'active' && (
-            <PhaseChip game={game} mySeat={mySeat} dispatch={dispatch} />
+            <PhaseChip
+              phase={game.phase}
+              activeSeat={game.activeSeat}
+              mySeat={mySeat?.seat ?? null}
+              dispatch={dispatch}
+            />
           )}
         </div>
         {game.status !== 'finished' && (
@@ -392,75 +385,6 @@ function useLethalFlash(player: GamePlayer, game: GameState): boolean {
     game.commanderDamageEnabled,
   ]);
   return flashing;
-}
-
-// ── Phase clock (advisory, T101) ───────────────────────────────────────────
-
-/**
- * Advisory turn-structure clock — a life pad, not a rules engine, so it
- * never blocks anything: it's a chip plus a tap. `game.phase` absent means
- * the clock hasn't been started, and only the active seat's own device gets
- * the (subtle, opt-in) start affordance; every other seat sees nothing at
- * all until it's running. Once running, the phase name is visible to every
- * seat, but only the active seat's own device can advance it — 'end' can't
- * advance further from here, since turn-passing is what resets the clock
- * server-side, not another wrap of this chip.
- */
-function PhaseChip({
-  game,
-  mySeat,
-  dispatch,
-}: {
-  game: GameState;
-  mySeat: GamePlayer | null;
-  dispatch: (a: GameAction) => void;
-}) {
-  const phase = game.phase;
-  const isActiveOwner = (seat: GamePlayer | null): seat is GamePlayer =>
-    seat != null && game.activeSeat === seat.seat;
-
-  if (phase === undefined) {
-    if (!isActiveOwner(mySeat)) return null;
-    return (
-      <button
-        type="button"
-        className="ogv-phase-start"
-        onClick={() => dispatch({ type: 'phase', phase: 'beginning', actorSeat: mySeat.seat })}
-      >
-        Start the phase clock
-      </button>
-    );
-  }
-
-  const label = PHASE_LABELS[phase];
-
-  if (!isActiveOwner(mySeat)) {
-    return (
-      <span className="ogv-phase-chip" aria-label={`Phase: ${label}`}>
-        <span role="status">{label}</span>
-      </span>
-    );
-  }
-
-  const canAdvance = phase !== 'end';
-  const advance = () => {
-    const next = GAME_PHASES[GAME_PHASES.indexOf(phase) + 1];
-    if (!next) return;
-    dispatch({ type: 'phase', phase: next, actorSeat: mySeat.seat });
-    haptics.tap();
-  };
-
-  return (
-    <button
-      type="button"
-      className="ogv-phase-chip ogv-phase-chip--tappable"
-      aria-label={canAdvance ? `Phase: ${label}. Tap to advance.` : `Phase: ${label}`}
-      disabled={!canAdvance}
-      onClick={advance}
-    >
-      <span role="status">{label}</span>
-    </button>
-  );
 }
 
 // ── Hold (T101 priority ask) ────────────────────────────────────────────────

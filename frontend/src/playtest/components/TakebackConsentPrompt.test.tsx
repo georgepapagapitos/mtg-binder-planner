@@ -47,7 +47,18 @@ function request(overrides: Partial<GameRequest> = {}): GameRequest {
   };
 }
 
-const mySeat: OnlineTable = { activeSeat: null, opponents: [], mySeat: 0 };
+const mySeat: OnlineTable = {
+  activeSeat: null,
+  opponents: [],
+  mySeat: 0,
+  me: makePlayer({ id: 'me-id', userId: 'me-id', seat: 0, name: 'Me', startingLife: 40 }),
+  players: [makePlayer({ id: 'me-id', userId: 'me-id', seat: 0, name: 'Me', startingLife: 40 })],
+  phase: undefined,
+  poisonEnabled: false,
+  commanderDamageEnabled: false,
+  designations: { monarch: null, initiative: null },
+  dispatch: () => {},
+};
 
 beforeEach(() => {
   usePlayStore.setState({

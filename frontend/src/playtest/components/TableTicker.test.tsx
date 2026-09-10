@@ -7,6 +7,7 @@ import { act, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { usePlayStore, type TickerItem } from '@/store/play';
 import type { PublicBoard, TickerEntry } from '@/lib/playtest/projection';
+import type { GamePlayer } from '@/lib/game-state';
 import type { OnlineTable } from '../hooks/use-online-table';
 import { GLANCE_QUERY } from './OpponentRail';
 import { TableTicker, tickerSeatName } from './TableTicker';
@@ -33,10 +34,38 @@ function board(seat: number): PublicBoard {
   return { seat } as unknown as PublicBoard;
 }
 
+function fakePlayer(seat: number, name = 'Me'): GamePlayer {
+  return {
+    id: `p${seat}`,
+    userId: `u${seat}`,
+    seat,
+    name,
+    deckId: null,
+    deckName: null,
+    commander: null,
+    partner: null,
+    colorIdentity: [],
+    panelColorKey: null,
+    life: 40,
+    poison: 0,
+    commanderDamage: {},
+    eliminated: false,
+    isHost: false,
+    connected: true,
+  };
+}
+
 function table(overrides: Partial<OnlineTable> = {}): OnlineTable {
   return {
     activeSeat: null,
     mySeat: 0,
+    me: fakePlayer(0),
+    players: [fakePlayer(0), fakePlayer(1, 'Maya'), fakePlayer(2, 'Rin')],
+    phase: undefined,
+    poisonEnabled: false,
+    commanderDamageEnabled: false,
+    designations: { monarch: null, initiative: null },
+    dispatch: () => {},
     opponents: [
       { name: 'Maya', board: board(1) },
       { name: 'Rin', board: board(2) },

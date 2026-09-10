@@ -1,5 +1,7 @@
 import { Lock, Settings } from 'lucide-react';
 import type { Designation } from '@/lib/playtest';
+import type { GameAction, GamePhase } from '@/lib/game-state';
+import { PhaseChip } from '@/components/play/PhaseChip';
 import { OverflowMenu, type OverflowMenuItem } from '@/components/OverflowMenu';
 import { useNarrowViewport } from '../hooks/use-narrow-viewport';
 
@@ -32,6 +34,21 @@ export interface TakebackBarProps {
    *  nothing to do) surface why via the caller's own feedback. */
   onClick(): void;
   onOpenSettings(): void;
+}
+
+/** The bar's online-table controls — phase clock + pass turn — present only
+ *  while seated at an online game. `dispatch` is raw (for `PhaseChip`, which
+ *  gates its own actions); `onPassTurn` is pre-wired by the parent (dispatch
+ *  + haptics), matching every other no-arg action prop on this bar. */
+export interface OnlineBarProps {
+  phase: GamePhase | undefined;
+  activeSeat: number | null;
+  mySeat: number;
+  /** Display name of the seat currently on turn, for the non-interactive
+   *  "{Name}'s turn" chip shown to everyone but the active seat. */
+  activeName: string | undefined;
+  dispatch(action: GameAction): void;
+  onPassTurn(): void;
 }
 
 const DESIGNATION_SHORT_LABEL: Record<Designation, string> = {
@@ -83,6 +100,10 @@ interface Props {
    *  Props doc. Both optional so every other tier's markup is unaffected. */
   backLabel?: string;
   onBack?(): void;
+  /** Set while seated at an online table — adds the phase clock + pass-turn
+   *  controls and demotes local "Next turn" to a secondary action. Absent
+   *  (or null) for solo play, where none of that applies. */
+  online?: OnlineBarProps | null;
 }
 
 export function ActionBar({
@@ -113,6 +134,7 @@ export function ActionBar({
   hasUnreadLog,
   backLabel,
   onBack,
+  online,
 }: Props) {
   // Designations held right now, short-labeled, for the button/menu badge —
   // mirrors how Resistance's own current level is always visible at a glance.
@@ -156,8 +178,6 @@ export function ActionBar({
   const overflowItems: OverflowMenuItem[] = [
     { label: 'Shuffle', onClick: onShuffle },
     { label: 'Mulligan', onClick: onMulligan },
-    { label: 'Scry / surveil / mill', onClick: onScry, disabled: libraryCount === 0 },
-    { label: 'Create token', onClick: onCreateToken },
     { label: 'Roll dice', onClick: onOpenDice },
     {
       label: anyDesignationHeld ? `Designations: ${heldDesignations.join(', ')}` : 'Designations',
@@ -179,6 +199,29 @@ export function ActionBar({
         </button>
       )}
       <span className="playtest-actionbar__turn">Turn {turn}</span>
+      {online && (
+        <>
+          <PhaseChip
+            phase={online.phase}
+            activeSeat={online.activeSeat}
+            mySeat={online.mySeat}
+            dispatch={online.dispatch}
+          />
+          {online.activeSeat === online.mySeat || online.activeSeat === null ? (
+            <button
+              type="button"
+              className="playtest-actionbar__pass-turn playtest-actionbar__primary"
+              onClick={online.onPassTurn}
+            >
+              Pass turn
+            </button>
+          ) : (
+            <span className="playtest-actionbar__pass-turn-waiting" aria-live="polite">
+              {online.activeName ? `${online.activeName}'s turn` : 'Not your turn'}
+            </span>
+          )}
+        </>
+      )}
       <button type="button" onClick={onOpenStats} className="playtest-actionbar__stats">
         Stats
       </button>
@@ -206,10 +249,21 @@ export function ActionBar({
       <button
         type="button"
         onClick={onNextTurn}
-        title="Next turn (N)"
-        className="playtest-actionbar__primary"
+        title={online ? 'Untap all and draw for your new turn' : 'Next turn (N)'}
+        className={online ? undefined : 'playtest-actionbar__primary'}
       >
         Next turn
+      </button>
+      <button
+        type="button"
+        onClick={onScry}
+        disabled={libraryCount === 0}
+        title="Look at the top of your library"
+      >
+        Scry
+      </button>
+      <button type="button" onClick={onCreateToken}>
+        Create token
       </button>
       <button
         type="button"
@@ -251,19 +305,8 @@ export function ActionBar({
           <button type="button" onClick={onMulligan}>
             Mulligan
           </button>
-          <button
-            type="button"
-            onClick={onScry}
-            disabled={libraryCount === 0}
-            title="Look at the top of your library"
-          >
-            Scry
-          </button>
-          <button type="button" onClick={onCreateToken}>
-            Create token
-          </button>
           <button type="button" onClick={onOpenDice}>
-            Roll
+            Roll dice
           </button>
           <button
             type="button"

@@ -209,7 +209,7 @@ export function PlaytestPage() {
         <button type="button" onClick={() => navigate(back.to)}>
           ← {back.label}
         </button>
-        <h1>Playtest</h1>
+        <h1>{tableCode ? 'Your board' : 'Playtest'}</h1>
       </header>
       <PlaytestBoard state={state} backLabel={back.label} onBack={() => navigate(back.to)} />
       {confirmDialog}

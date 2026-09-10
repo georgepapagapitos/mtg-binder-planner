@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, isNull, lt } from 'drizzle-orm';
 import { getDb } from '../db';
 import { users, authIdentities, oauthHandoffCodes } from '../db/schema';
 import { getAdminUsernames, type AuthedUser, type OAuthPlatform } from '../auth';
@@ -177,6 +177,45 @@ export async function autoLinkGoogleIdentity(
       emailVerified: identity.emailVerified,
     })
     .where(eq(users.id, userId));
+}
+
+/**
+ * Copy a Google identity's VERIFIED email onto a user that has none yet.
+ * Password reset and notification emails only go to `users.email`, and the
+ * two manual link paths (Settings link, link-with-password) historically wrote
+ * only `auth_identities` — so an account that signed up with a password and
+ * linked Google afterwards had a verified Google address the app could not
+ * use. No-op when the user already has an email (never overwrite a hand-added
+ * address), when Google's claim is unverified, or when another account owns
+ * the address (unique index; refusing is the safe default and the user can
+ * still add an address by hand in Settings). Also called on every sign-in
+ * through an existing identity so older accounts backfill themselves.
+ */
+export async function adoptVerifiedGoogleEmail(
+  userId: string,
+  identity: Pick<GoogleIdentity, 'email' | 'emailVerified'>
+): Promise<void> {
+  if (!identity.email || !identity.emailVerified) return;
+  const db = getDb();
+  try {
+    await db
+      .update(users)
+      .set({ email: identity.email, emailVerified: true })
+      .where(and(eq(users.id, userId), isNull(users.email)));
+  } catch (err) {
+    if (isUniqueViolation(err)) return;
+    throw err;
+  }
+}
+
+/**
+ * Postgres unique-violation (SQLSTATE 23505). drizzle wraps driver errors in
+ * a DrizzleQueryError whose `cause` carries the pg error, so the code can sit
+ * one level down.
+ */
+export function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } } | null;
+  return e?.code === '23505' || e?.cause?.code === '23505';
 }
 
 /**

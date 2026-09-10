@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { flushSync } from '../lib/sync';
 import { useCubeStore } from './cube';
 import { migrateLegacyCubes } from '../lib/sync';
 import type { GeneratedCube } from '../lib/cube/generate';
@@ -43,6 +44,9 @@ beforeEach(async () => {
   await estore.wipeAll();
   await queue.clear();
 });
+
+// Drop the push debounce a mutation armed, so no timer outlives the test.
+afterEach(() => flushSync());
 
 describe('useCubeStore', () => {
   it('starts with no result', () => {

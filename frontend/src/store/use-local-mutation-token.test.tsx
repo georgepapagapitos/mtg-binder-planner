@@ -1,7 +1,15 @@
 // @vitest-environment happy-dom
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { useDecksStore, useLocalMutationToken } from './decks';
+
+// The decks-store subscriber lazily imports the sync layer on the first
+// mutation; let that import (and the push debounce it may arm) settle inside
+// this short file instead of outliving it.
+afterEach(async () => {
+  const sync = await import('../lib/sync');
+  await sync.flushSync();
+});
 
 describe('useLocalMutationToken (E177)', () => {
   it('re-renders with the bumped token when the deck is mutated locally', () => {

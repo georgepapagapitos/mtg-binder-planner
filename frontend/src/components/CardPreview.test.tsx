@@ -4,11 +4,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { EnrichedCard } from '../types';
 
-// Never resolves — the panel falls back to its text-only set line, and the
-// test avoids an un-acted setState after teardown.
-vi.mock('../lib/api', () => ({
-  getSetMap: () => new Promise(() => {}),
-}));
+// Pending for the test's lifetime — the panel falls back to its text-only set
+// line, and the test avoids an un-acted setState after teardown.
+vi.mock('../lib/api', async () => {
+  const { pending } = await import('@/test/pending');
+  return { getSetMap: () => pending({}) };
+});
 
 // The image frame drags in the holographic tilt machinery; the detail panel
 // under test doesn't need it.

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { pending } from '@/test/pending';
 import type { ScryfallCard } from '@/deck-builder/types';
 
 // Controllable offline gate + offline-lib stubs. `getOwnedPrinting` forks on
@@ -429,7 +430,7 @@ describe('getCardByNameResilient', () => {
     gate.offline = true;
     // Offline read never settles — simulates the IDB write-lock stall while the
     // bulk cache ingests. Must NOT hang; the cap should kick it to live.
-    offlineLib.getCardByName.mockReturnValue(new Promise(() => {}));
+    offlineLib.getCardByName.mockReturnValue(pending(undefined));
     const live = makeCard({ name: 'Resilient Stall Fallback', layout: 'normal' });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => live }));
 

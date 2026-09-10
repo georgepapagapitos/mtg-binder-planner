@@ -2,6 +2,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { pending } from '@/test/pending';
 
 // Stub AddCardsSheet so opening it doesn't mount the full modal stack
 // (CardScanner, UploadPanel, etc.) — mirrors CollectionPage.test.tsx.
@@ -249,7 +250,7 @@ describe('HomePage', () => {
   describe('hero reservations (E277)', () => {
     it('reserves the value and scale lines while pending when the last visit had them', () => {
       localStorage.setItem('sc-home-shape', JSON.stringify({ 'hero-value': 1, 'hero-stats': 1 }));
-      mockGetValueHistory.mockReturnValue(new Promise(() => {}));
+      mockGetValueHistory.mockReturnValue(pending([]));
       useCollectionStore.setState({ hydrating: true });
       const { container } = renderPage();
       expect(container.querySelector('.home-hero-value--loading')).toBeTruthy();
@@ -289,7 +290,7 @@ describe('HomePage', () => {
     });
 
     it('reserves nothing on a first visit (no memory) — a fresh account never gets a phantom row', () => {
-      mockGetValueHistory.mockReturnValue(new Promise(() => {}));
+      mockGetValueHistory.mockReturnValue(pending([]));
       useCollectionStore.setState({ hydrating: true });
       const { container } = renderPage();
       expect(container.querySelector('.home-hero-value--loading')).toBeNull();

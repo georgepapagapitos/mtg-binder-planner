@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { flushSync } from '../lib/sync';
 import { useCollectionStore } from './collection';
 import { useDecksStore } from './decks';
 import { clearCollection, loadCollection } from '../lib/local-cards';
@@ -37,6 +38,9 @@ beforeEach(async () => {
     hydrating: false,
   });
 });
+
+// Drop the push debounce a mutation armed, so no timer outlives the test.
+afterEach(() => flushSync());
 
 describe('list CRUD', () => {
   it('creates a list with clamped name, returns id', () => {

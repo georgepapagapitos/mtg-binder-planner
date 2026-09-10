@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { pending } from '@/test/pending';
 import { subscribeGameLongPoll, usesLongPoll } from './games-longpoll';
 import type { GameState } from './game-state';
 import type { GameRequest, GameSignal, PollResult } from './games-api';
@@ -78,9 +79,7 @@ describe('subscribeGameLongPoll', () => {
   }
 
   it('polls with the code and the current getSince() value', async () => {
-    mockPoll
-      .mockImplementationOnce(async () => unchanged)
-      .mockImplementation(() => new Promise(() => {}));
+    mockPoll.mockImplementationOnce(async () => unchanged).mockImplementation(() => pending());
     const since = 3;
     startLoop('ABCD', () => since, { onState: vi.fn() });
     await flush();
@@ -92,7 +91,7 @@ describe('subscribeGameLongPoll', () => {
     mockPoll
       .mockImplementationOnce(async () => unchanged)
       .mockImplementationOnce(async () => unchanged)
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     startLoop('ABCD', () => 1, { onState: vi.fn() });
     vi.useFakeTimers();
     await vi.advanceTimersByTimeAsync(300);
@@ -104,9 +103,7 @@ describe('subscribeGameLongPoll', () => {
 
   it('forwards a fresh state to onState and reports healthy', async () => {
     const result = withState(9);
-    mockPoll
-      .mockImplementationOnce(async () => result)
-      .mockImplementation(() => new Promise(() => {}));
+    mockPoll.mockImplementationOnce(async () => result).mockImplementation(() => pending());
     const onState = vi.fn();
     const onHealthy = vi.fn();
     startLoop('ABCD', () => 1, { onState, onHealthy });
@@ -116,9 +113,7 @@ describe('subscribeGameLongPoll', () => {
   });
 
   it('an unchanged round-trip still reports healthy without calling onState', async () => {
-    mockPoll
-      .mockImplementationOnce(async () => unchanged)
-      .mockImplementation(() => new Promise(() => {}));
+    mockPoll.mockImplementationOnce(async () => unchanged).mockImplementation(() => pending());
     const onState = vi.fn();
     const onHealthy = vi.fn();
     startLoop('ABCD', () => 1, { onState, onHealthy });
@@ -136,7 +131,7 @@ describe('subscribeGameLongPoll', () => {
           { seat: 2, board: mockBoard(2) },
         ],
       }))
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     const onBoard = vi.fn();
     startLoop('ABCD', () => 1, { onState: vi.fn(), onBoard });
     await flush();
@@ -148,7 +143,7 @@ describe('subscribeGameLongPoll', () => {
   it('forwards a single board that resolved a held request to onBoard', async () => {
     mockPoll
       .mockImplementationOnce(async () => ({ game: null, board: { seat: 3, board: mockBoard(3) } }))
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     const onBoard = vi.fn();
     startLoop('ABCD', () => 1, { onState: vi.fn(), onBoard });
     await flush();
@@ -161,7 +156,7 @@ describe('subscribeGameLongPoll', () => {
         game: mockState(1),
         requests: [mockRequest(1), mockRequest(2)],
       }))
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     const onRequest = vi.fn();
     startLoop('ABCD', () => 1, { onState: vi.fn(), onRequest });
     await flush();
@@ -174,7 +169,7 @@ describe('subscribeGameLongPoll', () => {
     const resolved = mockRequest(1, 'approved');
     mockPoll
       .mockImplementationOnce(async () => ({ game: null, request: resolved }))
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     const onRequest = vi.fn();
     startLoop('ABCD', () => 1, { onState: vi.fn(), onRequest });
     await flush();
@@ -185,7 +180,7 @@ describe('subscribeGameLongPoll', () => {
     const signal = mockSignal(1);
     mockPoll
       .mockImplementationOnce(async () => ({ game: null, signal }))
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     const onSignal = vi.fn();
     startLoop('ABCD', () => 1, { onState: vi.fn(), onSignal });
     await flush();
@@ -195,7 +190,7 @@ describe('subscribeGameLongPoll', () => {
   it('onSignal is optional — no throw when a signal arrives with no handler wired', async () => {
     mockPoll
       .mockImplementationOnce(async () => ({ game: null, signal: mockSignal(1) }))
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     expect(() => startLoop('ABCD', () => 1, { onState: vi.fn() })).not.toThrow();
     await flush();
   });
@@ -204,7 +199,7 @@ describe('subscribeGameLongPoll', () => {
     mockPoll
       .mockImplementationOnce(async () => unchanged)
       .mockImplementationOnce(async () => unchanged)
-      .mockImplementation(() => new Promise(() => {}));
+      .mockImplementation(() => pending());
     startLoop('ABCD', () => 1, { onState: vi.fn() });
     vi.useFakeTimers();
     await vi.advanceTimersByTimeAsync(300);

@@ -46,39 +46,27 @@ export default defineConfig({
       },
     },
     globals: true,
-    // Do not intercept console output. This is the structural fix for the
-    // teardown flake that has reddened main CI on and off since 2026-07-16
-    // (a red main CI skips the Fly deploy):
+    // Console interception is ON (the vitest default). It was off from #1810 to
+    // E272 slice 3 because of the teardown flake that reddened main CI on and
+    // off since 2026-07-16 (a red main CI skips the Fly deploy):
     //
     //   EnvironmentTeardownError: [vitest-worker]: Closing rpc while
     //   "onUserConsoleLog" was pending
     //
-    // With interception on, vitest's console spy batches every console.* call
-    // per task and flushes the batch on a microtask as a worker->main RPC. A
-    // flush still in flight when the worker tears down is that error — an
-    // unhandled rejection that exits 1 with every test green, attributed to
-    // whichever file's worker happened to be closing (vitest-dev/vitest#11153).
+    // With interception on, vitest's console spy flushes each task's console.*
+    // calls as a worker->main RPC; a flush still in flight when the worker tears
+    // down is that error (vitest-dev/vitest#11153). The maintainer's diagnosis
+    // there is the real root cause — test code still running after its test
+    // ended — and `vitest run --detectAsyncLeaks` measured it: 416 leaks at the
+    // start of E272, 0 after slice 3 (src/test/setup.ts drains IndexedDB hops
+    // and cancels unread Response bodies; src/test/pending.ts settles "still
+    // loading" promises after unmount; store tests flush the push debounce).
+    // With nothing running past its test there is no late RPC to race.
     //
-    // The previous fix here, `silent: 'passed-only'`, never touched that path:
-    // the filter runs in the main-process reporter, after the RPC has already
-    // been sent, so it reduced log VOLUME on screen and RPC volume not at all.
-    // It held by luck. vitest 5 widened the window — two red runs in the first
-    // hour (#1805's PR run, main at 06800848), then two errors in one local
-    // run with 9122 passing tests.
-    //
-    // The maintainer's diagnosis on #11153 is the real root cause: test code
-    // still running after its test ended. `vitest run --detectAsyncLeaks`
-    // reports 416 leaking timeouts across ~40 files here (component timers and
-    // debounces outliving their tests). Fixing those is its own program (board
-    // E272); until then, no spy means no RPC and no race, by construction.
-    //
-    // Cost: console output goes straight to the worker's stdout, unfiltered —
-    // the suite's hundreds of expected error-path lines (`[store] refreshPrices
-    // failed`, `[sync] push failed`, `[EDHREC] …`) now appear in the CI log for
-    // passing tests too. Nothing is lost: a failing test's assertion output is
-    // unaffected, every console line is still printed, and LIVE_GEN's per-deck
-    // progress stays visible without a special case.
-    disableConsoleIntercept: true,
+    // If the error ever returns, do NOT reach for `silent: 'passed-only'` — it
+    // filters in the main-process reporter after the RPC was sent and never
+    // touched the race. Re-measure with --detectAsyncLeaks (the leak is the
+    // bug), and `disableConsoleIntercept: true` remains the emergency stopgap.
     // Vitest's defaults (5s per test, 10s per hook) are sized for an idle
     // machine. Several tests here are genuinely compute-heavy — the
     // substitute-weight eval and the commander-deck tagger analysis each burn

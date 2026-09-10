@@ -18,15 +18,20 @@ export function bestEffortBudget(ms: number) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return fallback;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let settle = (): void => {};
     const timeout = new Promise<T>((resolve) => {
-      timer = setTimeout(() => resolve(fallback), remaining);
+      settle = () => resolve(fallback);
+      timer = setTimeout(settle, remaining);
     });
     try {
       return await Promise.race([work, timeout]);
     } catch {
       return fallback;
     } finally {
+      // Settle the loser too: a cleared timer would otherwise leave `timeout`
+      // (and the race's subscription to it) pending forever.
       clearTimeout(timer);
+      settle();
     }
   };
 }

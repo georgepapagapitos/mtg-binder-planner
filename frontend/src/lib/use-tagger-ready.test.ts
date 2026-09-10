@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { pending } from '@/test/pending';
 
 vi.mock('@/deck-builder/services/tagger/client', () => ({
   hasTaggerData: vi.fn(),
@@ -20,7 +21,7 @@ beforeEach(() => {
 describe('useTaggerReady', () => {
   it('returns false initially when tagger not ready and load is pending', () => {
     mockHas.mockReturnValue(false);
-    mockLoad.mockReturnValue(new Promise(() => {}));
+    mockLoad.mockReturnValue(pending(null));
     const { result } = renderHook(() => useTaggerReady());
     expect(result.current).toBe(false);
   });

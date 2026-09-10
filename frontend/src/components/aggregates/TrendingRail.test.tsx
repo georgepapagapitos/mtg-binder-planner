@@ -2,6 +2,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
+import { pending } from '@/test/pending';
 
 const mockUseCardThumb = vi.hoisted(() => vi.fn(() => undefined as string | undefined));
 vi.mock('../../lib/card-thumbs', () => ({ useCardThumb: mockUseCardThumb }));
@@ -119,7 +120,7 @@ describe('TrendingRail', () => {
   it('shows a skeleton while pending, never a spinner', () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => new Promise(() => {}))
+      vi.fn(() => pending(new Response('{}')))
     );
     renderRail();
     expect(screen.getByText('Loading trending decks')).toBeTruthy();
@@ -141,7 +142,7 @@ describe('TrendingRail', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => new Promise(() => {}))
+      vi.fn(() => pending(new Response('{}')))
     );
     renderRail();
     expect(document.querySelectorAll('.trending-tile-skeleton')).toHaveLength(risingFixture.length);

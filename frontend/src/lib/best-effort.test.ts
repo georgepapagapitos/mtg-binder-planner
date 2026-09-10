@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { pending } from '@/test/pending';
 import { bestEffortBudget } from './best-effort';
 
 describe('bestEffortBudget', () => {
@@ -11,7 +12,7 @@ describe('bestEffortBudget', () => {
     vi.useFakeTimers();
     try {
       const within = bestEffortBudget(500);
-      const never = new Promise<string>(() => {});
+      const never = pending<string>();
       const p = within(never, 'fallback');
       await vi.advanceTimersByTimeAsync(500);
       expect(await p).toBe('fallback');
@@ -24,7 +25,7 @@ describe('bestEffortBudget', () => {
     vi.useFakeTimers();
     try {
       const within = bestEffortBudget(300);
-      const first = within(new Promise<number>(() => {}), 1);
+      const first = within(pending<number>(), 1);
       await vi.advanceTimersByTimeAsync(300);
       expect(await first).toBe(1);
       // Budget spent — even instantly-resolving work is skipped for its fallback.

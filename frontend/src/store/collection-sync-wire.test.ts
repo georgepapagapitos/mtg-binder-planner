@@ -9,7 +9,8 @@
  * changes the in-memory store also produces a queued sync op.
  */
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, afterEach } from 'vitest';
+import { flushSync } from '../lib/sync';
 
 import { useCollectionStore } from './collection';
 import { useDecksStore } from './decks';
@@ -96,6 +97,9 @@ async function waitForQueue(
   }
   return queuedOps();
 }
+
+// Drop the push debounce a mutation armed, so no timer outlives the test.
+afterEach(() => flushSync());
 
 describe('cards → sync queue', () => {
   it('importCards enqueues an upsert for each new card + its import', async () => {

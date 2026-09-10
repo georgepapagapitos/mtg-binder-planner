@@ -13,6 +13,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { pending } from '@/test/pending';
 import type { TradeOffer } from '../lib/trades-client';
 
 vi.mock('../store/auth', () => ({
@@ -86,7 +87,7 @@ describe('TradesPage', () => {
   });
 
   it('shows a skeleton until the first fetch settles', async () => {
-    listTrades.mockReturnValue(new Promise(() => {}));
+    listTrades.mockReturnValue(pending({ offers: [], truncated: false }));
     renderPage();
 
     expect(screen.getByLabelText('Loading your trades')).toBeTruthy();

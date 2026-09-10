@@ -64,7 +64,10 @@ export function useSearchCards<T = ScryfallCard>(
   const [results, setResults] = useState<T[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const debounceRef = useRef<number | null>(null);
+  // Cancels the in-flight debounce wait: clears its timer AND settles its
+  // promise, so a superseded `run()` exits through `if (cancelled) return`
+  // instead of hanging on a promise nothing will ever resolve.
+  const debounceRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,10 +81,15 @@ export function useSearchCards<T = ScryfallCard>(
         }
         return;
       }
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+      debounceRef.current?.();
       await new Promise<void>((resolve) => {
-        debounceRef.current = window.setTimeout(resolve, debounceMs);
+        const timer = window.setTimeout(resolve, debounceMs);
+        debounceRef.current = () => {
+          window.clearTimeout(timer);
+          resolve();
+        };
       });
+      debounceRef.current = null;
       if (cancelled) return;
       setLoading(true);
       setError(null);
@@ -102,7 +110,7 @@ export function useSearchCards<T = ScryfallCard>(
     void run();
     return () => {
       cancelled = true;
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+      debounceRef.current?.();
     };
   }, [query, limit, fetcher, minLength, debounceMs, enabled]);
 

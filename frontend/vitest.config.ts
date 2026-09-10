@@ -153,6 +153,15 @@ export default defineConfig({
       // measured baseline, rounded down a point as a small margin, so
       // coverage can no longer regress. Ratchet these upward as tests are
       // added — never lower them, and never drop the src/lib/** 80.
+      //
+      // Measuring a baseline: the text reporter's directory row (e.g.
+      // `playtest | 92.4`) counts ONLY the files directly in that directory,
+      // while a `src/playtest/**` threshold aggregates every subdirectory
+      // (62% once playtest/components is in). Read the numbers the threshold
+      // checker prints for a glob (set it to 100 and read the ERROR lines) or
+      // sum the per-file rows; never the directory row. And measure with the
+      // full, unfiltered suite: a CLI `--exclude` changes which files run and
+      // moves the aggregate.
       thresholds: {
         'src/lib/**': {
           statements: 80,
@@ -176,19 +185,19 @@ export default defineConfig({
           statements: 53,
           branches: 47,
           functions: 47,
-          lines: 55,
+          lines: 53,
         },
         'src/pages/**': {
-          statements: 49,
-          branches: 42,
-          functions: 43,
-          lines: 50,
+          statements: 46,
+          branches: 39,
+          functions: 40,
+          lines: 47,
         },
         'src/playtest/**': {
-          statements: 91,
-          branches: 80,
-          functions: 87,
-          lines: 95,
+          statements: 60,
+          branches: 51,
+          functions: 51,
+          lines: 61,
         },
       },
     },

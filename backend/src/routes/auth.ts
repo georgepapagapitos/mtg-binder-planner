@@ -35,6 +35,7 @@ import {
   type UserRole,
 } from '../auth';
 import {
+  adoptVerifiedGoogleEmail,
   autoLinkGoogleIdentity,
   buildGoogleAuthUrl,
   consumeHandoffCode,
@@ -44,7 +45,9 @@ import {
   findGoogleUser,
   getGoogleConfig,
   isGoogleOAuthConfigured,
+  isUniqueViolation,
   mintHandoffCode,
+  type GoogleIdentity,
 } from '../oauth/google';
 import { logger } from '../logger';
 import { getDb } from '../db';
@@ -374,8 +377,9 @@ async function handleLinkCallback(
   res: Response,
   platform: OAuthPlatform,
   userId: string,
-  providerSubject: string
+  identity: GoogleIdentity
 ): Promise<void> {
+  const providerSubject = identity.sub;
   const callback = nativeCallbackUrl();
   const ok =
     platform === 'native' ? `${callback}?${qs({ linked: 'google' })}` : '/settings?linked=google';
@@ -405,6 +409,7 @@ async function handleLinkCallback(
     userId,
     createdAt: Date.now(),
   });
+  await adoptVerifiedGoogleEmail(userId, identity);
   res.redirect(ok);
 }
 
@@ -510,12 +515,15 @@ authRouter.get('/google/callback', oauthLimiter, async (req: Request, res: Respo
     // Link-mode branch: attach this Google identity to the user named in the
     // state (which only a signed-in /google/link request could have produced).
     if (state.mode === 'link' && state.userId) {
-      return handleLinkCallback(res, platform, state.userId, identity.sub);
+      return handleLinkCallback(res, platform, state.userId, identity);
     }
 
     const existing = await findGoogleUser(identity.sub);
 
     if (existing) {
+      // Accounts that linked Google before the link paths stored the address
+      // backfill their verified email here, on their next Google sign-in.
+      await adoptVerifiedGoogleEmail(existing.id, identity);
       if (platform === 'native') {
         const handoff = await mintHandoffCode(existing.id);
         return res.redirect(`${nativeCallbackUrl()}?${qs({ code: handoff })}`);
@@ -683,6 +691,7 @@ authRouter.post('/google/link-with-password', oauthLimiter, async (req: Request,
     userId: user.id,
     createdAt: Date.now(),
   });
+  await adoptVerifiedGoogleEmail(user.id, identity);
 
   const role: UserRole = user.role === 'admin' ? 'admin' : 'user';
   const authed = { id: user.id, username: user.username, role };
@@ -989,7 +998,7 @@ authRouter.post('/verify-email', verifyEmailLimiter, async (req: Request, res: R
       .set({ email: result.email, emailVerified: true })
       .where(eq(users.id, result.userId));
   } catch (err) {
-    if ((err as { code?: string }).code === '23505') {
+    if (isUniqueViolation(err)) {
       return res.status(409).json({ error: 'That email is already verified on another account.' });
     }
     throw err;

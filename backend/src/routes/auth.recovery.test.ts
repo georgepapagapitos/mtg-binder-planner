@@ -116,6 +116,30 @@ describe('POST /api/auth/me/email + POST /api/auth/verify-email', () => {
     expect(res.status).toBe(409);
   });
 
+  it('answers 409, not 500, when two accounts race to verify the same address', async () => {
+    // Both may REQUEST the address (the pre-check only blocks verified
+    // owners); whoever clicks second hits the unique index, which drizzle
+    // surfaces as a wrapped DrizzleQueryError.
+    const tokens: string[] = [];
+    for (const username of ['em-race-1', 'em-race-2']) {
+      const register = await request(app)
+        .post('/api/auth/register')
+        .send({ username, password: 'correct horse battery' });
+      const cookie = extractSessionCookie(register.headers['set-cookie']);
+      await request(app)
+        .post('/api/auth/me/email')
+        .set('Cookie', cookie!)
+        .send({ email: 'race@example.com' });
+      tokens.push(tokenFromLastMail());
+    }
+
+    const first = await request(app).post('/api/auth/verify-email').send({ token: tokens[0] });
+    expect(first.status).toBe(200);
+    const second = await request(app).post('/api/auth/verify-email').send({ token: tokens[1] });
+    expect(second.status).toBe(409);
+    expect(second.body.error).toMatch(/another account/);
+  });
+
   it('rejects a malformed email', async () => {
     const register = await request(app)
       .post('/api/auth/register')

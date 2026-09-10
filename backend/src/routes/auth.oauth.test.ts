@@ -331,6 +331,84 @@ describe('POST /api/auth/google/link-with-password', () => {
     expect(cb2.headers.location).toBe('/');
   });
 
+  it('adopts the verified Google email onto a password account that had none', async () => {
+    await registerPassword('link-mail', 'correct horse battery');
+    const token = await freshSignupToken('link-mail-sub');
+    const res = await request(app)
+      .post('/api/auth/google/link-with-password')
+      .send({ signupToken: token, username: 'link-mail', password: 'correct horse battery' });
+    expect(res.status).toBe(200);
+
+    const { rows } = await pool.query(
+      `SELECT email, email_verified FROM users WHERE username = 'link-mail'`
+    );
+    expect(rows[0]).toEqual({ email: 'link-mail-sub@example.com', email_verified: true });
+  });
+
+  it('never overwrites an address the account already has', async () => {
+    await registerPassword('link-keep', 'correct horse battery');
+    await pool.query(
+      `UPDATE users SET email = 'kept@example.com', email_verified = false WHERE username = 'link-keep'`
+    );
+    const token = await freshSignupToken('link-keep-sub');
+    await request(app)
+      .post('/api/auth/google/link-with-password')
+      .send({ signupToken: token, username: 'link-keep', password: 'correct horse battery' });
+
+    const { rows } = await pool.query(
+      `SELECT email, email_verified FROM users WHERE username = 'link-keep'`
+    );
+    expect(rows[0]).toEqual({ email: 'kept@example.com', email_verified: false });
+  });
+
+  it('leaves the address alone when another account already owns it', async () => {
+    // The owner already has Google linked (so the callback's same-email
+    // auto-link stays out of the way) and holds the address.
+    await registerPassword('link-owner', 'correct horse battery');
+    const ownerToken = await freshSignupToken('link-owner-sub');
+    await request(app)
+      .post('/api/auth/google/link-with-password')
+      .send({ signupToken: ownerToken, username: 'link-owner', password: 'correct horse battery' });
+
+    // A second Google account that reports the SAME address links to a
+    // different SpellControl account.
+    await registerPassword('link-taken', 'correct horse battery');
+    const cb = await callback('link-taken-sub', 'link-owner-sub@example.com', 'web');
+    const token = signupTokenFromWeb(cb.headers.location);
+    const res = await request(app)
+      .post('/api/auth/google/link-with-password')
+      .send({ signupToken: token, username: 'link-taken', password: 'correct horse battery' });
+    expect(res.status).toBe(200); // the link itself still succeeds
+
+    const { rows } = await pool.query(
+      `SELECT username, email FROM users WHERE username IN ('link-owner', 'link-taken') ORDER BY username`
+    );
+    expect(rows).toEqual([
+      { username: 'link-owner', email: 'link-owner-sub@example.com' },
+      { username: 'link-taken', email: null },
+    ]);
+  });
+
+  it('backfills an already-linked account on its next Google sign-in', async () => {
+    await registerPassword('link-old', 'correct horse battery');
+    const token = await freshSignupToken('link-old-sub');
+    await request(app)
+      .post('/api/auth/google/link-with-password')
+      .send({ signupToken: token, username: 'link-old', password: 'correct horse battery' });
+    // Simulate an account linked before the fix: identity present, no email.
+    await pool.query(
+      `UPDATE users SET email = NULL, email_verified = false WHERE username = 'link-old'`
+    );
+
+    const cb = await callback('link-old-sub', 'link-old-sub@example.com', 'web');
+    expect(cb.headers.location).toBe('/');
+
+    const { rows } = await pool.query(
+      `SELECT email, email_verified FROM users WHERE username = 'link-old'`
+    );
+    expect(rows[0]).toEqual({ email: 'link-old-sub@example.com', email_verified: true });
+  });
+
   it('rejects a wrong password with a generic 401', async () => {
     await registerPassword('link-bob', 'correct horse battery');
     const token = await freshSignupToken('link-bob-sub');

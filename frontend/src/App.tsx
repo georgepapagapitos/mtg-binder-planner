@@ -24,6 +24,12 @@ import { CollectionHubLayout } from './components/CollectionHubLayout';
 import { WelcomePage } from './pages/WelcomePage';
 import AuthPage from './pages/AuthPage';
 import ChooseUsernamePage from './pages/ChooseUsernamePage';
+// Account recovery (T117): reached from an emailed link, possibly in a fresh
+// tab/device with nothing else warmed — lazy like the rest of the app, but
+// exempted from the first-run gate below (see isFirstRunExempt).
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 import { useAuth } from './store/auth';
 import { useCollectionStore } from './store/collection';
 import { startSync, hydrateLocal } from './lib/sync';
@@ -386,6 +392,9 @@ export default function App() {
           <Route path="/welcome" element={<Navigate to="/" replace />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/choose-username" element={<ChooseUsernamePage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/oauth/callback" element={<OAuthCallbackLanding />} />
           <Route element={<Layout />}>
             {/* The default landing for authed users (w3-nav-activation) — the "/"

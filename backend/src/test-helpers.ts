@@ -149,6 +149,17 @@ export async function createTestEnv(): Promise<TestEnv> {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       expires_at BIGINT NOT NULL
     );
+    CREATE TABLE auth_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      purpose TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      email TEXT,
+      expires_at BIGINT NOT NULL,
+      used_at BIGINT,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX auth_tokens_user_purpose_idx ON auth_tokens(user_id, purpose);
     CREATE SEQUENCE user_data_rev_seq;
     CREATE TABLE user_imports (
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

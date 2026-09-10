@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import { testAwareLimiter } from '../route-utils';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import {
   clearSessionCookie,
   generateUsername,
@@ -48,8 +48,18 @@ import {
 } from '../oauth/google';
 import { logger } from '../logger';
 import { getDb } from '../db';
-import { authIdentities, deckPublications, users } from '../db/schema';
+import { authIdentities, authTokens, deckPublications, users } from '../db/schema';
 import { invalidateDeckPublicationCache, invalidatePublicUserCache } from '../publications/cache';
+import { sendMail } from '../mail';
+
+/**
+ * The web app's own origin — used to build links that land back in the app
+ * (OAuth deep links, and now the account-recovery email links). Override via
+ * `APP_HTTPS_DEEPLINK_BASE` (e.g. for a staging origin); default is prod.
+ */
+function publicWebOrigin(): string {
+  return (process.env.APP_HTTPS_DEEPLINK_BASE ?? 'https://spellcontrol.com').replace(/\/+$/, '');
+}
 
 /**
  * HTTPS deep link the native OAuth flow returns into the app. An Android
@@ -57,15 +67,10 @@ import { invalidateDeckPublicationCache, invalidatePublicUserCache } from '../pu
  * this URL straight to the installed APK, sidestepping the browser
  * compatibility issues that the previous `spellcontrol://oauth/callback`
  * custom scheme had (Firefox and Samsung Internet refused to follow the
- * HTTPS → custom-scheme hop, dead-ending the flow). Override the host via
- * `APP_HTTPS_DEEPLINK_BASE` (e.g. for a staging origin); default is prod.
+ * HTTPS → custom-scheme hop, dead-ending the flow).
  */
 function nativeCallbackUrl(): string {
-  const base = (process.env.APP_HTTPS_DEEPLINK_BASE ?? 'https://spellcontrol.com').replace(
-    /\/+$/,
-    ''
-  );
-  return `${base}/oauth/callback`;
+  return `${publicWebOrigin()}/oauth/callback`;
 }
 
 // Disable rate limiting in tests to avoid state persisting across test cases
@@ -74,6 +79,102 @@ const loginLimiter = testAwareLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 const oauthLimiter = testAwareLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
 // Session bootstrap reads (/providers, /me): hit on every app open and focus.
 const sessionLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
+// Account recovery (T117).
+const emailChangeLimiter = testAwareLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+const emailResendLimiter = testAwareLimiter({ windowMs: 60 * 60 * 1000, max: 3 });
+const verifyEmailLimiter = testAwareLimiter({ windowMs: 15 * 60 * 1000, max: 20 });
+const forgotPasswordLimiter = testAwareLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
+const resetPasswordLimiter = testAwareLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+const passwordChangeLimiter = testAwareLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+type TokenPurpose = 'reset' | 'verify';
+
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Mints a single-use recovery token, invalidating the user's older unused
+ * tokens of the same purpose first (so a stale "reset your password" email
+ * from an hour ago can't be replayed once a fresh one has been requested).
+ * Returns the raw token — only its hash is ever persisted.
+ */
+async function issueAuthToken(
+  userId: string,
+  purpose: TokenPurpose,
+  email?: string
+): Promise<string> {
+  const db = getDb();
+  const now = Date.now();
+  await db
+    .update(authTokens)
+    .set({ usedAt: now })
+    .where(
+      and(eq(authTokens.userId, userId), eq(authTokens.purpose, purpose), isNull(authTokens.usedAt))
+    );
+  const token = crypto.randomBytes(32).toString('base64url');
+  await db.insert(authTokens).values({
+    id: crypto.randomUUID(),
+    userId,
+    purpose,
+    tokenHash: hashToken(token),
+    email: email ?? null,
+    expiresAt: now + (purpose === 'reset' ? RESET_TOKEN_TTL_MS : VERIFY_TOKEN_TTL_MS),
+    usedAt: null,
+    createdAt: now,
+  });
+  return token;
+}
+
+/** Validates + consumes a token (marks it used). Null on unknown/expired/used. */
+async function consumeAuthToken(
+  token: string,
+  purpose: TokenPurpose
+): Promise<{ userId: string; email: string | null } | null> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: authTokens.id,
+      userId: authTokens.userId,
+      email: authTokens.email,
+      expiresAt: authTokens.expiresAt,
+      usedAt: authTokens.usedAt,
+    })
+    .from(authTokens)
+    .where(and(eq(authTokens.tokenHash, hashToken(token)), eq(authTokens.purpose, purpose)))
+    .limit(1);
+  const row = rows[0];
+  if (!row || row.usedAt !== null || row.expiresAt < Date.now()) return null;
+  await db.update(authTokens).set({ usedAt: Date.now() }).where(eq(authTokens.id, row.id));
+  return { userId: row.userId, email: row.email };
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim().toLowerCase();
+  return trimmed.length > 0 && trimmed.length <= 254 && EMAIL_REGEX.test(trimmed) ? trimmed : null;
+}
+
+function verifyEmailContent(link: string): { subject: string; text: string; html: string } {
+  return {
+    subject: 'Verify your SpellControl email',
+    text: `Confirm this email address for your SpellControl account.\n\n${link}\n\nThis link expires in 24 hours. If you did not request this, ignore this email.`,
+    html: `<p>Confirm this email address for your SpellControl account.</p><p><a href="${link}">${link}</a></p><p>This link expires in 24 hours. If you did not request this, ignore this email.</p>`,
+  };
+}
+
+function resetPasswordContent(link: string): { subject: string; text: string; html: string } {
+  return {
+    subject: 'Reset your SpellControl password',
+    text: `Reset your SpellControl password.\n\n${link}\n\nThis link expires in 1 hour. If you did not request this, ignore this email.`,
+    html: `<p>Reset your SpellControl password.</p><p><a href="${link}">${link}</a></p><p>This link expires in 1 hour. If you did not request this, ignore this email.</p>`,
+  };
+}
 
 export const authRouter: Router = Router();
 
@@ -162,6 +263,82 @@ authRouter.post('/login', loginLimiter, async (req: Request, res: Response) => {
   const token = signSession({ id: user.id, username: user.username, role });
   setSessionCookie(res, token);
   res.json({ user: { id: user.id, username: user.username, role } });
+});
+
+/**
+ * Request a password reset. ALWAYS 200 with the same body — never reveal
+ * whether an account exists or uses that email (T117 enumeration
+ * protection). Only accounts with a VERIFIED email get a token + email; the
+ * unverified/non-existent branch runs a dummy password hash so the two
+ * paths take roughly the same time, same trick `POST /login` already uses.
+ */
+authRouter.post('/forgot-password', forgotPasswordLimiter, async (req: Request, res: Response) => {
+  const email = normalizeEmail(req.body?.email);
+  const respond = (): void => {
+    res.json({ ok: true, message: "If an account uses that email, we've sent a reset link." });
+  };
+  if (!email) return respond();
+
+  const db = getDb();
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.email, email), eq(users.emailVerified, true)))
+    .limit(1);
+  const user = rows[0];
+  if (user) {
+    const token = await issueAuthToken(user.id, 'reset');
+    const link = `${publicWebOrigin()}/reset-password?token=${encodeURIComponent(token)}`;
+    const content = resetPasswordContent(link);
+    await sendMail({ to: email, ...content });
+  } else {
+    await hashPassword('reset-timing-equalizer');
+  }
+  respond();
+});
+
+/**
+ * Finish a password reset: validates the token, sets the new password, and
+ * signs the user in (they land already authenticated — no second login step
+ * after proving control of the token). Invalidates any other still-live
+ * reset token for the account so an old, unused email link stops working
+ * once one of them has succeeded.
+ */
+authRouter.post('/reset-password', resetPasswordLimiter, async (req: Request, res: Response) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token : '';
+  const password = validatePassword(req.body?.password);
+  const expired = (): Response =>
+    res
+      .status(400)
+      .json({ error: 'That reset link has expired or was already used. Request a new one.' });
+  if (!token) return expired();
+  if (!password) {
+    return res
+      .status(400)
+      .json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
+  }
+
+  const result = await consumeAuthToken(token, 'reset');
+  if (!result) return expired();
+
+  const db = getDb();
+  const passwordHash = await hashPassword(password);
+  await db.update(users).set({ passwordHash }).where(eq(users.id, result.userId));
+  await db
+    .update(authTokens)
+    .set({ usedAt: Date.now() })
+    .where(
+      and(
+        eq(authTokens.userId, result.userId),
+        eq(authTokens.purpose, 'reset'),
+        isNull(authTokens.usedAt)
+      )
+    );
+
+  const user = await loadUserById(result.userId);
+  if (!user) return expired();
+  setSessionCookie(res, signSession(user));
+  res.json({ user });
 });
 
 /**
@@ -727,10 +904,165 @@ authRouter.post(
 );
 
 /**
- * Which external sign-in methods the authed user has linked. Used by the
- * Sign-in methods section in Settings. The Google email isn't returned
- * because we don't persist it on the identity row — Settings shows
- * "Linked / Not linked" only.
+ * Newest still-live (unused, unexpired) verify-token row for a user, if any.
+ * Shared by GET /me/identities (to report `pendingEmail`) and the resend
+ * route (to know what to re-send).
+ */
+async function latestPendingVerify(userId: string): Promise<{ email: string } | null> {
+  const db = getDb();
+  const rows = await db
+    .select({ email: authTokens.email, expiresAt: authTokens.expiresAt })
+    .from(authTokens)
+    .where(
+      and(
+        eq(authTokens.userId, userId),
+        eq(authTokens.purpose, 'verify'),
+        isNull(authTokens.usedAt)
+      )
+    )
+    .orderBy(desc(authTokens.createdAt))
+    .limit(1);
+  const row = rows[0];
+  if (!row || !row.email || row.expiresAt < Date.now()) return null;
+  return { email: row.email };
+}
+
+/**
+ * Start adding/changing the authed user's email. Doesn't write `users.email`
+ * yet — that only happens once the link is clicked (POST /verify-email),
+ * because the link may open in a different browser than the one that's
+ * signed in here. Refuses (409, generic wording) if another VERIFIED
+ * account already owns the address, so this can't be used to probe who has
+ * an account.
+ */
+authRouter.post(
+  '/me/email',
+  emailChangeLimiter,
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!email) return res.status(400).json({ error: 'Enter a valid email address.' });
+
+    const db = getDb();
+    const owners = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.email, email), eq(users.emailVerified, true)))
+      .limit(1);
+    if (owners[0] && owners[0].id !== req.user!.id) {
+      return res.status(409).json({ error: 'That email is already in use.' });
+    }
+
+    const token = await issueAuthToken(req.user!.id, 'verify', email);
+    const link = `${publicWebOrigin()}/verify-email?token=${encodeURIComponent(token)}`;
+    await sendMail({ to: email, ...verifyEmailContent(link) });
+    res.status(202).json({ pendingEmail: email });
+  }
+);
+
+/**
+ * Finish adding/changing an email: validates the token and writes
+ * `users.email` + `email_verified`. Public (no auth) — the link may be
+ * opened on a different device/browser than the one that's signed in. A
+ * unique-index race (someone else verified the same address first between
+ * this token being issued and now) surfaces as 409, not a 500.
+ */
+authRouter.post('/verify-email', verifyEmailLimiter, async (req: Request, res: Response) => {
+  const token = typeof req.body?.token === 'string' ? req.body.token : '';
+  const expired = (): Response =>
+    res.status(400).json({
+      error: 'That verification link has expired or was already used. Request a new one.',
+    });
+  if (!token) return expired();
+
+  const result = await consumeAuthToken(token, 'verify');
+  if (!result || !result.email) return expired();
+
+  const db = getDb();
+  try {
+    await db
+      .update(users)
+      .set({ email: result.email, emailVerified: true })
+      .where(eq(users.id, result.userId));
+  } catch (err) {
+    if ((err as { code?: string }).code === '23505') {
+      return res.status(409).json({ error: 'That email is already verified on another account.' });
+    }
+    throw err;
+  }
+  res.json({ ok: true });
+});
+
+/**
+ * Re-send the newest pending verify email. 3/hour — this is the one recovery
+ * route a user can hit repeatedly by mistake (mistyped address, spam
+ * filter), and it's authed, so the limiter exists to stop mail-bombing an
+ * address, not to guard account enumeration.
+ */
+authRouter.post(
+  '/me/email/resend',
+  emailResendLimiter,
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const pending = await latestPendingVerify(req.user!.id);
+    if (!pending) {
+      return res.status(400).json({ error: 'No pending email to verify. Add an email first.' });
+    }
+    const token = await issueAuthToken(req.user!.id, 'verify', pending.email);
+    const link = `${publicWebOrigin()}/verify-email?token=${encodeURIComponent(token)}`;
+    await sendMail({ to: pending.email, ...verifyEmailContent(link) });
+    res.json({ ok: true });
+  }
+);
+
+/**
+ * Set (SSO-only account) or change (has a password already) the authed
+ * user's password. `currentPassword` is required and verified whenever the
+ * account already has one — this is also what makes the "set a password
+ * before unlinking Google" instruction on DELETE /me/identities/google
+ * satisfiable for a Google-only account (no `currentPassword` needed there).
+ */
+authRouter.post(
+  '/me/password',
+  passwordChangeLimiter,
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const newPassword = validatePassword(req.body?.newPassword);
+    if (!newPassword) {
+      return res
+        .status(400)
+        .json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
+    }
+
+    const db = getDb();
+    const rows = await db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, req.user!.id))
+      .limit(1);
+    const existingHash = rows[0]?.passwordHash;
+    if (existingHash) {
+      const currentPassword =
+        typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Enter your current password.' });
+      }
+      const ok = await verifyPassword(currentPassword, existingHash);
+      if (!ok) return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await db.update(users).set({ passwordHash }).where(eq(users.id, req.user!.id));
+    res.json({ ok: true });
+  }
+);
+
+/**
+ * Which external sign-in methods the authed user has linked, plus email
+ * state (T117: `email`/`emailVerified` off `users`, `pendingEmail` from the
+ * newest unused verify token, if any). Used by the Sign-in methods section
+ * in Settings. The Google email isn't returned because we don't persist it
+ * on the identity row — Settings shows "Linked / Not linked" only.
  */
 authRouter.get(
   '/me/identities',
@@ -739,7 +1071,11 @@ authRouter.get(
   async (req: Request, res: Response) => {
     const db = getDb();
     const userRows = await db
-      .select({ passwordHash: users.passwordHash })
+      .select({
+        passwordHash: users.passwordHash,
+        email: users.email,
+        emailVerified: users.emailVerified,
+      })
       .from(users)
       .where(eq(users.id, req.user!.id))
       .limit(1);
@@ -748,9 +1084,13 @@ authRouter.get(
       .from(authIdentities)
       .where(and(eq(authIdentities.userId, req.user!.id), eq(authIdentities.provider, 'google')))
       .limit(1);
+    const pending = await latestPendingVerify(req.user!.id);
     res.json({
       password: Boolean(userRows[0]?.passwordHash),
       google: googleRows[0] ? { linkedAt: googleRows[0].createdAt } : null,
+      email: userRows[0]?.email ?? null,
+      emailVerified: Boolean(userRows[0]?.emailVerified),
+      pendingEmail: pending?.email ?? null,
     });
   }
 );
@@ -758,9 +1098,9 @@ authRouter.get(
 /**
  * Unlink the user's Google account. Refuses if removing the Google identity
  * would leave the account with no way to sign in (no password and no other
- * external identities). There is no password reset, so once locked out the
- * account is unrecoverable — the check is non-negotiable for any future
- * "remove sign-in method" endpoint too; consult userHasOtherSignInMethod().
+ * external identities) — set a password first (POST /me/password); consult
+ * userHasOtherSignInMethod() for any future "remove sign-in method" endpoint
+ * too.
  */
 authRouter.delete(
   '/me/identities/google',

@@ -385,7 +385,13 @@ describe('GET /api/auth/me/identities', () => {
     const { cookie } = await registerWithSession('ident-alice');
     const res = await request(app).get('/api/auth/me/identities').set('Cookie', cookie);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ password: true, google: null });
+    expect(res.body).toEqual({
+      password: true,
+      google: null,
+      email: null,
+      emailVerified: false,
+      pendingEmail: null,
+    });
   });
 
   it('returns the linked-at timestamp when Google is linked', async () => {

@@ -140,6 +140,19 @@ export async function ensureSchema(): Promise<void> {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       expires_at BIGINT NOT NULL
     );
+    -- Account recovery (T117): single-use email-verify / password-reset
+    -- tokens. token_hash is the sha256 of the raw token mailed to the user.
+    CREATE TABLE IF NOT EXISTS auth_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      purpose TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      email TEXT,
+      expires_at BIGINT NOT NULL,
+      used_at BIGINT,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS auth_tokens_user_purpose_idx ON auth_tokens(user_id, purpose);
     -- Per-entity sync tables. See db/schema.ts for the design rationale; the
     -- short version: each user-data row carries its own monotonic rev so a
     -- delete on one device propagates as a tombstone to every other device on

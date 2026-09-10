@@ -190,11 +190,87 @@ export interface MyIdentities {
   password: boolean;
   /** Set when a Google identity is attached. */
   google: { linkedAt: number } | null;
+  /** Verified email on the account, or null if none. */
+  email: string | null;
+  emailVerified: boolean;
+  /** Email awaiting a click on its verification link, or null. */
+  pendingEmail: string | null;
 }
 
 export async function fetchIdentities(): Promise<MyIdentities> {
   const res = await authedFetch('/api/auth/me/identities', { method: 'GET' });
   return handleResponse<MyIdentities>(res);
+}
+
+/**
+ * Start adding/changing the authed user's email. Doesn't take effect until
+ * the verification link is clicked (verifyEmail below) — returns the pending
+ * address so the UI can show "Pending verification" immediately.
+ */
+export async function requestEmailChange(email: string): Promise<{ pendingEmail: string }> {
+  const res = await authedFetch('/api/auth/me/email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse<{ pendingEmail: string }>(res);
+}
+
+/** Finish adding/changing an email. Public — the link may open on another device. */
+export async function verifyEmail(token: string): Promise<void> {
+  const res = await authedFetch('/api/auth/verify-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  await handleResponse<{ ok: true }>(res);
+}
+
+/** Re-send the newest pending verification email. */
+export async function resendEmailVerification(): Promise<void> {
+  const res = await authedFetch('/api/auth/me/email/resend', { method: 'POST' });
+  await handleResponse<{ ok: true }>(res);
+}
+
+/**
+ * Request a password-reset email. Always resolves — the backend returns 200
+ * whether or not the address is on a (verified) account, so the UI never
+ * learns which.
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  const res = await authedFetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  await handleResponse<{ ok: true }>(res);
+}
+
+/** Finish a password reset: sets the new password and signs the user in. */
+export async function resetPassword(token: string, password: string): Promise<AuthUser> {
+  const res = await authedFetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+  const data = await handleResponse<{ user: AuthUser }>(res);
+  return data.user;
+}
+
+/**
+ * Set (no existing password) or change (existing password — `currentPassword`
+ * required) the authed user's password.
+ */
+export async function updatePassword(input: {
+  currentPassword?: string;
+  newPassword: string;
+}): Promise<void> {
+  const res = await authedFetch('/api/auth/me/password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  await handleResponse<{ ok: true }>(res);
 }
 
 /**

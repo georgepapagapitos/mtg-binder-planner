@@ -143,6 +143,33 @@ export const oauthHandoffCodes = pgTable('oauth_handoff_codes', {
 });
 
 /**
+ * Single-use tokens backing account recovery (T117): email verification and
+ * password reset. `tokenHash` is the sha256 hex of the raw token mailed to
+ * the user — we never store the raw token itself, mirroring how
+ * `passwordHash` never stores the plaintext password. `email` carries the
+ * address being verified for a 'verify' row (null for 'reset'). Issuing a new
+ * token invalidates the user's older unused tokens of the same purpose (see
+ * `routes/auth.ts`'s `issueAuthToken`).
+ */
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** 'reset' | 'verify' */
+    purpose: text('purpose').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    email: text('email'),
+    expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+    usedAt: bigint('used_at', { mode: 'number' }),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [index('auth_tokens_user_purpose_idx').on(t.userId, t.purpose)]
+);
+
+/**
  * Per-entity sync tables. Each user-data row is its own database row with a
  * monotonic `rev` and a soft-delete `deleted_at`; clients pull deltas since a
  * cursor and apply tombstones, so a deletion on one device propagates to every

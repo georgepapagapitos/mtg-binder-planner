@@ -154,7 +154,8 @@ export async function loadAuthedUser(token: string): Promise<AuthedUser | null> 
  * "If we remove this method, does the account still have any way to sign
  * in?" Source-of-truth check that every "remove a sign-in method" endpoint
  * MUST consult before deleting — leaving a user with zero sign-in methods
- * locks them out permanently (there is no password reset). Pass the
+ * locks them out (a password reset needs a VERIFIED email on the account,
+ * which an SSO-only user who never set one doesn't have). Pass the
  * candidate-for-removal so we can prove there's at least one OTHER method.
  *
  * Today the only removable methods are the password column and rows in

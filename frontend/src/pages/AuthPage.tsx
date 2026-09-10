@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { useAuth } from '../store/auth';
@@ -274,12 +274,6 @@ export default function AuthPage() {
                   </span>
                   At least 10 characters
                 </li>
-                <li className="auth-rule auth-rule-note">
-                  <span className="auth-rule-mark" aria-hidden="true">
-                    !
-                  </span>
-                  No password reset. Pick something you'll remember.
-                </li>
               </ul>
             ) : null}
           </label>
@@ -341,6 +335,12 @@ export default function AuthPage() {
           <button type="submit" className="auth-submit" disabled={submitting}>
             {submitting ? 'Working…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
+
+          {mode === 'login' ? (
+            <Link to="/forgot-password" className="auth-forgot-link">
+              Forgot password?
+            </Link>
+          ) : null}
         </form>
 
         <button

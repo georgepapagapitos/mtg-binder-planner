@@ -5,8 +5,11 @@ import type { AuthStatus } from '../store/auth';
 
 /**
  * Paths reachable without first satisfying the first-run gate: the root
- * landing page itself (and its /welcome alias), the auth flow, OAuth landing
- * pages, and every public/share route App.tsx renders outside the auth gate
+ * landing page itself (and its /welcome alias), the auth flow, account
+ * recovery (/forgot-password, /reset-password, /verify-email — reached from
+ * an emailed link, which can land before any first-run choice was ever
+ * made), OAuth landing pages, and every public/share route App.tsx renders
+ * outside the auth gate
  * (unauthed-reachable, no <Layout> chrome) — `/s/:token`, `/u/:username`,
  * `/d/:slug`, `/gn/:token`, `/gn/s/:token` — plus `/decks/discover`, the one
  * always-reachable public route that DOES live inside <Layout>. Mirror
@@ -23,6 +26,9 @@ export function isFirstRunExempt(pathname: string): boolean {
     pathname === '/welcome' ||
     pathname === '/auth' ||
     pathname.startsWith('/auth/') ||
+    pathname === '/forgot-password' ||
+    pathname === '/reset-password' ||
+    pathname === '/verify-email' ||
     pathname === '/oauth/callback' ||
     pathname.startsWith('/s/') ||
     pathname.startsWith('/u/') ||

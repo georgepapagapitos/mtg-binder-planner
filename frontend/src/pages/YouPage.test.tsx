@@ -13,7 +13,7 @@
  *    every `?section=` door lands its promised heading, and the landing is
  *    re-pinned while late cards above it are still arriving.
  */
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,6 +60,9 @@ vi.mock('../lib/auth-api', () => ({
   fetchIdentities: vi.fn(() => Promise.resolve(null)),
   googleLinkUrl: vi.fn(),
   requestGoogleLinkIntent: vi.fn(),
+  requestEmailChange: vi.fn(),
+  resendEmailVerification: vi.fn(),
+  updatePassword: vi.fn(),
   unlinkGoogle: vi.fn(),
 }));
 // Backs both YouPage's own friend-count fetch and the shared
@@ -314,7 +317,13 @@ describe('you-page — the landing is re-pinned while late cards arrive', () => 
 
   it('?section=sign-in announces the Sign-in methods card on the pass that first finds it', async () => {
     const { fetchIdentities } = await import('../lib/auth-api');
-    vi.mocked(fetchIdentities).mockResolvedValueOnce({ password: true, google: null });
+    vi.mocked(fetchIdentities).mockResolvedValueOnce({
+      password: true,
+      google: null,
+      email: null,
+      emailVerified: false,
+      pendingEmail: null,
+    });
     authState.user = { username: 'alice', id: 'u1' };
     authState.status = 'authed';
     renderYouPage('/?section=sign-in');
@@ -381,5 +390,137 @@ describe('T117 — Help & guides', () => {
     renderYouPage();
     const link = screen.getByRole('link', { name: 'Open guides' });
     expect(link.getAttribute('href')).toBe('/guides/');
+  });
+});
+
+describe('T117 — Sign-in methods: Password and Email rows', () => {
+  beforeEach(() => {
+    authState.user = { username: 'alice', id: 'u1' };
+    authState.status = 'authed';
+  });
+
+  async function mockIdentitiesOnce(overrides: {
+    password?: boolean;
+    email?: string | null;
+    emailVerified?: boolean;
+    pendingEmail?: string | null;
+  }) {
+    const { fetchIdentities } = await import('../lib/auth-api');
+    vi.mocked(fetchIdentities).mockResolvedValueOnce({
+      password: overrides.password ?? false,
+      google: null,
+      email: overrides.email ?? null,
+      emailVerified: overrides.emailVerified ?? false,
+      pendingEmail: overrides.pendingEmail ?? null,
+    });
+  }
+
+  it('offers "Set password" for a passwordless account', async () => {
+    await mockIdentitiesOnce({ password: false });
+    renderYouPage('/?section=sign-in');
+    expect(await screen.findByRole('button', { name: 'Set password' })).toBeTruthy();
+  });
+
+  it('offers "Change password" once the account has one', async () => {
+    await mockIdentitiesOnce({ password: true });
+    renderYouPage('/?section=sign-in');
+    expect(await screen.findByRole('button', { name: 'Change password' })).toBeTruthy();
+  });
+
+  it('opens the password modal and submits the new password', async () => {
+    await mockIdentitiesOnce({ password: false });
+    const { updatePassword } = await import('../lib/auth-api');
+    vi.mocked(updatePassword).mockResolvedValueOnce(undefined);
+    renderYouPage('/?section=sign-in');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Set password' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Set a password' })).toBeTruthy();
+    // No "current password" field for a passwordless account.
+    expect(within(dialog).queryByLabelText('Current password')).toBeNull();
+
+    // The New/Confirm fields both wrap a trailing requirements <ul>, so
+    // getByLabelText's aggregated-text match can't isolate either one (same
+    // reason ResetPasswordPage.test.tsx selects by input, not label).
+    const [password, confirm] = Array.from(
+      dialog.querySelectorAll<HTMLInputElement>('input[type="password"]')
+    );
+    fireEvent.change(password, { target: { value: 'a brand new password' } });
+    fireEvent.change(confirm, { target: { value: 'a brand new password' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Set password' }));
+
+    await waitFor(() =>
+      expect(updatePassword).toHaveBeenCalledWith({
+        currentPassword: undefined,
+        newPassword: 'a brand new password',
+      })
+    );
+  });
+
+  it('shows "Not set" with the recovery hint, and no verified email exists yet', async () => {
+    // password: true so the Password row's own "Set" hint doesn't collide
+    // with the Email row's "Not set" — this test is about the Email row.
+    await mockIdentitiesOnce({
+      password: true,
+      email: null,
+      emailVerified: false,
+      pendingEmail: null,
+    });
+    renderYouPage('/?section=sign-in');
+    expect(await screen.findByText('Not set')).toBeTruthy();
+    expect(
+      screen.getByText('Add a verified email so you can reset your password if you get locked out.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeTruthy();
+  });
+
+  it('shows "Pending verification" with a Resend action, still with the recovery hint', async () => {
+    await mockIdentitiesOnce({
+      email: null,
+      emailVerified: false,
+      pendingEmail: 'alice@example.com',
+    });
+    const { resendEmailVerification } = await import('../lib/auth-api');
+    vi.mocked(resendEmailVerification).mockResolvedValueOnce(undefined);
+    renderYouPage('/?section=sign-in');
+
+    expect(await screen.findByText(/Pending verification, alice@example\.com/)).toBeTruthy();
+    expect(
+      screen.getByText('Add a verified email so you can reset your password if you get locked out.')
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    await waitFor(() => expect(resendEmailVerification).toHaveBeenCalled());
+  });
+
+  it('shows the verified address with a Change action and drops the recovery hint', async () => {
+    await mockIdentitiesOnce({
+      email: 'alice@example.com',
+      emailVerified: true,
+      pendingEmail: null,
+    });
+    renderYouPage('/?section=sign-in');
+    expect(await screen.findByText('alice@example.com')).toBeTruthy();
+    expect(
+      screen.queryByText(
+        'Add a verified email so you can reset your password if you get locked out.'
+      )
+    ).toBeNull();
+    expect(screen.getByRole('button', { name: 'Change' })).toBeTruthy();
+  });
+
+  it('opens the email modal from "Add" and submits the address', async () => {
+    await mockIdentitiesOnce({ email: null, emailVerified: false, pendingEmail: null });
+    const { requestEmailChange } = await import('../lib/auth-api');
+    vi.mocked(requestEmailChange).mockResolvedValueOnce({ pendingEmail: 'alice@example.com' });
+    renderYouPage('/?section=sign-in');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('heading', { name: 'Add an email' })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'alice@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send verification link' }));
+
+    await waitFor(() => expect(requestEmailChange).toHaveBeenCalledWith('alice@example.com'));
   });
 });

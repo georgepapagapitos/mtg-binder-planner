@@ -63,6 +63,12 @@ interface AuthState {
   login: (username: string, password: string) => Promise<boolean>;
   register: (username: string, password: string) => Promise<boolean>;
   /**
+   * Finish a password reset: sets the new password and signs the user in
+   * (same shared success path as login/register). Resolves to false (and
+   * sets `error`) on an expired/used/unknown token.
+   */
+  resetPasswordWithToken: (token: string, password: string) => Promise<boolean>;
+  /**
    * Native only: finish a Google sign-in by exchanging the handoff code that
    * arrived on the OAuth deep link. The web flow needs no store method — its
    * callback sets the session cookie server-side and `bootstrap()` picks it up
@@ -196,6 +202,23 @@ export const useAuth = create<AuthState>((set, get) => {
         return true;
       } catch (err) {
         set({ error: userMessage(err, "Couldn't create your account. Try again.") });
+        return false;
+      }
+    },
+
+    resetPasswordWithToken: async (token, password) => {
+      set({ error: null });
+      try {
+        const user = await authApi.resetPassword(token, password);
+        signInAs(user);
+        return true;
+      } catch (err) {
+        set({
+          error: userMessage(
+            err,
+            'That reset link has expired or was already used. Request a new one.'
+          ),
+        });
         return false;
       }
     },

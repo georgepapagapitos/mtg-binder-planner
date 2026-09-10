@@ -20,15 +20,24 @@ function combo(id: string, popularity = 0): OfflineCombo {
   };
 }
 
-/** An NDJSON body delivered in arbitrary byte chunks — lines split anywhere. */
+// Flipped in afterEach: a stream whose test has ended errors on its next pull,
+// so an import that outlived its test (a timeout under load) stops writing
+// into the store the next test is using instead of cascading into it (E279).
+let streamsLive = true;
+
+/**
+ * An NDJSON body delivered in arbitrary byte chunks — lines split anywhere.
+ * Pull-based: chunks are produced only as the importer reads them.
+ */
 function ndjsonResponse(rows: OfflineCombo[], chunkSize: number, status = 200): Response {
   const bytes = new TextEncoder().encode(rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  let offset = 0;
   const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        controller.enqueue(bytes.slice(i, i + chunkSize));
-      }
-      controller.close();
+    pull(controller) {
+      if (!streamsLive) return controller.error(new Error('test ended'));
+      if (offset >= bytes.length) return controller.close();
+      controller.enqueue(bytes.slice(offset, offset + chunkSize));
+      offset += chunkSize;
     },
   });
   return new Response(body, {
@@ -38,15 +47,33 @@ function ndjsonResponse(rows: OfflineCombo[], chunkSize: number, status = 200): 
 }
 
 afterEach(async () => {
+  streamsLive = false;
   vi.restoreAllMocks();
   await clearOfflineData();
+  streamsLive = true;
 });
 
 describe('importCombos', () => {
-  it('streams NDJSON split across chunk boundaries and stores every row once', async () => {
-    const rows = Array.from({ length: 2_345 }, (_, i) => combo(`c${i}`, i));
-    // 7-byte chunks guarantee lines (and multi-byte-free JSON) straddle reads.
+  it('reassembles lines split across chunk boundaries', async () => {
+    const rows = [combo('a', 1), combo('b', 2), combo('c', 3)];
+    // 7-byte chunks: every line straddles many reads, and most reads carry no
+    // newline at all. A few rows is enough — the parser sees every boundary
+    // shape; row volume only ever made this test slow (E279).
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(ndjsonResponse(rows, 7));
+
+    const { count } = await importCombos();
+
+    expect(count).toBe(3);
+    const stored = await getAllCombos();
+    expect(stored.map((c) => c.id).sort()).toEqual(['a', 'b', 'c']);
+    expect(stored.find((c) => c.id === 'c')?.popularity).toBe(3);
+  });
+
+  it('writes in batches and stores every row once', async () => {
+    // Past one BATCH (1000) so the mid-stream flush, the final partial flush
+    // and the dedupe all run; 4 KiB chunks still land mid-line every time.
+    const rows = Array.from({ length: 1_050 }, (_, i) => combo(`c${i}`, i));
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(ndjsonResponse(rows, 4096));
     const seen: number[] = [];
 
     const { count } = await importCombos((n) => seen.push(n));
@@ -55,7 +82,7 @@ describe('importCombos', () => {
     const stored = await getAllCombos();
     expect(stored.length).toBe(rows.length);
     expect(new Set(stored.map((c) => c.id)).size).toBe(rows.length);
-    expect(stored.find((c) => c.id === 'c2344')?.popularity).toBe(2344);
+    expect(stored.find((c) => c.id === 'c1049')?.popularity).toBe(1049);
     expect(seen.at(-1)).toBeGreaterThan(0); // progress reported in bytes
   });
 

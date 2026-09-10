@@ -2130,6 +2130,50 @@ export function DeckDisplay({
             onClose={() => setExportOpen(false)}
           />
         )}
+        {/* Print-only checklist (name/qty/set-cn), grouped like the list
+            view. Invisible on screen (styles/print.css's `.print-list`);
+            DeckExportDialog's "Print list" action closes itself and calls
+            window.print(), which the print stylesheet then renders as this
+            instead of the normal interactive view. */}
+        <div className="print-list" aria-hidden>
+          <h1 className="print-list-title">{title}</h1>
+          {visibleGroups
+            .filter((g) => g.rows.length > 0)
+            .map((g) => (
+              <section key={g.title} className="print-list-section">
+                <h2 className="print-list-section-title">{g.title}</h2>
+                <ul>
+                  {g.rows.map((row) => (
+                    <li key={row.slotIds[0] ?? row.name}>
+                      <span className="print-list-qty">{row.qty}</span>
+                      <span className="print-list-name">{row.name}</span>
+                      <span className="print-list-printing">
+                        {row.setCode.toUpperCase()} {row.collectorNumber}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          {visibleSideboardGroups.some((g) => g.rows.length > 0) && (
+            <section className="print-list-section">
+              <h2 className="print-list-section-title">Sideboard</h2>
+              <ul>
+                {visibleSideboardGroups
+                  .flatMap((g) => g.rows)
+                  .map((row) => (
+                    <li key={row.slotIds[0] ?? row.name}>
+                      <span className="print-list-qty">{row.qty}</span>
+                      <span className="print-list-name">{row.name}</span>
+                      <span className="print-list-printing">
+                        {row.setCode.toUpperCase()} {row.collectorNumber}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
+        </div>
       </div>
     </CardPreviewContext.Provider>
   );

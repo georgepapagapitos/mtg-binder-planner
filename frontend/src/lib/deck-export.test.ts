@@ -236,3 +236,74 @@ describe('buildExport', () => {
     ]);
   });
 });
+
+describe('mtgo export (.dek XML)', () => {
+  it('emits the XML declaration and Deck root with NetDeckID/PreconstructedDeckID', () => {
+    const result = buildExport({ cards: [{ card: card() }] }, 'mtgo');
+    const lines = result.split('\n');
+    expect(lines[0]).toBe('<?xml version="1.0" encoding="utf-8"?>');
+    expect(lines[1]).toContain('<Deck xmlns:xsi=');
+    expect(lines[1]).toContain('xmlns:xsd=');
+    expect(lines).toContain('<NetDeckID>0</NetDeckID>');
+    expect(lines).toContain('<PreconstructedDeckID>0</PreconstructedDeckID>');
+    expect(lines[lines.length - 1]).toBe('</Deck>');
+  });
+
+  it('puts mainboard cards as Sideboard="false" Cards tags with CatID/Quantity/Name', () => {
+    const result = buildExport(
+      { cards: [{ card: card({ name: 'Sol Ring' }) }, { card: card({ name: 'Sol Ring' }) }] },
+      'mtgo'
+    );
+    expect(result).toContain('<Cards CatID="0" Quantity="2" Sideboard="false" Name="Sol Ring"/>');
+  });
+
+  it('puts the commander (and partner) in the main list, not a separate section', () => {
+    const result = buildExport(
+      {
+        commander: card({ name: 'Kaalia of the Vast' }),
+        partner: card({ name: 'Thrasios, Triton Hero' }),
+        cards: [{ card: card({ name: 'Sol Ring' }) }],
+      },
+      'mtgo'
+    );
+    expect(result).not.toContain('Commander');
+    expect(result).toContain(
+      '<Cards CatID="0" Quantity="1" Sideboard="false" Name="Kaalia of the Vast"/>'
+    );
+    expect(result).toContain(
+      '<Cards CatID="0" Quantity="1" Sideboard="false" Name="Thrasios, Triton Hero"/>'
+    );
+  });
+
+  it('marks sideboard cards Sideboard="true"', () => {
+    const result = buildExport(
+      {
+        cards: [{ card: card({ name: 'Sol Ring' }) }],
+        sideboard: [{ card: card({ name: 'Negate', set: 'znr', collector_number: '50' }) }],
+      },
+      'mtgo'
+    );
+    expect(result).toContain('<Cards CatID="0" Quantity="1" Sideboard="true" Name="Negate"/>');
+    expect(result).toContain('<Cards CatID="0" Quantity="1" Sideboard="false" Name="Sol Ring"/>');
+  });
+
+  it('drops considering (no Maybeboard equivalent in the MTGO format)', () => {
+    const result = buildExport(
+      {
+        cards: [{ card: card({ name: 'Sol Ring' }) }],
+        considering: [{ card: card({ name: 'Rhystic Study' }) }],
+      },
+      'mtgo'
+    );
+    expect(result).not.toContain('Rhystic Study');
+  });
+
+  it('escapes XML entities in card names', () => {
+    const result = buildExport(
+      { cards: [{ card: card({ name: 'Who/What/When/Where/Why <Foo> & "Bar"' }) }] },
+      'mtgo'
+    );
+    expect(result).toContain('Name="Who/What/When/Where/Why &lt;Foo&gt; &amp; &quot;Bar&quot;"');
+    expect(result).not.toContain('<Foo>');
+  });
+});

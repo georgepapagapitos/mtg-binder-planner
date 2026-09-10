@@ -20,7 +20,7 @@ export interface ExportCardSlot {
   allocatedCopyId?: string | null;
 }
 
-export type ExportFormat = 'mtga' | 'plain' | 'moxfield';
+export type ExportFormat = 'mtga' | 'plain' | 'moxfield' | 'mtgo';
 
 const EXPORT_FORMAT_STORAGE_KEY = 'mtg-decks-export-format';
 
@@ -28,7 +28,7 @@ export function readStoredExportFormat(): ExportFormat {
   if (typeof window === 'undefined') return 'mtga';
   try {
     const v = window.localStorage.getItem(EXPORT_FORMAT_STORAGE_KEY);
-    if (v === 'mtga' || v === 'plain' || v === 'moxfield') return v;
+    if (v === 'mtga' || v === 'plain' || v === 'moxfield' || v === 'mtgo') return v;
   } catch {
     /* ignore */
   }
@@ -175,6 +175,43 @@ export interface BuildExportInput {
   partnerAllocatedCopyId?: string | null;
 }
 
+function escapeXmlAttr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * MTGO `.dek` XML. Unlike the line-oriented formats, this has no separate
+ * Commander section — the commander/partner go into the main list like any
+ * other card — and no Maybeboard equivalent, so `considering` is dropped.
+ */
+function buildMtgoExport(
+  cmdEntry: (card: ExportableCard, copyId: string | null | undefined) => ExportEntry,
+  input: BuildExportInput
+): string {
+  const { commander, partner, cards, sideboard = [], collectionByCopyId } = input;
+  const cardTag = (entry: ExportEntry, isSideboard: boolean) =>
+    `<Cards CatID="0" Quantity="${entry.qty}" Sideboard="${isSideboard}" Name="${escapeXmlAttr(entry.name)}"/>`;
+
+  const tags: string[] = [];
+  if (commander) tags.push(cardTag(cmdEntry(commander, input.commanderAllocatedCopyId), false));
+  if (partner) tags.push(cardTag(cmdEntry(partner, input.partnerAllocatedCopyId), false));
+  for (const entry of groupAndSort(cards, collectionByCopyId)) tags.push(cardTag(entry, false));
+  for (const entry of groupAndSort(sideboard, collectionByCopyId)) tags.push(cardTag(entry, true));
+
+  return [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<Deck xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">',
+    '<NetDeckID>0</NetDeckID>',
+    '<PreconstructedDeckID>0</PreconstructedDeckID>',
+    ...tags,
+    '</Deck>',
+  ].join('\n');
+}
+
 export function buildExport(input: BuildExportInput, format: ExportFormat): string {
   const {
     commander = null,
@@ -186,11 +223,13 @@ export function buildExport(input: BuildExportInput, format: ExportFormat): stri
     commanderAllocatedCopyId,
     partnerAllocatedCopyId,
   } = input;
-  const lines: string[] = [];
   const cmdEntry = (card: ExportableCard, copyId: string | null | undefined): ExportEntry => {
     const printing = resolvePrinting(card, copyId ?? null, collectionByCopyId);
     return { ...printing, qty: 1 };
   };
+  if (format === 'mtgo') return buildMtgoExport(cmdEntry, input);
+
+  const lines: string[] = [];
   if (format === 'mtga' && (commander || partner)) {
     lines.push('Commander');
     if (commander) lines.push(formatLine(cmdEntry(commander, commanderAllocatedCopyId), format));

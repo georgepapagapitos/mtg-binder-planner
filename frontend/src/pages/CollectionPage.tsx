@@ -1,4 +1,4 @@
-import { BarChart3, Plus, Share2 } from 'lucide-react';
+import { BarChart3, Download, Plus, Share2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAnimatedNumber } from '../lib/use-animated-number';
@@ -15,6 +15,8 @@ import { AddCardsSheet } from '../components/AddCardsSheet';
 import { StatsBar } from '../components/StatsBar';
 import { CardListTable } from '../components/CardListTable';
 import { ShareDialog } from '../components/ShareDialog';
+import { collectionToCsv, collectionCsvFileName, downloadCsv } from '../lib/collection-export';
+import { toast } from '../store/toasts';
 
 export function CollectionPage() {
   const rawCards = useCollectionStore((s) => s.cards);
@@ -62,6 +64,11 @@ export function CollectionPage() {
   }, []);
 
   const [shareOpen, setShareOpen] = useState(false);
+
+  function handleExportCsv() {
+    downloadCsv(collectionToCsv(cards), collectionCsvFileName());
+    toast.show({ message: 'CSV downloaded.', tone: 'success' });
+  }
 
   const [statsOpen, setStatsOpen] = useState(false);
 
@@ -213,16 +220,27 @@ export function CollectionPage() {
                 <span>Add cards</span>
               </button>
               {!isEmpty && (
-                <button
-                  type="button"
-                  className="pill-btn collection-hero-action"
-                  aria-haspopup="dialog"
-                  onClick={() => setShareOpen(true)}
-                  title="Share a read-only link to this collection"
-                >
-                  <Share2 width={14} height={14} strokeWidth={1.8} aria-hidden />
-                  <span>Share</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="pill-btn collection-hero-action"
+                    onClick={handleExportCsv}
+                    title="Download a CSV of your collection"
+                  >
+                    <Download width={14} height={14} strokeWidth={1.8} aria-hidden />
+                    <span>Export CSV</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-btn collection-hero-action"
+                    aria-haspopup="dialog"
+                    onClick={() => setShareOpen(true)}
+                    title="Share a read-only link to this collection"
+                  >
+                    <Share2 width={14} height={14} strokeWidth={1.8} aria-hidden />
+                    <span>Share</span>
+                  </button>
+                </>
               )}
             </div>
           </header>

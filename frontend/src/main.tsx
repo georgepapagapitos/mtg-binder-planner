@@ -64,6 +64,9 @@ import './styles/deck-builder-guided.css';
 import './styles/deck-builder-skeleton.css';
 import './styles/social-shared.css';
 import './styles/shared.css';
+// Last on purpose: print rules must win over everything else in print media
+// regardless of specificity elsewhere in the cascade (see the file header).
+import './styles/print.css';
 import { bootstrapTheme, useThemeStore } from './store/theme';
 import { bootstrapTypeSet } from './store/typeset';
 import { loadTaggerData } from './deck-builder/services/tagger/client';

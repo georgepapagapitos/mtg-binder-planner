@@ -1,5 +1,6 @@
 import type { BinderDef, EnrichedCard, SortEntry } from '../types';
 import type { StoredCollection } from './local-cards';
+import type { Deck } from '../store/decks';
 
 /**
  * Converts a raw sorts value from any version of persisted data into the
@@ -24,7 +25,7 @@ export function normalizeSortEntries(raw: unknown): SortEntry[] {
  * backup files — bump `version` and add a migration path in `parseBackup`.
  */
 export const BACKUP_FORMAT = 'spellcontrol-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export interface Backup {
   format: typeof BACKUP_FORMAT;
@@ -32,15 +33,28 @@ export interface Backup {
   exportedAt: number;
   collection: StoredCollection | null;
   binders: BinderDef[];
+  /**
+   * Decks (v2+). `undefined` means "don't touch decks on restore" — a v1
+   * backup, or a binder-scoped export (`buildBinderBackup`/
+   * `buildAllBindersBackup`, which stay v1: they never carried decks and
+   * restoring one shouldn't wipe them). An explicit `[]` means the backup
+   * really has zero decks.
+   */
+  decks?: Deck[];
 }
 
-export function buildBackup(collection: StoredCollection | null, binders: BinderDef[]): Backup {
+export function buildBackup(
+  collection: StoredCollection | null,
+  binders: BinderDef[],
+  decks: Deck[]
+): Backup {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: Date.now(),
     collection,
     binders,
+    decks,
   };
 }
 
@@ -51,7 +65,9 @@ export function buildBackup(collection: StoredCollection | null, binders: Binder
 export function buildBinderBackup(binder: BinderDef, binderCards: EnrichedCard[]): Backup {
   return {
     format: BACKUP_FORMAT,
-    version: BACKUP_VERSION,
+    // Stays v1: card+binder scoped only, never carries decks (see the
+    // `decks` doc on Backup — restoring this must not touch deck state).
+    version: 1,
     exportedAt: Date.now(),
     collection: cardsAsCollection(binderCards, `binder-${binder.name}`),
     binders: [binder],
@@ -65,7 +81,8 @@ export function buildBinderBackup(binder: BinderDef, binderCards: EnrichedCard[]
 export function buildAllBindersBackup(binders: BinderDef[], binderCards: EnrichedCard[]): Backup {
   return {
     format: BACKUP_FORMAT,
-    version: BACKUP_VERSION,
+    // Stays v1 — see buildBinderBackup.
+    version: 1,
     exportedAt: Date.now(),
     collection: cardsAsCollection(binderCards, 'all-binders'),
     binders,
@@ -97,8 +114,9 @@ function timestamp(now: Date = new Date()): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
 }
 
-/** Sanitize a binder name for use in a filename. Spaces → '-', drop everything else. */
-function safeName(name: string): string {
+/** Sanitize a binder name for use in a filename. Spaces → '-', drop everything else.
+ *  Exported for `lib/collection-export.ts`'s binder-scoped CSV filename. */
+export function safeName(name: string): string {
   return (
     name
       .trim()
@@ -181,11 +199,16 @@ export function parseBackup(raw: string): Backup {
     throw new Error("Backup collection is malformed (cards isn't a list).");
   }
 
+  // Absent on a v1 backup (or a binder-scoped export) — undefined means
+  // "leave decks alone" on restore; see the `decks` doc on Backup.
+  const decks = Array.isArray(obj.decks) ? (obj.decks as Deck[]) : undefined;
+
   return {
     format: BACKUP_FORMAT,
     version: obj.version,
     exportedAt: typeof obj.exportedAt === 'number' ? obj.exportedAt : Date.now(),
     collection,
     binders,
+    ...(decks ? { decks } : {}),
   };
 }

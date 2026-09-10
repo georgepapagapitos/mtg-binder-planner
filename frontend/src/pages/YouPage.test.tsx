@@ -4,7 +4,7 @@
  *
  * Verifies:
  *  - UX-332: guest-state account card explains that local data merges on sign-in.
- *  - UX-335: InfoTip for "deck allocations" renders; InfoTip for "binders and lists" renders.
+ *  - UX-335: InfoTip for "deck allocations" renders; InfoTip for "binders, lists, and decks" renders.
  *  - w7-you-ia: the page's tier hierarchy (Identity → Preferences → Your data)
  *    and the Friends pointer row that replaced the inline FriendsManagement
  *    mount now that Friends lives at its own /friends route.
@@ -148,9 +148,9 @@ describe('UX-335 — Settings InfoTips', () => {
     expect(tip).toBeTruthy();
   });
 
-  it('renders the binders and lists InfoTip trigger', () => {
+  it('renders the binders, lists, and decks InfoTip trigger', () => {
     renderYouPage();
-    const tip = screen.getByRole('button', { name: /what is binders and lists/i });
+    const tip = screen.getByRole('button', { name: /what is binders, lists, and decks/i });
     expect(tip).toBeTruthy();
   });
 });

@@ -9,37 +9,41 @@ const MARGIN = 12;
 interface Props {
   /** Hidden while true — a drag in progress, or any sheet/menu open. */
   suspended: boolean;
+  /** Image URL for a card instance id, or null when it has none to show
+   *  (face-down, no art). The DOM carries only the id (`data-preview-id`);
+   *  the URL always comes from here, i.e. from React state. */
+  resolve(cardId: string): string | null;
 }
 
 interface Target {
   src: string;
-  name: string;
   rect: DOMRect;
 }
 
 /**
  * Full-size card face beside the board for whatever card the pointer rests
  * on (or keyboard focus lands on). Event-delegated off `document` on the
- * `data-preview-src` attribute `PlaytestCardFace` sets, so every card
+ * `data-preview-id` attribute `PlaytestCardFace` sets, so every card
  * surface — battlefield, hand, drag overlay excluded by `suspended` — gets
  * it with no per-card wiring. Fine-pointer only: touch has no hover, and the
  * long-press → menu → Preview path already serves it.
  */
-export function CardHoverPreview({ suspended }: Props) {
+export function CardHoverPreview({ suspended, resolve }: Props) {
   const finePointer = useMediaQuery('(hover: hover) and (pointer: fine)');
   const [target, setTarget] = useState<Target | null>(null);
 
   useEffect(() => {
     if (!finePointer) return;
+    const SELECTOR = '[data-preview-id]';
     let timer: number | null = null;
     const clear = () => {
       if (timer != null) window.clearTimeout(timer);
       timer = null;
     };
     const read = (el: Element): Target | null => {
-      const src = el.getAttribute('data-preview-src');
-      if (!src) return null;
-      return { src, name: el.getAttribute('aria-label') ?? '', rect: el.getBoundingClientRect() };
+      const id = el.getAttribute('data-preview-id');
+      const src = id ? resolve(id) : null;
+      return src ? { src, rect: el.getBoundingClientRect() } : null;
     };
     const show = (el: Element, delay: number) => {
       clear();
@@ -52,18 +56,18 @@ export function CardHoverPreview({ suspended }: Props) {
       setTarget(null);
     };
     const onOver = (e: Event) => {
-      const el = (e.target as Element | null)?.closest?.('[data-preview-src]');
+      const el = (e.target as Element | null)?.closest?.(SELECTOR);
       if (el) show(el, HOVER_DELAY_MS);
     };
     const onOut = (e: Event) => {
-      const el = (e.target as Element | null)?.closest?.('[data-preview-src]');
+      const el = (e.target as Element | null)?.closest?.(SELECTOR);
       if (!el) return;
       const to = (e as MouseEvent).relatedTarget as Element | null;
       if (to && el.contains(to)) return;
       hide();
     };
     const onFocusIn = (e: Event) => {
-      const el = (e.target as Element | null)?.closest?.('[data-preview-src]');
+      const el = (e.target as Element | null)?.closest?.(SELECTOR);
       if (el) show(el, 0);
       else hide();
     };
@@ -80,7 +84,7 @@ export function CardHoverPreview({ suspended }: Props) {
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('scroll', hide, true);
     };
-  }, [finePointer]);
+  }, [finePointer, resolve]);
 
   if (!finePointer || suspended || !target) return null;
 

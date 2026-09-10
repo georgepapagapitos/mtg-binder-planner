@@ -43,9 +43,11 @@ export const PlaytestCardFace = memo(
         className={`playtest-card playtest-card--${size}${tapped ? ' playtest-card--tapped' : ''}${
           attached ? ' playtest-card--attached' : ''
         }${phased ? ' playtest-card--phased' : ''}${className ? ` ${className}` : ''}`}
-        // Hover/focus preview source (CardHoverPreview.tsx). Absent for a
-        // face-down card so resting on one never reveals it.
-        data-preview-src={!faceDown && src ? src : undefined}
+        // Hover/focus preview hook (CardHoverPreview.tsx): only the instance
+        // id goes in the DOM — the preview resolves the image from React
+        // state, never from a DOM attribute. Absent for a face-down card so
+        // resting on one never reveals it.
+        data-preview-id={!faceDown && src ? card.id : undefined}
         {...rest}
       >
         {attached && (

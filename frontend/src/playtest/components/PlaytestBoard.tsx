@@ -400,6 +400,21 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
     playFromHand(cardId);
   }
 
+  // Image per card instance for the hover preview — the DOM carries only ids.
+  const previewSrcs = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of state.battlefield) {
+      const src = b.showBackFace && b.card.backImageUrl ? b.card.backImageUrl : b.card.imageUrl;
+      if (src && !b.faceDown) m.set(b.card.id, src);
+    }
+    for (const c of state.zones.hand) if (c.imageUrl) m.set(c.id, c.imageUrl);
+    return m;
+  }, [state.battlefield, state.zones.hand]);
+  const resolvePreview = useCallback(
+    (cardId: string) => previewSrcs.get(cardId) ?? null,
+    [previewSrcs]
+  );
+
   const handleHandCardMenu = useCallback((cardId: string, x: number, y: number) => {
     setHandMenu({ cardId, x, y });
   }, []);
@@ -839,7 +854,7 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
             onCardMenu={handleHandCardMenu}
           />
         )}
-        <CardHoverPreview suspended={activeId !== null || anySheetOpen} />
+        <CardHoverPreview suspended={activeId !== null || anySheetOpen} resolve={resolvePreview} />
         {/* Above `--z-overlay` so a card dragged out of the hand sheet renders
             over the sheet, not behind it. */}
         <DragOverlay dropAnimation={null} zIndex={1200}>

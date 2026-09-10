@@ -1665,8 +1665,8 @@ Untap):
   cascade hid names from the second card on). A face-down play lands in the
   creature row — it is a 2/2 whatever it was printed as.
 - **Hover / focus preview on fine pointers.** `CardHoverPreview` shows the
-  full face beside any card carrying `data-preview-src` (set by
-  `PlaytestCardFace`; absent when face-down) after a 220ms rest, immediately
+  full face beside any card carrying `data-preview-id` (set by
+  `PlaytestCardFace`; absent when face-down — the URL resolves from React state, never from the DOM) after a 220ms rest, immediately
   on keyboard focus, hidden while dragging or while any sheet is open. Touch
   gets no hover — its path is long-press → menu → Preview.
 - **Every card surface has a menu, and it says what it will do.** Battlefield

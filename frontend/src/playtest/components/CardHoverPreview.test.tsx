@@ -16,9 +16,17 @@ function stubMatchMedia(matches: boolean) {
   })) as unknown as typeof window.matchMedia;
 }
 
-function cardEl(src?: string) {
+const SRCS: Record<string, string> = {
+  sol: 'https://img/sol-ring.jpg',
+  a: 'https://img/a.jpg',
+  b: 'https://img/b.jpg',
+  c: 'https://img/c.jpg',
+};
+const resolve = (id: string) => SRCS[id] ?? null;
+
+function cardEl(id?: string) {
   const el = document.createElement('div');
-  if (src) el.setAttribute('data-preview-src', src);
+  if (id) el.setAttribute('data-preview-id', id);
   el.setAttribute('aria-label', 'Sol Ring');
   el.tabIndex = 0;
   document.body.appendChild(el);
@@ -34,8 +42,8 @@ describe('CardHoverPreview', () => {
 
   it('shows the full face after a short hover on a fine pointer, and hides on leave', () => {
     stubMatchMedia(true);
-    render(<CardHoverPreview suspended={false} />);
-    const el = cardEl('https://img/sol-ring.jpg');
+    render(<CardHoverPreview suspended={false} resolve={resolve} />);
+    const el = cardEl('sol');
     act(() => {
       el.dispatchEvent(new Event('pointerover', { bubbles: true }));
     });
@@ -53,8 +61,8 @@ describe('CardHoverPreview', () => {
 
   it('shows immediately on keyboard focus', () => {
     stubMatchMedia(true);
-    render(<CardHoverPreview suspended={false} />);
-    const el = cardEl('https://img/a.jpg');
+    render(<CardHoverPreview suspended={false} resolve={resolve} />);
+    const el = cardEl('a');
     act(() => {
       el.dispatchEvent(new Event('focusin', { bubbles: true }));
       vi.advanceTimersByTime(0);
@@ -62,9 +70,9 @@ describe('CardHoverPreview', () => {
     expect(document.querySelector('.playtest-hover-preview')).not.toBeNull();
   });
 
-  it('never shows for a card without a preview source (face-down), nor while suspended, nor on touch', () => {
+  it('never shows for a card without a preview id (face-down), an unknown id, while suspended, or on touch', () => {
     stubMatchMedia(true);
-    const { rerender } = render(<CardHoverPreview suspended={false} />);
+    const { rerender } = render(<CardHoverPreview suspended={false} resolve={resolve} />);
     const faceDown = cardEl(undefined);
     act(() => {
       faceDown.dispatchEvent(new Event('pointerover', { bubbles: true }));
@@ -72,8 +80,15 @@ describe('CardHoverPreview', () => {
     });
     expect(document.querySelector('.playtest-hover-preview')).toBeNull();
 
-    const el = cardEl('https://img/b.jpg');
-    rerender(<CardHoverPreview suspended />);
+    const unknown = cardEl('not-a-card');
+    act(() => {
+      unknown.dispatchEvent(new Event('pointerover', { bubbles: true }));
+      vi.advanceTimersByTime(500);
+    });
+    expect(document.querySelector('.playtest-hover-preview')).toBeNull();
+
+    const el = cardEl('b');
+    rerender(<CardHoverPreview suspended resolve={resolve} />);
     act(() => {
       el.dispatchEvent(new Event('pointerover', { bubbles: true }));
       vi.advanceTimersByTime(500);
@@ -82,8 +97,8 @@ describe('CardHoverPreview', () => {
 
     document.body.innerHTML = '';
     stubMatchMedia(false);
-    render(<CardHoverPreview suspended={false} />);
-    const touch = cardEl('https://img/c.jpg');
+    render(<CardHoverPreview suspended={false} resolve={resolve} />);
+    const touch = cardEl('c');
     act(() => {
       touch.dispatchEvent(new Event('pointerover', { bubbles: true }));
       vi.advanceTimersByTime(500);

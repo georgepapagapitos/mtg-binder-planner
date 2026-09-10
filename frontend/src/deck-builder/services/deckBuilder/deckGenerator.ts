@@ -63,6 +63,7 @@ import {
   exceedsMaxRarity,
   constrainsToCollection,
   notInCollection,
+  isDeadInIdentity,
   isOwnedBudgetExempt,
   isOwnedRarityExempt,
   notOnArena,
@@ -971,6 +972,33 @@ export function buildComboUpsideNotes(
  * flagshipSeatings) are layered on top of this at report-assembly time
  * (buildReport.ts), since those arrays are only finalized after generation.
  */
+export const THIN_POOL_FILL_LABEL = 'Filled in by a broader card search for this slot';
+
+/**
+ * E282: owned-only thin-pool disclosure. Names the nonland slots the
+ * commander's own EDHREC data couldn't fill from the collection (provenance
+ * = the broader-search label), weakest first — no lift link to the deck,
+ * then globally least-played — so the user knows which cards to eye for a
+ * swap. Undefined when every slot came from the commander's data.
+ */
+export function buildThinPoolFillNote(params: {
+  nonLandCards: readonly ScryfallCard[];
+  cardProvenance: Record<string, string>;
+  liftScoreOf: (name: string) => number;
+}): string | undefined {
+  const fills = params.nonLandCards.filter(
+    (c) => params.cardProvenance[c.name] === THIN_POOL_FILL_LABEL
+  );
+  if (fills.length === 0) return undefined;
+  const rank = (c: ScryfallCard) => c.edhrec_rank ?? 1_000_000;
+  const weakest = [...fills]
+    .sort((a, b) => params.liftScoreOf(a.name) - params.liftScoreOf(b.name) || rank(b) - rank(a))
+    .slice(0, 5)
+    .map((c) => c.name);
+  const slots = fills.length === 1 ? '1 slot was' : `${fills.length} slots were`;
+  return `${slots} filled from your collection outside this commander's EDHREC data. Weakest first: ${weakest.join(', ')}. Coach can suggest swaps.`;
+}
+
 export function assembleCardProvenance(params: {
   nonLandCards: readonly ScryfallCard[];
   cardInclusionMap: Record<string, number> | undefined;
@@ -1004,7 +1032,7 @@ export function assembleCardProvenance(params: {
     } else if ((params.cardInclusionMap?.[card.name] ?? 0) > 0) {
       cardProvenance[card.name] = 'EDHREC staple for this commander';
     } else {
-      cardProvenance[card.name] = 'Filled in by a broader card search for this slot';
+      cardProvenance[card.name] = THIN_POOL_FILL_LABEL;
     }
   }
   return cardProvenance;
@@ -3464,6 +3492,106 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
       logger.debug(`[DeckGen] Filled ${filled} cards from remaining EDHREC suggestions`);
     }
 
+    // E282: owned-only modes run the owned-substitute tier BEFORE the typed
+    // Scryfall fill below. That fill ranks by global EDHREC rank inside a type
+    // quota and knows nothing about this commander; the substitute tier starts
+    // from the most-wanted UNOWNED staples and finds the closest owned card by
+    // role + similarity. First means a thin owned pool is filled by what the
+    // deck wants, and the typed fill only balances what's left. The helper and
+    // the cap-skip stash are shared with the relax tiers further down.
+    // Add a fetched card to the right category + role count (mirrors fixupAddCard).
+    // Callers dedupe before calling (Tier 1 pre-checks usedNames; fillWithScryfall
+    // already skips used names), so no guard here — and fillWithScryfall pre-adds
+    // its results to usedNames, so a guard here would wrongly drop every Tier 2/3
+    // card and leave the deck padded with basics instead.
+    //
+    // Role-cap gate (E77 iter-4 round 2): this helper used to add every card
+    // unconditionally — a role-capped card could keep landing here and the
+    // deck would fall through to BASIC-LAND padding instead (worse than an
+    // over-cap spell). Returns false and stashes the card for the shared
+    // escape hatch below rather than silently over-filling the role.
+    const ownedCapSkipped: ScryfallCard[] = [];
+    const addOwnedCard = (card: ScryfallCard, allowCapOverflow = false): boolean => {
+      if (!allowCapOverflow && isOverRoleCap(card, roleTargets, currentRoleCounts)) {
+        ownedCapSkipped.push(card);
+        return false;
+      }
+      stampRoleSubtypes(card);
+      routeCardByType(card, categories);
+      usedNames.add(card.name);
+      bumpRoleCapCount(
+        card,
+        roleTargets,
+        currentRoleCounts,
+        roleCapOverflowCounts,
+        allowCapOverflow
+      );
+      return true;
+    };
+
+    currentCount = countAllCards();
+    if (currentCount < targetDeckSize && constrainsToCollection(collectionStrategy)) {
+      // ── Tier 1: closest owned substitutes for the most-wanted unowned staples ──
+      const ownedPool = context.collectionPool ?? [];
+      if (ownedPool.length > 0 && state.edhrecData) {
+        const need = targetDeckSize - currentCount;
+        const inclusionByName = new Map<string, number>();
+        const missingStaples: GapAnalysisCard[] = [];
+        for (const edhrecCard of state.edhrecData.cardlists.allNonLand) {
+          inclusionByName.set(edhrecCard.name, edhrecCard.inclusion);
+          if (usedNames.has(edhrecCard.name) || bannedCards.has(edhrecCard.name)) continue;
+          if (!notInCollection(edhrecCard.name, context.collectionNames)) continue; // want UNOWNED staples
+          const role = getCardRole(edhrecCard.name);
+          if (!role) continue; // only role-classified staples have owned substitutes
+          const sc = scryfallCardMap.get(edhrecCard.name);
+          missingStaples.push({
+            name: edhrecCard.name,
+            price: null,
+            inclusion: edhrecCard.inclusion,
+            synergy: edhrecCard.synergy ?? 0,
+            typeLine: sc ? getFrontFaceTypeLine(sc) : (edhrecCard.primary_type ?? ''),
+            cmc: sc?.cmc ?? edhrecCard.cmc,
+            role,
+          });
+        }
+        // Most-wanted first; cap the search to keep the similarity pass bounded —
+        // 4× the deficit leaves headroom for staples with no owned match.
+        missingStaples.sort((a, b) => b.inclusion - a.inclusion);
+        const candidates = missingStaples.slice(0, Math.max(need * 4, 40));
+
+        const deckNames = new Set(
+          Object.values(categories)
+            .flat()
+            .map((c) => c.name)
+        );
+        const plan = buildSubstitutionPlan(candidates, ownedPool, deckNames, colorIdentity, {
+          inclusionByName,
+        });
+        const chosen = plan.rows.slice(0, need);
+        if (chosen.length > 0) {
+          const fetched = await getCardsByNames(
+            chosen.map((r) => r.usedName),
+            undefined,
+            undefined,
+            { arenaOnly }
+          );
+          for (const row of chosen) {
+            const card = fetched.get(row.usedName);
+            if (!card || usedNames.has(card.name)) continue;
+            if (!isCardAllowedBySynergyDependencies(card)) continue;
+            if (isDeadInIdentity(card, colorIdentity)) continue; // E282
+            // ponytail: a role-capped substitute defers to the escape hatch
+            // below rather than recording provenance here — it still gets
+            // added to the deck, just without a "Wanted X → used your Y" row.
+            if (addOwnedCard(card)) substitutionRows.push(row);
+          }
+          logger.debug(
+            `[DeckGen] Substituted ${substitutionRows.length} owned card(s) for staples`
+          );
+        }
+      }
+    }
+
     // If still short after EDHREC, use Scryfall — fill by type to stay balanced
     currentCount = countAllCards();
     if (currentCount < targetDeckSize) {
@@ -3598,104 +3726,14 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     // the steps above gate every pick to owned cards, so a too-small owned pool
     // would otherwise pad the rest with basic lands. Instead, fill the gap from
     // the collection FIRST — only reaching outside it as a flagged last resort.
-    // Three tiers, each running only if the deck is still short:
-    //   1. Substitute the CLOSEST owned card for the most-wanted unowned EDHREC
-    //      staples (similarity-ranked: tags + type + subtype + CMC), recorded as
-    //      "Wanted X → used your Y" provenance.
+    // Two tiers here, each running only if the deck is still short (the
+    // owned-substitute tier — "Wanted X → used your Y" — already ran above,
+    // ahead of the typed fill; E282):
     //   2. Generic owned backfill — the best owned in-color cards (still hard-
     //      gated to owned by passing the real strategy, not 'prefer').
     //   3. Outside the collection — surfaced loudly in the build report.
     currentCount = countAllCards();
     if (currentCount < targetDeckSize && constrainsToCollection(collectionStrategy)) {
-      // Add a fetched card to the right category + role count (mirrors fixupAddCard).
-      // Callers dedupe before calling (Tier 1 pre-checks usedNames; fillWithScryfall
-      // already skips used names), so no guard here — and fillWithScryfall pre-adds
-      // its results to usedNames, so a guard here would wrongly drop every Tier 2/3
-      // card and leave the deck padded with basics instead.
-      //
-      // Role-cap gate (E77 iter-4 round 2): this helper used to add every card
-      // unconditionally — a role-capped card could keep landing here and the
-      // deck would fall through to BASIC-LAND padding instead (worse than an
-      // over-cap spell). Returns false and stashes the card for the shared
-      // escape hatch below rather than silently over-filling the role.
-      const ownedCapSkipped: ScryfallCard[] = [];
-      const addOwnedCard = (card: ScryfallCard, allowCapOverflow = false): boolean => {
-        if (!allowCapOverflow && isOverRoleCap(card, roleTargets, currentRoleCounts)) {
-          ownedCapSkipped.push(card);
-          return false;
-        }
-        stampRoleSubtypes(card);
-        routeCardByType(card, categories);
-        usedNames.add(card.name);
-        bumpRoleCapCount(
-          card,
-          roleTargets,
-          currentRoleCounts,
-          roleCapOverflowCounts,
-          allowCapOverflow
-        );
-        return true;
-      };
-
-      // ── Tier 1: closest owned substitutes for the most-wanted unowned staples ──
-      const ownedPool = context.collectionPool ?? [];
-      if (ownedPool.length > 0 && state.edhrecData) {
-        const need = targetDeckSize - currentCount;
-        const inclusionByName = new Map<string, number>();
-        const missingStaples: GapAnalysisCard[] = [];
-        for (const edhrecCard of state.edhrecData.cardlists.allNonLand) {
-          inclusionByName.set(edhrecCard.name, edhrecCard.inclusion);
-          if (usedNames.has(edhrecCard.name) || bannedCards.has(edhrecCard.name)) continue;
-          if (!notInCollection(edhrecCard.name, context.collectionNames)) continue; // want UNOWNED staples
-          const role = getCardRole(edhrecCard.name);
-          if (!role) continue; // only role-classified staples have owned substitutes
-          const sc = scryfallCardMap.get(edhrecCard.name);
-          missingStaples.push({
-            name: edhrecCard.name,
-            price: null,
-            inclusion: edhrecCard.inclusion,
-            synergy: edhrecCard.synergy ?? 0,
-            typeLine: sc ? getFrontFaceTypeLine(sc) : (edhrecCard.primary_type ?? ''),
-            cmc: sc?.cmc ?? edhrecCard.cmc,
-            role,
-          });
-        }
-        // Most-wanted first; cap the search to keep the similarity pass bounded —
-        // 4× the deficit leaves headroom for staples with no owned match.
-        missingStaples.sort((a, b) => b.inclusion - a.inclusion);
-        const candidates = missingStaples.slice(0, Math.max(need * 4, 40));
-
-        const deckNames = new Set(
-          Object.values(categories)
-            .flat()
-            .map((c) => c.name)
-        );
-        const plan = buildSubstitutionPlan(candidates, ownedPool, deckNames, colorIdentity, {
-          inclusionByName,
-        });
-        const chosen = plan.rows.slice(0, need);
-        if (chosen.length > 0) {
-          const fetched = await getCardsByNames(
-            chosen.map((r) => r.usedName),
-            undefined,
-            undefined,
-            { arenaOnly }
-          );
-          for (const row of chosen) {
-            const card = fetched.get(row.usedName);
-            if (!card || usedNames.has(card.name)) continue;
-            if (!isCardAllowedBySynergyDependencies(card)) continue;
-            // ponytail: a role-capped substitute defers to the escape hatch
-            // below rather than recording provenance here — it still gets
-            // added to the deck, just without a "Wanted X → used your Y" row.
-            if (addOwnedCard(card)) substitutionRows.push(row);
-          }
-          logger.debug(
-            `[DeckGen] Substituted ${substitutionRows.length} owned card(s) for staples`
-          );
-        }
-      }
-
       // ── Tier 2: generic owned backfill (best owned in-color cards) ──
       currentCount = countAllCards();
       if (currentCount < targetDeckSize) {
@@ -4652,6 +4690,9 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     comboFloorAdd,
     themeNames: selectedThemesWithSlugs.map((t) => t.name),
   });
+  const thinPoolFillNote = constrainsToCollection(collectionStrategy)
+    ? buildThinPoolFillNote({ nonLandCards, cardProvenance, liftScoreOf })
+    : undefined;
 
   // Combo-upside price disclosure — post-hoc scan of the FINAL deck against
   // the FINAL detectedCombos (post trim/audit/repair, mutated in place above)
@@ -4737,6 +4778,7 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
     generationRelaxedNote: altPool?.relaxedNote,
     landCountNote,
     poolExhaustionNote,
+    thinPoolFillNote,
     mustIncludeSkippedNote,
     mustIncludeOverrideNote,
     budgetNote,

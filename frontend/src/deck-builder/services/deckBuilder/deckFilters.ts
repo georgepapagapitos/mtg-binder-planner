@@ -69,6 +69,30 @@ export function isOwnedRarityExempt(
   return ignoreOwnedRarity && !!collectionNames && collectionNames.has(cardName);
 }
 
+const COLOR_WORDS: Record<string, string> = {
+  white: 'W',
+  blue: 'U',
+  black: 'B',
+  red: 'R',
+  green: 'G',
+};
+
+/**
+ * E282: a colorless card whose payoff names a color the deck can't cast —
+ * "Red spells you cast cost {1} less" (Ruby Medallion) in mono-white — is
+ * legal by color identity and dead on the table. The EDHREC pool never
+ * recommends one, so only the owned-collection fill paths (typed Scryfall
+ * fill, owned-substitute tier) can reach it; they gate on this.
+ */
+export function isDeadInIdentity(card: ScryfallCard, colorIdentity: readonly string[]): boolean {
+  const texts = [card.oracle_text, ...(card.card_faces ?? []).map((f) => f.oracle_text)];
+  for (const text of texts) {
+    const m = /\b(white|blue|black|red|green)\b[^.\n]*\byou cast cost\b/i.exec(text ?? '');
+    if (m && !colorIdentity.includes(COLOR_WORDS[m[1].toLowerCase()])) return true;
+  }
+  return false;
+}
+
 // Check if a card is not available on MTG Arena (for Arena-only mode)
 export function notOnArena(card: ScryfallCard, arenaOnly: boolean): boolean {
   if (!arenaOnly) return false;

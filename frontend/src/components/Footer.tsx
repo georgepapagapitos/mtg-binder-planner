@@ -31,9 +31,11 @@ export function Footer() {
         <a href="/guides/" onClick={() => track('guide_cta')}>
           Help &amp; guides
         </a>
+        {' · '}
+        <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
         {isAdmin && (
           <>
-            {'. '}
+            {' · '}
             <Link to="/admin">Debug</Link>
           </>
         )}

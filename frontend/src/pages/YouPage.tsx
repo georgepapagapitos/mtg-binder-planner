@@ -804,6 +804,9 @@ export function YouPage() {
       {/* ═══ Footer ═══════════════════════════════════════════════════════ */}
       <footer className="settings-page-about">
         <p>
+          <a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a>
+        </p>
+        <p>
           SpellControl is unofficial Fan Content permitted under the{' '}
           <a
             href="https://company.wizards.com/en/legal/fancontentpolicy"

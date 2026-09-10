@@ -53,4 +53,16 @@ describe('AuthPage tabs', () => {
     expect(screen.getByText('Confirm password')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeTruthy();
   });
+
+  it('shows a Terms/Privacy consent line only in register mode', async () => {
+    await renderPage();
+    expect(screen.queryByText(/agree to the/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Create account' }));
+    expect(screen.getByText(/agree to the/i)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /^terms$/i }).getAttribute('href')).toBe('/terms.html');
+    expect(screen.getByRole('link', { name: /privacy policy/i }).getAttribute('href')).toBe(
+      '/privacy.html'
+    );
+  });
 });

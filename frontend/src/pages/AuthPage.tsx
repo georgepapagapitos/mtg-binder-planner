@@ -331,6 +331,13 @@ export default function AuthPage() {
             </div>
           ) : null}
 
+          {mode === 'register' ? (
+            <p className="auth-hint">
+              By creating an account you agree to the <a href="/terms.html">Terms</a> and{' '}
+              <a href="/privacy.html">Privacy Policy</a>.
+            </p>
+          ) : null}
+
           <button type="submit" className="auth-submit" disabled={submitting}>
             {submitting ? 'Working…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>

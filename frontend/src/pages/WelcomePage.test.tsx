@@ -251,6 +251,7 @@ describe('WelcomePage renders', () => {
     expect(screen.getByRole('link', { name: /privacy/i }).getAttribute('href')).toBe(
       '/privacy.html'
     );
+    expect(screen.getByRole('link', { name: /^terms$/i }).getAttribute('href')).toBe('/terms.html');
   });
 });
 

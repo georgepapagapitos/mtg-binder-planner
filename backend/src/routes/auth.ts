@@ -57,7 +57,7 @@ import { sendMail } from '../mail';
  * (OAuth deep links, and now the account-recovery email links). Override via
  * `APP_HTTPS_DEEPLINK_BASE` (e.g. for a staging origin); default is prod.
  */
-function publicWebOrigin(): string {
+export function publicWebOrigin(): string {
   return (process.env.APP_HTTPS_DEEPLINK_BASE ?? 'https://spellcontrol.com').replace(/\/+$/, '');
 }
 
@@ -731,6 +731,7 @@ authRouter.get('/me', sessionLimiter, async (req: Request, res: Response) => {
   const row = await db
     .select({
       autoLinkedAt: users.autoLinkedAt,
+      inboxSeenAt: users.inboxSeenAt,
       displayName: users.displayName,
       bio: users.bio,
       avatarCardId: users.avatarCardId,
@@ -743,6 +744,9 @@ authRouter.get('/me', sessionLimiter, async (req: Request, res: Response) => {
   res.json({
     user,
     autoLinkedAt: row[0]?.autoLinkedAt ?? null,
+    // Server truth for the inbox/friend-request unseen badges (T117) — see
+    // POST /api/users/me/inbox-seen.
+    inboxSeenAt: row[0]?.inboxSeenAt ?? null,
     profile: {
       displayName: row[0]?.displayName ?? null,
       bio: row[0]?.bio ?? null,
@@ -1075,6 +1079,7 @@ authRouter.get(
         passwordHash: users.passwordHash,
         email: users.email,
         emailVerified: users.emailVerified,
+        notifyEmail: users.notifyEmail,
       })
       .from(users)
       .where(eq(users.id, req.user!.id))
@@ -1091,7 +1096,28 @@ authRouter.get(
       email: userRows[0]?.email ?? null,
       emailVerified: Boolean(userRows[0]?.emailVerified),
       pendingEmail: pending?.email ?? null,
+      notifyEmail: userRows[0]?.notifyEmail ?? true,
     });
+  }
+);
+
+/**
+ * Toggle the T117 notification emails (friend request / trade offer /
+ * game-night invite). Takes effect only once the account also has a
+ * verified email — see `notify.ts:notifyUser`. No effect on the account
+ * recovery emails (verify/reset), which are never opt-out.
+ */
+authRouter.patch(
+  '/me/notify-email',
+  requireAuth,
+  profileLimiter,
+  async (req: Request, res: Response) => {
+    if (typeof req.body?.enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean.' });
+    }
+    const db = getDb();
+    await db.update(users).set({ notifyEmail: req.body.enabled }).where(eq(users.id, req.user!.id));
+    res.json({ ok: true });
   }
 );
 

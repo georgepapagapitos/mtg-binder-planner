@@ -68,6 +68,19 @@ export const users = pgTable('users', {
   aiDailyLimit: integer('ai_daily_limit'),
   /** Admin-granted unlock (T114): lets a non-admin through the AI gate. */
   aiAccess: boolean('ai_access').notNull().default(false),
+  /**
+   * Server truth for the inbox/friend-request "unseen" badges (T117),
+   * replacing the old localStorage-only last-seen mark. Stamped by `POST
+   * /api/users/me/inbox-seen` whenever the user opens the inbox or friends
+   * page; `GET /api/auth/me` returns it so every device agrees.
+   */
+  inboxSeenAt: bigint('inbox_seen_at', { mode: 'number' }),
+  /**
+   * Opt-out for the T117 notification emails (friend request / trade offer /
+   * game-night invite). Default true so a freshly verified email starts
+   * notified; only takes effect once `emailVerified` is also true.
+   */
+  notifyEmail: boolean('notify_email').notNull().default(true),
 });
 
 /**

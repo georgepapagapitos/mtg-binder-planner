@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Target } from 'lucide-react';
 import { useCollectionStore } from '../../store/collection';
 import { aggregateTradeTargets } from '../../lib/home-signals';
+import { findPriceTargetHits } from '../../lib/price-alerts';
 import { formatMoney } from '../../lib/format-money';
 import { HomeCard } from './HomeCard';
 
@@ -13,6 +14,11 @@ const DISPLAY_LIMIT = 4;
  * short copies of, aggregated across every list (home-signals.ts's
  * `aggregateTradeTargets`). Prices render in each entry's own stamped
  * currency (never the viewer's display default — see `ListEntry.currency`).
+ * A row whose live price is currently AT OR UNDER its target (T117 —
+ * `findPriceTargetHits`, matched by name since this view is already
+ * name-deduped across lists) gets an "Under target" badge — the toast that
+ * fires on the crossing (store/collection.ts's price-refresh tick) is a
+ * moment-in-time nudge; this is the always-visible surface it points back to.
  *
  * Insight-only, no invitation value when empty: unlike every other Home
  * card, this renders nothing rather than an empty shell (STYLE_GUIDE "Home
@@ -24,6 +30,10 @@ export function TradeTargetsCard() {
   const cards = useCollectionStore((s) => s.cards);
 
   const rows = useMemo(() => aggregateTradeTargets(lists, cards), [lists, cards]);
+  const underTargetNames = useMemo(
+    () => new Set(findPriceTargetHits(lists).map((h) => h.name.toLowerCase())),
+    [lists]
+  );
 
   if (rows.length === 0) return null;
 
@@ -48,6 +58,9 @@ export function TradeTargetsCard() {
                 {row.listNames.length > 1 && ` +${row.listNames.length - 1} more`}
               </span>
             </span>
+            {underTargetNames.has(row.name.toLowerCase()) && (
+              <span className="home-trade-target-under">Under target</span>
+            )}
             {row.targetPrice !== undefined && (
               <span className="home-trade-target-price">
                 {formatMoney(row.targetPrice, { currency: row.currency ?? 'USD' })}

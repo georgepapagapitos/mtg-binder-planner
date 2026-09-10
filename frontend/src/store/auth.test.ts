@@ -37,6 +37,7 @@ describe('bootstrap', () => {
     vi.spyOn(authApi, 'fetchMe').mockResolvedValue({
       user: { id: 'u1', username: 'alice', role: 'user' },
       autoLinkedAt: null,
+      inboxSeenAt: null,
       profile: EMPTY_PROFILE,
     });
     await useAuth.getState().bootstrap();
@@ -50,6 +51,7 @@ describe('bootstrap', () => {
     vi.spyOn(authApi, 'fetchMe').mockResolvedValue({
       user: { id: 'u1', username: 'alice', role: 'user' },
       autoLinkedAt: null,
+      inboxSeenAt: null,
       profile,
     });
     await useAuth.getState().bootstrap();
@@ -106,10 +108,22 @@ describe('bootstrap', () => {
     vi.spyOn(authApi, 'fetchMe').mockResolvedValue({
       user: { id: 'u1', username: 'alice', role: 'user' },
       autoLinkedAt: 1700000000000,
+      inboxSeenAt: null,
       profile: EMPTY_PROFILE,
     });
     await useAuth.getState().bootstrap();
     expect(useAuth.getState().autoLinkedAt).toBe(1700000000000);
+  });
+
+  it('threads inboxSeenAt from /me into the store', async () => {
+    vi.spyOn(authApi, 'fetchMe').mockResolvedValue({
+      user: { id: 'u1', username: 'alice', role: 'user' },
+      autoLinkedAt: null,
+      inboxSeenAt: 1700000000000,
+      profile: EMPTY_PROFILE,
+    });
+    await useAuth.getState().bootstrap();
+    expect(useAuth.getState().inboxSeenAt).toBe(1700000000000);
   });
 });
 
@@ -134,6 +148,23 @@ describe('acknowledgeAutoLink', () => {
   });
 });
 
+describe('stampInboxSeen', () => {
+  it('optimistically stamps now and POSTs the server stamp', async () => {
+    useAuth.setState({ inboxSeenAt: null });
+    const spy = vi.spyOn(authApi, 'stampInboxSeen').mockResolvedValue(1700000000000);
+    await useAuth.getState().stampInboxSeen();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(useAuth.getState().inboxSeenAt).toBeGreaterThan(0);
+  });
+
+  it('swallows server failures (the optimistic stamp stands)', async () => {
+    useAuth.setState({ inboxSeenAt: null });
+    vi.spyOn(authApi, 'stampInboxSeen').mockRejectedValue(new Error('offline'));
+    await expect(useAuth.getState().stampInboxSeen()).resolves.toBeUndefined();
+    expect(useAuth.getState().inboxSeenAt).toBeGreaterThan(0);
+  });
+});
+
 describe('login / register', () => {
   it('login success sets the user and clears errors', async () => {
     vi.spyOn(authApi, 'login').mockResolvedValue({ id: 'u2', username: 'bob', role: 'user' });
@@ -149,6 +180,7 @@ describe('login / register', () => {
     vi.spyOn(authApi, 'fetchMe').mockResolvedValue({
       user: { id: 'u2', username: 'bob', role: 'user' },
       autoLinkedAt: null,
+      inboxSeenAt: null,
       profile,
     });
     await useAuth.getState().login('bob', 'correct horse battery');

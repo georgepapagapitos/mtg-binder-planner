@@ -24,6 +24,7 @@ import {
   requestEmailChange,
   requestGoogleLinkIntent,
   resendEmailVerification,
+  setNotifyEmail,
   unlinkGoogle,
   updatePassword,
   type MyIdentities,
@@ -135,6 +136,7 @@ export function YouPage() {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailResendBusy, setEmailResendBusy] = useState(false);
+  const [notifyEmailBusy, setNotifyEmailBusy] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const sectionParam = searchParams.get('section');
   const pageRef = useRef<HTMLDivElement>(null);
@@ -143,7 +145,7 @@ export function YouPage() {
   // the friend list itself (that's a real page now). Pending count reuses
   // the shared hook; the total is a best-effort fetch, same shape as the
   // identities fetch above.
-  const pendingFriendRequests = useFriendRequests();
+  const { count: pendingFriendRequests } = useFriendRequests();
   const [friendCount, setFriendCount] = useState<number | null>(null);
 
   // Fetch the user's linked sign-in methods once they're authed. Best-effort:
@@ -293,6 +295,24 @@ export function YouPage() {
       });
     } finally {
       setEmailResendBusy(false);
+    }
+  }
+
+  async function handleToggleNotifyEmail() {
+    if (!identities) return;
+    const next = !identities.notifyEmail;
+    setNotifyEmailBusy(true);
+    setIdentities({ ...identities, notifyEmail: next }); // optimistic
+    try {
+      await setNotifyEmail(next);
+    } catch (err) {
+      setIdentities(identities); // revert
+      toast.show({
+        message: userMessage(err, "Couldn't update email notifications."),
+        tone: 'error',
+      });
+    } finally {
+      setNotifyEmailBusy(false);
     }
   }
 
@@ -551,6 +571,27 @@ export function YouPage() {
                 </div>
               )}
             </SettingsRow>
+            <SettingsRow
+              label="Email notifications"
+              hint={
+                identities.emailVerified
+                  ? 'Get emailed for new friend requests, trade offers, and game-night invites.'
+                  : 'Add a verified email above to get these.'
+              }
+              actions={
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={identities.notifyEmail}
+                  aria-label="Email notifications"
+                  className={`btn settings-switch${identities.notifyEmail ? ' is-on' : ''}`}
+                  disabled={!identities.emailVerified || notifyEmailBusy}
+                  onClick={() => void handleToggleNotifyEmail()}
+                >
+                  {identities.notifyEmail ? 'On' : 'Off'}
+                </button>
+              }
+            />
             <SettingsRow
               label="Google"
               hint={identities.google ? 'Linked' : 'Not linked'}

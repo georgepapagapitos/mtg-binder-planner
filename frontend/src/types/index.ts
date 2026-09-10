@@ -72,7 +72,9 @@ export interface ListEntry {
   oracleId?: string;
   quantity: number;
   note?: string;
-  /** Optional per-entry target price (display only; no automation). */
+  /** Optional per-entry target price. Also drives the T117 price-target
+   *  alert (`lib/price-alerts.ts`), matched against this entry's own
+   *  printing (`scryfallId`/`finish`). */
   targetPrice?: number;
   /**
    * Currency `targetPrice` was entered in. Absent = USD (entries predating

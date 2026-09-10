@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import type { Server } from 'node:http';
 import type { Pool } from 'pg';
@@ -8,6 +8,12 @@ import {
   lookupGameNightSeriesLandingMeta,
   plusWeek,
 } from './game-nights';
+
+// Wiring check only (does the route call notifyUser with the right
+// recipient/kind) — the verified/opted-in/throws branches are unit-tested
+// against a real notifyUser in notify.test.ts.
+const { mockNotifyUser } = vi.hoisted(() => ({ mockNotifyUser: vi.fn(() => Promise.resolve()) }));
+vi.mock('../notify', () => ({ notifyUser: mockNotifyUser }));
 
 let app: Server;
 let pool: Pool;
@@ -227,6 +233,44 @@ describe('POST /api/game-nights', () => {
       isHost: false,
       username: 'gn-invite-guest',
     });
+  });
+
+  it('notifies each invitee (T117)', async () => {
+    const host = await makeUser('gn-notify-host');
+    const guest = await makeUser('gn-notify-guest');
+    await befriend(host, 'gn-notify-guest', guest, 'gn-notify-host');
+    const guestId = await friendIdOf(host, 'gn-notify-guest');
+
+    mockNotifyUser.mockClear();
+    const created = await request(app)
+      .post('/api/game-nights')
+      .set('Cookie', host)
+      .send({ title: 'Invite night', startsAt: IN_A_WEEK(), inviteUserIds: [guestId] });
+
+    expect(created.status).toBe(201);
+    expect(mockNotifyUser).toHaveBeenCalledTimes(1);
+    expect(mockNotifyUser).toHaveBeenCalledWith(
+      guestId,
+      'game_night_invite',
+      expect.objectContaining({
+        path: `/gn/${created.body.night.token}`,
+        nightTitle: 'Invite night',
+      })
+    );
+  });
+
+  it('still succeeds (201) when notifyUser rejects', async () => {
+    const host = await makeUser('gn-notifyfail-host');
+    const guest = await makeUser('gn-notifyfail-guest');
+    await befriend(host, 'gn-notifyfail-guest', guest, 'gn-notifyfail-host');
+    const guestId = await friendIdOf(host, 'gn-notifyfail-guest');
+    mockNotifyUser.mockRejectedValueOnce(new Error('mail provider down'));
+
+    const res = await request(app)
+      .post('/api/game-nights')
+      .set('Cookie', host)
+      .send({ title: 'Invite night', startsAt: IN_A_WEEK(), inviteUserIds: [guestId] });
+    expect(res.status).toBe(201);
   });
 
   it('the GET / list prefers the host’s display name (free column on the existing JOIN)', async () => {

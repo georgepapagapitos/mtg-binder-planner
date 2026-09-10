@@ -62,6 +62,7 @@ vi.mock('../lib/auth-api', () => ({
   requestGoogleLinkIntent: vi.fn(),
   requestEmailChange: vi.fn(),
   resendEmailVerification: vi.fn(),
+  setNotifyEmail: vi.fn(() => Promise.resolve()),
   updatePassword: vi.fn(),
   unlinkGoogle: vi.fn(),
 }));
@@ -323,6 +324,7 @@ describe('you-page — the landing is re-pinned while late cards arrive', () => 
       email: null,
       emailVerified: false,
       pendingEmail: null,
+      notifyEmail: true,
     });
     authState.user = { username: 'alice', id: 'u1' };
     authState.status = 'authed';
@@ -404,6 +406,7 @@ describe('T117 — Sign-in methods: Password and Email rows', () => {
     email?: string | null;
     emailVerified?: boolean;
     pendingEmail?: string | null;
+    notifyEmail?: boolean;
   }) {
     const { fetchIdentities } = await import('../lib/auth-api');
     vi.mocked(fetchIdentities).mockResolvedValueOnce({
@@ -412,6 +415,7 @@ describe('T117 — Sign-in methods: Password and Email rows', () => {
       email: overrides.email ?? null,
       emailVerified: overrides.emailVerified ?? false,
       pendingEmail: overrides.pendingEmail ?? null,
+      notifyEmail: overrides.notifyEmail ?? true,
     });
   }
 
@@ -508,6 +512,31 @@ describe('T117 — Sign-in methods: Password and Email rows', () => {
       )
     ).toBeNull();
     expect(screen.getByRole('button', { name: 'Change' })).toBeTruthy();
+  });
+
+  it('T117 — Email notifications switch is disabled without a verified email', async () => {
+    await mockIdentitiesOnce({ email: null, emailVerified: false, notifyEmail: true });
+    renderYouPage('/?section=sign-in');
+    const offSwitch = await screen.findByRole('switch', { name: 'Email notifications' });
+    expect(offSwitch.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('Add a verified email above to get these.')).toBeTruthy();
+  });
+
+  it('T117 — Email notifications switch is enabled and toggles with a verified email', async () => {
+    await mockIdentitiesOnce({
+      email: 'alice@example.com',
+      emailVerified: true,
+      notifyEmail: true,
+    });
+    renderYouPage('/?section=sign-in');
+    const onSwitch = await screen.findByRole('switch', { name: 'Email notifications' });
+    expect(onSwitch.hasAttribute('disabled')).toBe(false);
+    expect(onSwitch.getAttribute('aria-checked')).toBe('true');
+
+    const { setNotifyEmail } = await import('../lib/auth-api');
+    fireEvent.click(onSwitch);
+    expect(onSwitch.getAttribute('aria-checked')).toBe('false'); // optimistic
+    await waitFor(() => expect(setNotifyEmail).toHaveBeenCalledWith(false));
   });
 
   it('opens the email modal from "Add" and submits the address', async () => {

@@ -6,7 +6,7 @@ import {
   type DirectShareActivityItem,
   type RecentActivityItem,
 } from './activity-client';
-import { countUnseen, INBOX_LAST_SEEN_KEY } from './use-inbox';
+import { countUnseen, useInboxSeenAt } from './use-inbox';
 import type { InboxShareRow } from './share-client';
 
 // Module-level fan-out for in-session count-increase announcements — same
@@ -28,16 +28,6 @@ export function subscribeToActivityAnnouncements(fn: (count: number) => void): (
   return () => {
     announceListeners.delete(fn);
   };
-}
-
-// use-inbox.ts's own last-seen reader is module-private (not exported), so
-// this mirrors its exact 3-line parse-with-fallback against the same shared
-// key rather than requesting an export change to a file this bucket
-// otherwise doesn't touch.
-function readInboxLastSeen(): number {
-  const raw = localStorage.getItem(INBOX_LAST_SEEN_KEY);
-  const n = raw ? Number(raw) : 0;
-  return Number.isFinite(n) ? n : 0;
 }
 
 function toInboxRow(item: DirectShareActivityItem): InboxShareRow {
@@ -94,6 +84,15 @@ export function useActivity(): {
   loading: boolean;
 } {
   const status = useAuth((s) => s.status);
+  const inboxSeenAt = useInboxSeenAt();
+  // The effect below only depends on [status] (a lastSeen change must not
+  // trigger a refetch, just a recompute) — so its async .then() reads the
+  // freshest lastSeen via this ref rather than closing over a stale one.
+  // Written in an effect, never during render (refs aren't render state).
+  const inboxSeenAtRef = useRef(inboxSeenAt);
+  useEffect(() => {
+    inboxSeenAtRef.current = inboxSeenAt;
+  }, [inboxSeenAt]);
   const [actionRequired, setActionRequired] = useState<ActionRequiredItem[]>([]);
   const [recent, setRecent] = useState<RecentActivityItem[]>([]);
   // Whether the (authed-only) fetch has settled at least once this session —
@@ -120,7 +119,7 @@ export function useActivity(): {
           const nextCount = computeActivityCount(
             data.actionRequired,
             data.recent,
-            readInboxLastSeen()
+            inboxSeenAtRef.current
           );
           if (previousCountRef.current !== null && nextCount > previousCountRef.current) {
             announce(nextCount);
@@ -144,6 +143,6 @@ export function useActivity(): {
     };
   }, [status]);
 
-  const count = computeActivityCount(actionRequired, recent, readInboxLastSeen());
+  const count = computeActivityCount(actionRequired, recent, inboxSeenAt);
   return { count, actionRequired, recent, loading: status === 'authed' && !hasFetched };
 }

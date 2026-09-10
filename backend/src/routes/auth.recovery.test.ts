@@ -324,3 +324,41 @@ describe('unlink-after-set-password (the whole point of T117)', () => {
     expect(afterPassword.status).toBe(200);
   });
 });
+
+describe('PATCH /api/auth/me/notify-email', () => {
+  it('rejects unauthenticated callers (401)', async () => {
+    const res = await request(app).patch('/api/auth/me/notify-email').send({ enabled: false });
+    expect(res.status).toBe(401);
+  });
+
+  it('defaults to true, and toggles off/on, surfaced via GET /me/identities', async () => {
+    const cookie = await registerAndVerify('notify-toggle', 'notify-toggle@example.com');
+    const before = await request(app).get('/api/auth/me/identities').set('Cookie', cookie);
+    expect(before.body.notifyEmail).toBe(true);
+
+    const off = await request(app)
+      .patch('/api/auth/me/notify-email')
+      .set('Cookie', cookie)
+      .send({ enabled: false });
+    expect(off.status).toBe(200);
+    const afterOff = await request(app).get('/api/auth/me/identities').set('Cookie', cookie);
+    expect(afterOff.body.notifyEmail).toBe(false);
+
+    const on = await request(app)
+      .patch('/api/auth/me/notify-email')
+      .set('Cookie', cookie)
+      .send({ enabled: true });
+    expect(on.status).toBe(200);
+    const afterOn = await request(app).get('/api/auth/me/identities').set('Cookie', cookie);
+    expect(afterOn.body.notifyEmail).toBe(true);
+  });
+
+  it('rejects a non-boolean body (400)', async () => {
+    const cookie = await registerAndVerify('notify-bad-body', 'notify-bad-body@example.com');
+    const res = await request(app)
+      .patch('/api/auth/me/notify-email')
+      .set('Cookie', cookie)
+      .send({ enabled: 'yes' });
+    expect(res.status).toBe(400);
+  });
+});

@@ -1,11 +1,34 @@
 import { Router, type Request, type Response } from 'express';
+import { eq } from 'drizzle-orm';
 import { requireAuth } from '../auth';
-import { getPool } from '../db';
+import { getDb, getPool } from '../db';
+import { users as usersTable } from '../db/schema';
 import { testAwareLimiter } from '../route-utils';
 
 export const usersRouter: Router = Router();
 
 const searchLimiter = testAwareLimiter({ windowMs: 60_000, max: 30 });
+const inboxSeenLimiter = testAwareLimiter({ windowMs: 60_000, max: 60 });
+
+// ────────────────────────────────────────────────
+// POST /api/users/me/inbox-seen
+// ────────────────────────────────────────────────
+/**
+ * Stamp `users.inbox_seen_at` to now (T117) — the server truth behind the
+ * inbox/friend-request "unseen" badges, replacing the old localStorage-only
+ * mark so a second device agrees. Called when the user opens the inbox or
+ * friends page; `GET /api/auth/me` returns the value.
+ */
+usersRouter.post(
+  '/me/inbox-seen',
+  requireAuth,
+  inboxSeenLimiter,
+  async (req: Request, res: Response) => {
+    const inboxSeenAt = Date.now();
+    await getDb().update(usersTable).set({ inboxSeenAt }).where(eq(usersTable.id, req.user!.id));
+    res.json({ ok: true, inboxSeenAt });
+  }
+);
 
 // ────────────────────────────────────────────────
 // GET /api/users/search?q=

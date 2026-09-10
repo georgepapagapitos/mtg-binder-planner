@@ -52,8 +52,14 @@ function getJwtSecret(): string {
   return secret;
 }
 
+// bcryptjs is pure JS: cost 12 is ~300 ms idle and several seconds under
+// load, and the suite registers a user per test. Tests hash at cost 4 so a
+// 13-register test stops timing out when three suites share the machine;
+// production stays at 12.
+const BCRYPT_ROUNDS = process.env.NODE_ENV === 'test' || process.env.TEST_DATABASE_URL ? 4 : 12;
+
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {

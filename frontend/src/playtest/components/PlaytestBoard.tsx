@@ -837,6 +837,7 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
         <ZoneViewerModal
           zone={viewer.zone}
           cards={state.zones[viewer.zone]}
+          commanderTax={state.commanderTax}
           onClose={() => setViewer(null)}
           onMove={(cardId, to, toIndex) => {
             if (to === 'battlefield') {
@@ -851,6 +852,17 @@ export function PlaytestBoard({ state, backLabel, onBack }: Props) {
             viewer.zone === 'library'
               ? () => {
                   dispatch({ type: 'SHUFFLE_LIBRARY' });
+                  setViewer(null);
+                }
+              : undefined
+          }
+          onShuffleIntoLibrary={
+            viewer.zone === 'graveyard' || viewer.zone === 'exile'
+              ? () => {
+                  dispatch({
+                    type: 'SHUFFLE_ZONE_INTO_LIBRARY',
+                    zone: viewer.zone as 'graveyard' | 'exile',
+                  });
                   setViewer(null);
                 }
               : undefined

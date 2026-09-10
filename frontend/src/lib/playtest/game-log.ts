@@ -129,6 +129,18 @@ function buildRawLogEntries(
     case 'SHUFFLE_LIBRARY':
       return [{ turn, kind: 'shuffle', text: 'Shuffled the library' }];
 
+    case 'SHUFFLE_ZONE_INTO_LIBRARY': {
+      if (next === current) return []; // no-op (zone was already empty)
+      const moved = current.zones[action.zone].length;
+      return [
+        {
+          turn,
+          kind: 'shuffle',
+          text: `Shuffled ${moved} card${moved === 1 ? '' : 's'} from your ${ZONE_LABEL[action.zone]} into your library`,
+        },
+      ];
+    }
+
     case 'MULLIGAN':
       return [{ turn, kind: 'mulligan', text: `Mulliganed to ${next.zones.hand.length}` }];
 

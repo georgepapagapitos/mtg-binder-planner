@@ -276,6 +276,15 @@ export function applyAction(state: PlaytestState, action: PlaytestAction): Playt
       next.rngSeed = nextSeed(state.rngSeed);
       return withHistory(state, next);
     }
+    case 'SHUFFLE_ZONE_INTO_LIBRARY': {
+      if (state.zones[action.zone].length === 0) return state;
+      const next = snapshot(state);
+      const combined = next.zones.library.concat(next.zones[action.zone]);
+      next.zones[action.zone] = [];
+      next.zones.library = shuffle(combined, mulberry32(state.rngSeed));
+      next.rngSeed = nextSeed(state.rngSeed);
+      return withHistory(state, next);
+    }
     case 'MULLIGAN': {
       const handSize = action.handSize ?? DEFAULT_OPENING_HAND;
       const next = snapshot(state);

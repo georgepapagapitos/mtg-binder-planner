@@ -29,6 +29,7 @@ function init(libSize = 10, seed = 1, hand = 1): PlaytestState {
 const SAMPLE_ACTIONS: Record<PlaytestAction['type'], PlaytestAction> = {
   DRAW: { type: 'DRAW' },
   SHUFFLE_LIBRARY: { type: 'SHUFFLE_LIBRARY' },
+  SHUFFLE_ZONE_INTO_LIBRARY: { type: 'SHUFFLE_ZONE_INTO_LIBRARY', zone: 'graveyard' },
   MULLIGAN: { type: 'MULLIGAN' },
   MOVE_TO_ZONE: { type: 'MOVE_TO_ZONE', cardId: 'x', to: 'graveyard' },
   RESOLVE_TOP: { type: 'RESOLVE_TOP', mode: 'scry', top: [] },
@@ -73,12 +74,15 @@ describe('classifyAction — every action type', () => {
 
   // The bucketing the PR promises: hidden-information actions are locked,
   // no exceptions, regardless of which state they're evaluated against.
-  it.each(['DRAW', 'MULLIGAN', 'SHUFFLE_LIBRARY', 'RESOLVE_TOP'] as const)(
-    '%s is always locked',
-    (type) => {
-      expect(classifyAction(state, SAMPLE_ACTIONS[type]).verdict).toBe('locked');
-    }
-  );
+  it.each([
+    'DRAW',
+    'MULLIGAN',
+    'SHUFFLE_LIBRARY',
+    'SHUFFLE_ZONE_INTO_LIBRARY',
+    'RESOLVE_TOP',
+  ] as const)('%s is always locked', (type) => {
+    expect(classifyAction(state, SAMPLE_ACTIONS[type]).verdict).toBe('locked');
+  });
 });
 
 describe('classifyAction — MOVE_TO_ZONE source-zone sensitivity', () => {

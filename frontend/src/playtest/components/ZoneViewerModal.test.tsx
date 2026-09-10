@@ -64,3 +64,143 @@ describe('ZoneViewerModal — tap-to-preview (B6-07)', () => {
     expect(screen.queryByRole('button', { name: /preview/ })).toBeNull();
   });
 });
+
+describe('ZoneViewerModal — one primary action per tile, not a stacked list', () => {
+  it('library: primary is "To hand", Top badge on the first (array-order) card', () => {
+    const cards = [ptCard('c1', 'Sol Ring'), ptCard('c2', 'Arcane Signet')];
+    render(<ZoneViewerModal zone="library" cards={cards} onClose={() => {}} onMove={() => {}} />);
+    expect(screen.getByText('Top of your library first.')).toBeTruthy();
+    const primaries = screen.getAllByRole('button', { name: 'To hand' });
+    expect(primaries.length).toBe(2);
+    // Only the first (top) card gets the badge.
+    expect(screen.getAllByText('Top').length).toBe(1);
+  });
+
+  it('graveyard/exile render most-recent-first (reversed) with a Top badge', () => {
+    const cards = [ptCard('c1', 'Oldest'), ptCard('c2', 'Newest')];
+    const { container } = render(
+      <ZoneViewerModal zone="graveyard" cards={cards} onClose={() => {}} onMove={() => {}} />
+    );
+    expect(screen.getByText('Most recent on top.')).toBeTruthy();
+    const names = Array.from(container.querySelectorAll('.playtest-zone-card__name')).map(
+      (el) => el.textContent
+    );
+    expect(names).toEqual(['Newest', 'Oldest']);
+  });
+
+  it('command zone: primary reads "Cast (+N)" and shows "Tax +N" only when tax > 0', () => {
+    const cards = [ptCard('c1', 'Atraxa'), ptCard('c2', 'Krenko')];
+    render(
+      <ZoneViewerModal
+        zone="command"
+        cards={cards}
+        commanderTax={{ c1: 2 }} // ×2 in commanderTaxAmount → 4
+        onClose={() => {}}
+        onMove={() => {}}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Cast (+4)' })).toBeTruthy();
+    expect(screen.getByText('Tax +4')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cast' })).toBeTruthy(); // c2, no tax
+    // No order badge/hint in the command zone.
+    expect(screen.queryByText('Top')).toBeNull();
+  });
+
+  it('the primary button dispatches the right move without opening the overflow', () => {
+    const onMove = vi.fn();
+    const cards = [ptCard('c1', 'Sol Ring')];
+    render(<ZoneViewerModal zone="library" cards={cards} onClose={() => {}} onMove={onMove} />);
+    fireEvent.click(screen.getByRole('button', { name: 'To hand' }));
+    expect(onMove).toHaveBeenCalledWith('c1', 'hand', undefined);
+  });
+
+  it('the overflow menu offers every other destination, minus the zone itself and the primary', () => {
+    const cards = [ptCard('c1', 'Atraxa')];
+    render(<ZoneViewerModal zone="command" cards={cards} onClose={() => {}} onMove={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move Atraxa' }));
+    for (const label of ['Hand', 'Graveyard', 'Exile', 'Library (top)', 'Library (bottom)']) {
+      expect(screen.getByRole('menuitem', { name: label })).toBeTruthy();
+    }
+    // "Battlefield" (the primary, "Cast") and "Command" (the zone itself) are
+    // not duplicated in the overflow.
+    expect(screen.queryByRole('menuitem', { name: 'Battlefield' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Command' })).toBeNull();
+  });
+});
+
+describe('ZoneViewerModal — empty vs no-match states', () => {
+  it('shows the zone-specific empty message when the zone has no cards', () => {
+    render(<ZoneViewerModal zone="graveyard" cards={[]} onClose={() => {}} onMove={() => {}} />);
+    expect(screen.getByText('Your graveyard is empty.')).toBeTruthy();
+  });
+
+  it('shows a no-match message with a Clear search button when a filter matches nothing', () => {
+    const cards = [ptCard('c1', 'Sol Ring')];
+    render(<ZoneViewerModal zone="library" cards={cards} onClose={() => {}} onMove={() => {}} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search Library' }), {
+      target: { value: 'zzz' },
+    });
+    expect(screen.getByText('No cards match “zzz”.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search filter' }));
+    expect(screen.getByRole('button', { name: 'To hand' })).toBeTruthy();
+  });
+});
+
+describe('ZoneViewerModal — footer', () => {
+  it('library: Done + Shuffle and close', () => {
+    const onShuffleAfter = vi.fn();
+    render(
+      <ZoneViewerModal
+        zone="library"
+        cards={[ptCard('c1', 'Sol Ring')]}
+        onClose={() => {}}
+        onMove={() => {}}
+        onShuffleAfter={onShuffleAfter}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle and close' }));
+    expect(onShuffleAfter).toHaveBeenCalled();
+  });
+
+  it('graveyard: Shuffle into library, disabled when empty', () => {
+    const onShuffleIntoLibrary = vi.fn();
+    const { rerender } = render(
+      <ZoneViewerModal
+        zone="graveyard"
+        cards={[]}
+        onClose={() => {}}
+        onMove={() => {}}
+        onShuffleIntoLibrary={onShuffleIntoLibrary}
+      />
+    );
+    expect(
+      (screen.getByRole('button', { name: 'Shuffle into library' }) as HTMLButtonElement).disabled
+    ).toBe(true);
+
+    rerender(
+      <ZoneViewerModal
+        zone="graveyard"
+        cards={[ptCard('c1', 'Sol Ring')]}
+        onClose={() => {}}
+        onMove={() => {}}
+        onShuffleIntoLibrary={onShuffleIntoLibrary}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Shuffle into library' }));
+    expect(onShuffleIntoLibrary).toHaveBeenCalled();
+  });
+
+  it('command zone: Done only, no shuffle buttons', () => {
+    render(
+      <ZoneViewerModal
+        zone="command"
+        cards={[ptCard('c1', 'Atraxa')]}
+        onClose={() => {}}
+        onMove={() => {}}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Shuffle/ })).toBeNull();
+  });
+});

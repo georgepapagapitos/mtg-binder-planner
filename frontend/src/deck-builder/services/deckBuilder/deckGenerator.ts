@@ -981,7 +981,8 @@ export const THIN_POOL_FILL_LABEL = 'Filled in by a broader card search for this
 export function summarizeSeatedSimilarPool(
   injectedNames: readonly string[],
   commanders: readonly string[],
-  finalDeck: readonly { name: string }[]
+  finalDeck: readonly { name: string }[],
+  ownedOnPage?: number
 ): { names: string[] | undefined; note: string | undefined; provenance: string | undefined } {
   if (injectedNames.length === 0 || commanders.length === 0)
     return { names: undefined, note: undefined, provenance: undefined };
@@ -991,7 +992,11 @@ export function summarizeSeatedSimilarPool(
   const who = commanders.join(', ');
   return {
     names,
-    note: `${names.length} card${names.length === 1 ? '' : 's'} you own came from similar commanders' decks (${who}).`,
+    note:
+      `${names.length} card${names.length === 1 ? '' : 's'} you own came from similar commanders' decks (${who})` +
+      (ownedOnPage != null
+        ? `, because only ${ownedOnPage} cards you own appear on this commander's page.`
+        : '.'),
     provenance: `From similar commanders' decks (${who})`,
   };
 }
@@ -4767,7 +4772,8 @@ async function generateDeckInner(context: GenerationContext): Promise<GeneratedD
   const similarPoolSeated = summarizeSeatedSimilarPool(
     state.similarPoolNames,
     state.similarPoolCommanders,
-    [...nonLandCards, ...categories.lands]
+    [...nonLandCards, ...categories.lands],
+    state.similarPoolOwnedOnPage
   );
   for (const name of similarPoolSeated.names ?? []) {
     if (name in cardProvenance) cardProvenance[name] = similarPoolSeated.provenance!;

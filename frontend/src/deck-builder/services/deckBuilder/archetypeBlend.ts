@@ -113,7 +113,20 @@ export interface BlendInput {
   /** `blendSource` stamped on injected entries (defaults to the tag-page
    *  source; the E282 similar-commander widening passes its own). */
   source?: EDHRECCard['blendSource'];
+  /**
+   * E282 tail mode: inject BELOW every card already in the pool — inclusion
+   * pinned to {@link TAIL_INCLUSION}, synergy zeroed, no high-synergy tier —
+   * so injected cards only ever fill slots the commander's own page couldn't
+   * (they still beat the identity-only Scryfall fill, which sits outside the
+   * pool). Weighted injection reorders a pool that had no thin slots at all
+   * (the live A/B reshuffled Talrand and Ezuri on a 1–2 card injection).
+   */
+  tail?: boolean;
 }
+
+/** Tail-mode inclusion: below anything an EDHREC page lists (their floor is
+ *  a few percent), above nothing — the pool's last resort before Scryfall. */
+export const TAIL_INCLUSION = 0.1;
 
 export interface BlendResult {
   cardlists: EDHRECCommanderData['cardlists'];
@@ -166,7 +179,7 @@ export function blendTagPageIntoPool(input: BlendInput): BlendResult {
   // generic buckets, and marked isThemeSynergyCard so cardPicking prioritizes
   // them despite carrying primary_type 'Unknown'.
   const highSynergy = new Set((input.highSynergyNames ?? []).map((n) => n.toLowerCase()));
-  if (highSynergy.size > 0) {
+  if (highSynergy.size > 0 && !input.tail) {
     const candidates = tagPageCardlists.allNonLand
       .filter((c) => highSynergy.has(c.name.toLowerCase()))
       .filter((c) => c.num_decks >= floor)
@@ -202,7 +215,8 @@ export function blendTagPageIntoPool(input: BlendInput): BlendResult {
 
       const injected: EDHRECCard = {
         ...candidate,
-        inclusion: candidate.inclusion * weight,
+        inclusion: input.tail ? TAIL_INCLUSION : candidate.inclusion * weight,
+        ...(input.tail ? { synergy: 0 } : {}),
         blendSource: source,
       };
       next[category].push(injected);

@@ -147,6 +147,8 @@ export interface GenerationState {
    *  generator narrows to what shipped before it reaches the report. */
   similarPoolNames: string[];
   similarPoolCommanders: string[];
+  /** Why the widening ran: how few of the commander page's cards the user owns. */
+  similarPoolOwnedOnPage: number | undefined;
   themeOverlapCounts: Map<string, number>;
   roleTargets: Record<RoleKey, number> | null;
   roleTargetBreakdown: Record<RoleKey, RoleTargetBreakdown> | undefined;
@@ -243,6 +245,7 @@ export function createState(context: GenerationContext): GenerationState {
     archetypeBlendTheme: undefined,
     similarPoolNames: [],
     similarPoolCommanders: [],
+    similarPoolOwnedOnPage: undefined,
     themeOverlapCounts: new Map<string, number>(),
     roleTargets: null,
     roleTargetBreakdown: undefined,

@@ -121,6 +121,18 @@ describe('parseEdhrecResponse — 2026-07 schema drift', () => {
     },
   };
 
+  it('parses name-only `similar` entries (live shape since 2026-09) into similar commanders (E282)', () => {
+    const data = parseEdhrecResponse(
+      { ...newSchema, similar: ['Wyleth, Soul of Steel', 'Kemba, Kha Regent'] },
+      'sram-senior-edificer'
+    );
+    expect(data.similarCommanders.map((s) => s.name)).toEqual([
+      'Wyleth, Soul of Steel',
+      'Kemba, Kha Regent',
+    ]);
+    expect(data.similarCommanders[0].sanitized).toBe('wyleth-soul-of-steel');
+  });
+
   it('reads the commander deck count from container.json_dict.card.num_decks', () => {
     const data = parseEdhrecResponse(newSchema, 'atraxa-praetors-voice');
     expect(data.stats.numDecks).toBe(42495);

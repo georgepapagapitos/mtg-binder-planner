@@ -780,8 +780,12 @@ export async function acquireCardPoolPhase(
     }
   }
 
-  await applyArchetypeBlend(state);
-  await applyOwnedSimilarPool(state);
+  // E282: one thinness reading BEFORE either widener runs, so the second
+  // widener (and the disclosure) sees the commander page's own coverage, not
+  // the first widener's injections.
+  const thinOwnedOnPage = thinOwnedPoolCount(state);
+  await applyArchetypeBlend(state, thinOwnedOnPage);
+  await applyOwnedSimilarPool(state, thinOwnedOnPage);
 
   return { altPool, scryfallQuery };
 }
@@ -792,13 +796,57 @@ function isOwnedOnlyBuild(state: GenerationState): boolean {
   return constrainsToCollection(state.cfg.collectionStrategy) && !!state.context.collectionNames;
 }
 
-/** Keep only the cards the user owns — a widener for an owned-only build must
- *  not spend its per-category injection caps on cards the pick gate will drop. */
-function filterCardlistsToOwned(
+/**
+ * E282: widen only when the collection genuinely can't fill the deck from the
+ * commander's own page with margin. The live A/B showed the E228 failure mode
+ * otherwise — a 1–2 card injection into a pool that had no thin slots (Talrand,
+ * 76 owned cards on a 62-slot page) still reshuffled six cards downstream
+ * (lift seeds, combo swaps) and cost a grade. Calibrated on the 2026-09-10
+ * owned-only panel, owned-on-page vs 62 spell slots: Sram 59 (16 thin-pool
+ * fills, widening cut them to 7) needs it; Talrand 76 / Ayara 77 / Krenko 86 /
+ * Ezuri 93 are left alone — their few remaining fills are disclosed instead.
+ * Returns the owned-on-page count when the pool is thin, undefined otherwise.
+ */
+export const OWNED_POOL_THIN_RATIO = 1.2;
+function thinOwnedPoolCount(state: GenerationState): number | undefined {
+  const { collectionNames, colorIdentity, collectionPool } = state.context;
+  if (!collectionNames || !state.edhrecData) return undefined;
+  const identity = new Set(colorIdentity);
+  const identityOf = new Map((collectionPool ?? []).map((c) => [c.name, c.colorIdentity] as const));
+  const ownedOnPage = state.edhrecData.cardlists.allNonLand.filter((c) => {
+    if (!collectionNames.has(c.name)) return false;
+    const ci = identityOf.get(c.name);
+    return !ci || ci.every((x) => identity.has(x));
+  }).length;
+  const { deckFormat, landCount } = state.context.customization;
+  const deckSize = deckFormat === 99 ? 99 : deckFormat - 1;
+  const nonlandSlots = deckSize - landCount;
+  return ownedOnPage < nonlandSlots * OWNED_POOL_THIN_RATIO ? ownedOnPage : undefined;
+}
+
+/**
+ * Keep only the NONLAND cards the user owns (and, when the lean owned pool is
+ * attached, only those inside the deck's identity) — a widener for an
+ * owned-only build must not spend its per-category injection caps on cards the
+ * pick gate will drop. Lands are deliberately excluded: the thin pool this
+ * widening exists for is the spell slots, and land selection has its own
+ * machinery — the live A/B showed two injected lands reshuffling a deck that
+ * had no thin pool at all (Talrand, A → B).
+ */
+function filterCardlistsToOwnedSpells(
   cardlists: EDHRECCommanderData['cardlists'],
-  owned: ReadonlySet<string>
+  state: GenerationState
 ): EDHRECCommanderData['cardlists'] {
-  const keep = (cards: EDHRECCard[]) => cards.filter((c) => owned.has(c.name));
+  const owned = state.context.collectionNames ?? new Set<string>();
+  const identity = new Set(state.context.colorIdentity);
+  const identityOf = new Map(
+    (state.context.collectionPool ?? []).map((c) => [c.name, c.colorIdentity] as const)
+  );
+  const fits = (name: string) => {
+    const ci = identityOf.get(name);
+    return !ci || ci.every((c) => identity.has(c));
+  };
+  const keep = (cards: EDHRECCard[]) => cards.filter((c) => owned.has(c.name) && fits(c.name));
   return {
     creatures: keep(cardlists.creatures),
     instants: keep(cardlists.instants),
@@ -806,7 +854,7 @@ function filterCardlistsToOwned(
     artifacts: keep(cardlists.artifacts),
     enchantments: keep(cardlists.enchantments),
     planeswalkers: keep(cardlists.planeswalkers),
-    lands: keep(cardlists.lands),
+    lands: [],
     allNonLand: keep(cardlists.allNonLand),
   };
 }
@@ -839,10 +887,14 @@ const SIMILAR_COMMANDER_PAGES = 3;
  * category caps, the lift floor), so every pick gate still applies. Owned-only
  * builds only; any failure leaves the pool exactly as it was.
  */
-async function applyOwnedSimilarPool(state: GenerationState): Promise<void> {
+async function applyOwnedSimilarPool(
+  state: GenerationState,
+  ownedOnPage: number | undefined
+): Promise<void> {
   const { collectionNames, colorIdentity, commander, partnerCommander } = state.context;
   if (!collectionNames || !isOwnedOnlyBuild(state)) return;
   if (!state.edhrecData) return;
+  if (ownedOnPage === undefined) return; // rich enough — leave the pool alone
   if (state.dataSource === 'scryfall' || state.dataSource === 'paupercommander') return;
 
   try {
@@ -855,7 +907,9 @@ async function applyOwnedSimilarPool(state: GenerationState): Promise<void> {
     }
     const identity = new Set(colorIdentity);
     const picked = similar
-      .filter((s) => s.name !== commander.name && s.colorIdentity.every((c) => identity.has(c)))
+      .filter(
+        (s) => s.name && s.name !== commander.name && s.colorIdentity.every((c) => identity.has(c))
+      )
       .slice(0, SIMILAR_COMMANDER_PAGES);
     if (picked.length === 0) return;
 
@@ -874,16 +928,18 @@ async function applyOwnedSimilarPool(state: GenerationState): Promise<void> {
     const merged = mergeThemeCardlists(pages.map((p) => p.data)).cardlists;
     const { cardlists, injectedNames, weight } = blendTagPageIntoPool({
       pool: state.edhrecData.cardlists,
-      tagPageCardlists: filterCardlistsToOwned(merged, collectionNames),
+      tagPageCardlists: filterCardlistsToOwnedSpells(merged, state),
       tagPagePotentialDecks: Math.max(...pages.map((p) => p.data.stats.numDecks)),
       commanderNumDecks: state.edhrecData.stats.numDecks,
       source: SIMILAR_POOL_SOURCE,
+      tail: true,
     });
     if (injectedNames.length === 0) return;
 
     state.edhrecData = { ...state.edhrecData, cardlists };
     state.similarPoolNames = injectedNames;
     state.similarPoolCommanders = pages.map((p) => p.name);
+    state.similarPoolOwnedOnPage = ownedOnPage;
     logger.debug(
       `[DeckGen] E282: added ${injectedNames.length} owned cards from similar commanders ` +
         `(${state.similarPoolCommanders.join(', ')}) at w=${weight.toFixed(2)}`
@@ -907,9 +963,15 @@ async function applyOwnedSimilarPool(state: GenerationState): Promise<void> {
  * theme — the blend needs a tag page to blend *from*. Any failure is swallowed:
  * a missing tag page means the deck builds exactly as it would have.
  */
-async function applyArchetypeBlend(state: GenerationState): Promise<void> {
-  const { customization, colorIdentity, collectionNames } = state.context;
-  const ownedOnly = isOwnedOnlyBuild(state);
+async function applyArchetypeBlend(
+  state: GenerationState,
+  thinOwnedOnPage?: number
+): Promise<void> {
+  const { customization, colorIdentity } = state.context;
+  // Owned-only turns the blend on by default, but only for a THIN owned pool
+  // (thinOwnedPoolCount's doc) — an explicit archetypeBlend=true still runs it
+  // regardless, exactly as before.
+  const ownedOnly = isOwnedOnlyBuild(state) && thinOwnedOnPage !== undefined;
   if (!resolveArchetypeBlend(customization, ownedOnly)) return;
   if (!state.edhrecData) return;
 
@@ -934,10 +996,11 @@ async function applyArchetypeBlend(state: GenerationState): Promise<void> {
       pool: state.edhrecData.cardlists,
       // E282: owned-only builds spend the injection caps on cards the pick
       // gate can actually seat.
-      tagPageCardlists:
-        ownedOnly && collectionNames
-          ? filterCardlistsToOwned(tagPage.cardlists, collectionNames)
-          : tagPage.cardlists,
+      tagPageCardlists: ownedOnly
+        ? filterCardlistsToOwnedSpells(tagPage.cardlists, state)
+        : tagPage.cardlists,
+      // Owned-only: fill only what the commander's page couldn't (tail mode).
+      tail: ownedOnly,
       highSynergyNames: tagPage.highSynergyNames,
       tagPagePotentialDecks: tagPage.potentialDecks,
       commanderNumDecks,

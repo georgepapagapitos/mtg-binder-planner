@@ -456,6 +456,16 @@ a control row (then the whole `.toolbar-pill` segmented family is `999px`, e.g.
 `.pick-mode-toggle`). A radio/segmented selector inside a form or settings panel
 is not that — its options are rects.
 
+**Segmented options carry the 44px coarse floor on the SPAN, not the label.**
+The label-wrapping-a-hidden-radio pattern (`.share-audience-option`,
+`.binder-mode-pill`, `.rule-segmented-pill`, `.playtest-scry-mode`,
+`.home-hero-scope-option`, `.settings-currency-option`) puts padding and text
+in an inner `<span>`. A `min-height: 44px` on the label wrapper grows the pill
+but leaves the span text-height and top-aligned inside it — the Private /
+Public toggle shipped that way on phones. The span is a centering flex box
+(`align-items: center`) and the coarse floor sits on it; the
+`overlay-containment` guard's "segmented-control options" block enforces both.
+
 **Toolbar steppers: ends disable, never hide.** A −/+ stepper over an ordered
 range (the card-size `ZoomControl` in the collection/deck/list grids) renders as a
 `.toolbar-viewmode` button pair — same pill family, lucide glyphs at
@@ -558,6 +568,15 @@ a hero CTA.
   view from keyboard navigation. Partial ARIA (a hand-rolled `role="tab"` with
   no roving tabindex or arrow keys) is **worse** than none: it advertises a
   contract the component then fails to honor. Use the primitive.
+- **Position a boxed `Tabs` strip with `margin`, never `padding`.** The
+  `className` a consumer passes lands on the `.sc-tabs` element itself — the
+  box that paints the strip's background and border, and whose own `0.2rem`
+  padding is the active pill's inset. A consumer `padding` on that class
+  replaces the inset: the strip's background runs edge to edge while the pill
+  sits flush against one side (the rules reference, binder card editor and
+  opponent board all shipped this way). `styles/tabs-consumer-overrides.test.ts`
+  guards every `fitted`/`scrollable` consumer; `underline`/`hub` reset their
+  own box and are exempt.
 - **`fitted` requires labels that are short AND equal**, never more than three
   tabs. The concrete test: at 320px and full panel width every label must render
   in full with no ellipsis (a 3-tab fitted strip gives each tab ~106px ≈ 10

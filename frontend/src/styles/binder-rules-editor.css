@@ -323,12 +323,22 @@
 }
 
 .rule-segmented-pill span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 6px var(--space-3);
   color: inherit;
   font-size: var(--text-sm);
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
+}
+
+/* Coarse floor on the span — see .share-audience-option span. */
+@media (pointer: coarse) {
+  .rule-segmented-pill span {
+    min-height: 44px;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {

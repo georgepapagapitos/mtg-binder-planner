@@ -37,6 +37,7 @@ import { TypeSetPicker } from '../components/TypeSetPicker';
 import { SettingsSection } from '../components/settings/SettingsSection';
 import { SettingsRow } from '../components/settings/SettingsRow';
 import { scrollToHeading } from '../lib/scroll-to-heading';
+import { track } from '../lib/analytics';
 import { listFriends } from '../lib/friends-client';
 import { useFriendRequests } from '../lib/use-friend-requests';
 
@@ -724,6 +725,18 @@ export function YouPage() {
               >
                 {resetCacheBusy ? 'Resetting…' : 'Reset cache'}
               </button>
+            }
+          />
+        </SettingsSection>
+
+        <SettingsSection id="settings-help-title" title="Help">
+          <SettingsRow
+            value="Help & guides"
+            hint="Import walkthroughs, binder setup, and format comparisons."
+            actions={
+              <a href="/guides/" className="btn" onClick={() => track('guide_cta')}>
+                Open guides
+              </a>
             }
           />
         </SettingsSection>

@@ -375,3 +375,11 @@ describe('w3-header-avatar-menu — ?section= deep link', () => {
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 });
+
+describe('T117 — Help & guides', () => {
+  it('links to the static guides index', () => {
+    renderYouPage();
+    const link = screen.getByRole('link', { name: 'Open guides' });
+    expect(link.getAttribute('href')).toBe('/guides/');
+  });
+});

@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../store/auth';
 import { useShortcutRegistry } from '../lib/shortcut-registry';
 import { isNativePlatform, openExternal } from '../lib/platform';
+import { track } from '../lib/analytics';
 
 export function Footer() {
   const isAdmin = useAuth((s) => s.user?.role === 'admin');
@@ -25,6 +26,10 @@ export function Footer() {
           }}
         >
           Scryfall
+        </a>
+        {'. '}
+        <a href="/guides/" onClick={() => track('guide_cta')}>
+          Help &amp; guides
         </a>
         {isAdmin && (
           <>

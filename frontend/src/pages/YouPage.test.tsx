@@ -488,6 +488,8 @@ describe('T117 — Sign-in methods: Password and Email rows', () => {
     expect(
       screen.getByText('Add a verified email so you can reset your password if you get locked out.')
     ).toBeTruthy();
+    // A mistyped address must be correctable while it is still pending.
+    expect(screen.getByRole('button', { name: 'Change' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
     await waitFor(() => expect(resendEmailVerification).toHaveBeenCalled());
   });

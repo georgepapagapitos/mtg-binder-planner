@@ -519,31 +519,30 @@ export function YouPage() {
             <SettingsRow
               label="Email"
               hint={
-                identities.emailVerified
-                  ? identities.email
-                  : identities.pendingEmail
-                    ? `Pending verification, ${identities.pendingEmail}`
-                    : 'Not set'
+                identities.emailVerified && identities.pendingEmail
+                  ? `${identities.email}, change to ${identities.pendingEmail} pending verification`
+                  : identities.emailVerified
+                    ? identities.email
+                    : identities.pendingEmail
+                      ? `Pending verification, ${identities.pendingEmail}`
+                      : 'Not set'
               }
               actions={
-                identities.emailVerified ? (
+                <>
+                  {identities.pendingEmail && (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => void handleResendVerification()}
+                      disabled={emailResendBusy}
+                    >
+                      {emailResendBusy ? 'Sending…' : 'Resend'}
+                    </button>
+                  )}
                   <button type="button" className="btn" onClick={() => setEmailModalOpen(true)}>
-                    Change
+                    {identities.emailVerified || identities.pendingEmail ? 'Change' : 'Add'}
                   </button>
-                ) : identities.pendingEmail ? (
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => void handleResendVerification()}
-                    disabled={emailResendBusy}
-                  >
-                    {emailResendBusy ? 'Sending…' : 'Resend'}
-                  </button>
-                ) : (
-                  <button type="button" className="btn" onClick={() => setEmailModalOpen(true)}>
-                    Add
-                  </button>
-                )
+                </>
               }
             >
               {!identities.emailVerified && (

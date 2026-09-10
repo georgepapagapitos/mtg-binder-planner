@@ -34,9 +34,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FlaskConical, LogIn, Layers, Wand2, SlidersHorizontal, Swords } from 'lucide-react';
-import { useCollectionStore } from '../store/collection';
-import { importText } from '../lib/api';
-import { sampleCardsAsCsv } from '../lib/samples';
+import { useLoadSamples } from '../lib/use-load-samples';
 import { markEverVisited } from '../lib/first-run';
 import { track } from '../lib/analytics';
 import { WelcomeHero } from '../components/welcome/WelcomeHero';
@@ -44,7 +42,6 @@ import { FreshDecksRail } from '../components/welcome/FreshDecksRail';
 import { TrendingRail } from '../components/aggregates/TrendingRail';
 import './WelcomePage.css';
 
-import { userMessage } from '@/lib/user-error';
 /** Feature blocks — real prose so the page has something for search engines to
  *  index (the gated app itself exposes almost no crawlable text). Claims here
  *  must stay accurate to README's feature list. */
@@ -73,11 +70,7 @@ const FEATURES = [
 
 export function WelcomePage() {
   const navigate = useNavigate();
-  const loadSampleBinders = useCollectionStore((s) => s.loadSampleBinders);
-  const setError = useCollectionStore((s) => s.setError);
-
-  const [loadingSamples, setLoadingSamples] = useState(false);
-  const [sampleError, setSampleError] = useState<string | null>(null);
+  const { load: loadSamples, loading: loadingSamples, error: sampleError } = useLoadSamples();
   // TrendingRail has no self-hiding threshold of its own (unlike
   // FreshDecksRail) — mounting it unconditionally means a cold dataset shows
   // "Nothing trending yet." as the first content block under the hero. Gate
@@ -88,28 +81,16 @@ export function WelcomePage() {
 
   /**
    * Door 3 — Try sample cards.
-   * Reuses the exact same load path as BindersIndexPage: importText (CSV) →
-   * loadSampleBinders (importCards + sample binder defs). Tagged with
-   * isSample = true via the store so the import shows as a normal, deletable
-   * entry in import history.
+   * `useLoadSamples` owns the load path (importText → loadSampleBinders,
+   * shared with Home's get-started card); this page only wires the
+   * post-success navigation and first-run dismissal.
    */
   async function handleSamples() {
-    setLoadingSamples(true);
-    setSampleError(null);
-    try {
-      const response = await importText(sampleCardsAsCsv());
-      await loadSampleBinders(response);
-      markEverVisited();
-      track('sample_loaded');
-      navigate('/collection');
-    } catch (err) {
-      const msg = userMessage(err, "Couldn't load the sample cards. Try again in a moment.");
-      setSampleError(msg);
-      // Propagate to the global error banner too (matches BindersIndexPage behaviour)
-      setError(msg);
-    } finally {
-      setLoadingSamples(false);
-    }
+    const ok = await loadSamples();
+    if (!ok) return;
+    markEverVisited();
+    track('sample_loaded');
+    navigate('/collection');
   }
 
   return (

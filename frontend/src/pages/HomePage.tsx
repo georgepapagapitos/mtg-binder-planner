@@ -1,5 +1,6 @@
 import './HomePage.css';
 import { HomeHero } from '../components/home/HomeHero';
+import { GetStartedCard } from '../components/home/GetStartedCard';
 import { ActivityStripCard } from '../components/home/ActivityStripCard';
 import { NewFromFriendsCard } from '../components/home/NewFromFriendsCard';
 import { DiscoverCard } from '../components/home/DiscoverCard';
@@ -26,12 +27,15 @@ import { BinderReviewCard } from '../components/home/BinderReviewCard';
  * already computes elsewhere, never a re-capture. TradeTargetsCard renders
  * nothing when there's nothing to show (no invitation value in an empty
  * want-list summary), so the mounted count varies 8-9 in practice.
+ * GetStartedCard leads the grid and renders nothing once an account has
+ * imported a collection, built a binder, and made a deck (T117).
  */
 export function HomePage() {
   return (
     <div className="home-page">
       <HomeHero />
       <div className="deck-bento home-bento">
+        <GetStartedCard />
         <ActivityStripCard />
         <NewFromFriendsCard />
         <DiscoverCard />

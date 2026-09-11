@@ -36,7 +36,6 @@ import { isNativePlatform, openExternal } from '../lib/platform';
 import { OfflineModeSettings } from '../components/OfflineModeSettings';
 import { SharedLinksSettings } from '../components/SharedLinksSettings';
 import { resetAppCacheAndReload } from '../lib/reset-app-cache';
-import { AdminPanel } from '../components/AdminPanel';
 import { AiFeaturesSettings } from '../components/settings/AiFeaturesSettings';
 import { getPendingCount } from '../lib/sync';
 import { ProfileEditor } from '../components/ProfileEditor';
@@ -91,8 +90,6 @@ function friendsSummary(count: number | null, pending: number): string {
 export function YouPage() {
   const username = useAuth((s) => s.user?.username ?? null);
   const signInHref = useSignInPath();
-  const userId = useAuth((s) => s.user?.id ?? null);
-  const isAdmin = useAuth((s) => s.user?.role === 'admin');
   const logout = useAuth((s) => s.logout);
   const deleteAccount = useAuth((s) => s.deleteAccount);
   const navigate = useNavigate();
@@ -871,16 +868,6 @@ export function YouPage() {
           />
         </SettingsSection>
       </div>
-
-      {/* ═══ Admin (admin users only) ═════════════════════════════════════ */}
-      {isAdmin && userId && (
-        <div role="group" aria-labelledby="settings-admin-group-title">
-          <h2 id="settings-admin-group-title" className="settings-section-header">
-            Admin
-          </h2>
-          <AdminPanel currentUserId={userId} />
-        </div>
-      )}
 
       {/* ═══ Danger zone ═══════════════════════════════════════════════════ */}
       <section

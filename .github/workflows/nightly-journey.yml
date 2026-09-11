@@ -48,6 +48,8 @@ jobs:
     env:
       DATABASE_URL: postgres://spellcontrol:spellcontrol@localhost:5432/spellcontrol
       JWT_SECRET: nightly-journey-jwt-secret-not-a-secret
+      # The journey's fixed account is an admin so the walk covers /admin too.
+      ADMIN_USERNAMES: journeyadmin
       # Reference-data ingests are hours of network; the journey needs none.
       SCRYFALL_BULK_INGEST_DISABLED: '1'
       COMBOS_INGEST_DISABLED: '1'
@@ -113,11 +115,11 @@ jobs:
           echo "backend never answered /health"; cat backend.log; exit 1
 
       - name: Journey in Chrome (phone + desktop)
-        run: node scripts/journey.mjs --base http://localhost:3737 --browser chrome --out journey-chrome
+        run: node scripts/journey.mjs --base http://localhost:3737 --browser chrome --username journeyadmin --out journey-chrome
 
       - name: Journey in Firefox (desktop)
         if: always()
-        run: node scripts/journey.mjs --base http://localhost:3737 --browser firefox --viewports desktop --out journey-firefox
+        run: node scripts/journey.mjs --base http://localhost:3737 --browser firefox --viewports desktop --username journeyadmin --out journey-firefox
 
       - name: Upload screenshots and reports
         if: always()

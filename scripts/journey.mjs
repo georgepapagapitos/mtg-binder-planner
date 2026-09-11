@@ -45,6 +45,10 @@ const BROWSER = opt('--browser', 'chrome');
 const OUT = path.resolve(opt('--out', `journey-${BROWSER}`));
 const VIEWPORTS = opt('--viewports', 'phone,desktop').split(',');
 const SETTLE_MS = Number(opt('--settle', 1500));
+// Fixed account name instead of a fresh `journey<ts>` one. Pair it with the
+// backend's ADMIN_USERNAMES so the walk also covers /admin (admin-only route);
+// re-runs against the same DB sign in instead of registering.
+const USERNAME = opt('--username', null);
 
 const TIERS = {
   phone: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
@@ -209,16 +213,26 @@ async function main() {
       // --- Sign up once (the second viewport signs in to the same account).
       if (!seeded) {
         seeded = {
-          username: `journey${Date.now().toString(36)}`.slice(0, 20),
-          password: 'journey-pass-' + Date.now(),
+          username: USERNAME ?? `journey${Date.now().toString(36)}`.slice(0, 20),
+          password: USERNAME ? `journey-pass-${USERNAME}` : 'journey-pass-' + Date.now(),
         };
         const status = await page.evaluate(async (creds) => {
-          const r = await fetch('/api/auth/register', {
+          let r = await fetch('/api/auth/register', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(creds),
           });
+          // A fixed --username already exists on a re-run: sign in instead.
+          if (r.status === 409) {
+            r = await fetch('/api/auth/login', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(creds),
+            });
+            return r.status === 200 ? 201 : r.status;
+          }
           return r.status;
         }, seeded);
         if (status !== 201) throw new Error(`register → ${status}`);
@@ -241,7 +255,20 @@ async function main() {
 
       // --- Seed through the UI on the first pass: sample binders + cards.
       await visit('/collection/binders');
-      if (tierName === VIEWPORTS[0]) {
+      // A reused account (fixed --username, second browser or a local re-run)
+      // already has its sample binders; seeding again would find no button.
+      const alreadySeeded =
+        tierName === VIEWPORTS[0] &&
+        (await page
+          .waitForFunction(
+            () => document.querySelectorAll('a[href*="/collection/binders/"]').length > 0,
+            { timeout: 5_000 }
+          )
+          .then(
+            () => true,
+            () => false
+          ));
+      if (tierName === VIEWPORTS[0] && !alreadySeeded) {
         // Fresh account: "Try it out" on the empty state; with cards already
         // present it reads "Load sample binders". Either opens the intro dialog.
         await clickText(page, /^(Try it out|Load sample binders)$/);
@@ -351,9 +378,20 @@ async function main() {
         '/tags',
         '/rules',
         `/u/${seeded.username}`,
+        USERNAME && '/admin',
       ].filter(Boolean);
       for (const r of routes) {
         const rec = await visit(r);
+        if (r === '/admin') {
+          // Non-admins are redirected to /collection, which would pass the
+          // generic checks and hide a broken admin page. Pin the heading.
+          await assertPage(rec, 'admin page renders for the admin account', async () => {
+            const observed = await page.evaluate(
+              () => document.querySelector('.admin-header h1')?.textContent?.trim() ?? null
+            );
+            return { ok: observed === 'Admin', expected: 'Admin', observed };
+          });
+        }
         if (r === '/collection') {
           await assertPage(rec, 'collection card count', async () => {
             const observed = await page.evaluate(() => {

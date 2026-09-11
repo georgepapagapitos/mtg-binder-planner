@@ -14,6 +14,7 @@ import {
   extractCommanderCandidates,
   computeReadiness,
   sortCommanderCandidates,
+  MIN_COLLECTION_SIZE,
   SPOTLIGHT_TOP_N,
   type ReadinessScore,
 } from '../../lib/commander-readiness';
@@ -21,8 +22,6 @@ import { ReadinessChip } from './CommanderReadiness';
 import type { EnrichedCard } from '../../types';
 import './ReadinessSpotlight.css';
 
-/** Below this collection size a readiness % is too noisy to be a useful "what to build" signal. */
-const MIN_COLLECTION_SIZE = 20;
 /** How many top-readiness picks the strip/sheet shows at once. */
 const SHOWN_COUNT = 3;
 const DISMISS_KEY = 'readiness-spotlight-dismissed-signature';

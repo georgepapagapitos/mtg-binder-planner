@@ -16,6 +16,10 @@ import { isCommanderEligible } from './commanders';
 /** How many of a commander's top staples we measure readiness against. */
 export const READINESS_POOL_SIZE = 100;
 
+/** Below this collection size a readiness or coverage % is too noisy to be a
+ *  useful "what to build" signal. Shared by the spotlight and the binder ranking. */
+export const MIN_COLLECTION_SIZE = 20;
+
 /** How many commanders the spotlight fetches readiness for (carousel cap). */
 export const SPOTLIGHT_TOP_N = 8;
 

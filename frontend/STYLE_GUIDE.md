@@ -3661,6 +3661,36 @@ can't nest inside the section `<h3>` (phrasing content only), so the gauge
 sits as a sibling of the heading inside a shared flex wrapper — see
 `.deck-section-title-row` in `styles/deck-builder-card-list.css`.
 
+## Ranked coverage rows (E283)
+
+The commander picker's "From my binder" tab ranks commanders by **collection
+coverage**: owned, identity-fitting cards on the commander's EDHREC page against
+the deck's spell slots (`lib/commander-coverage.ts`, the same line the owned-only
+generator gates its pool wideners on, E282). Rulings, in `BinderRanking.tsx`:
+
+- **One ranking key, shown as a bar; the older stat stays a chip.** The
+  coverage bar (`MeterBar`, `max` = the generator's "no gaps" line, 1.2 × slots)
+  is the sort key; readiness (% of top staples owned) stays the trailing
+  `ReadinessChip` so the two numbers never compete for the same slot. Bar color
+  is semantic: `--success` at or above the line, `--warn-border` below it.
+- **The row's line says what the number means for the build**, not a
+  percentage: "93 owned cards for 62 slots, no gaps" / "59 owned cards for 62
+  slots, a few will come from outside this commander's data". The generator's
+  own thin-pool disclosure uses the same threshold, so the row never promises
+  what the build won't deliver.
+- **A ranked list sorts once, when every row has resolved.** Rows render
+  immediately in a stable (alphabetical) order with the indeterminate bar and
+  a "Checking your collection…" line; the sort happens on completion, so the
+  list reorders exactly once. Progress and the final sort are announced via
+  one `role="status"` line ("N commanders ranked, best coverage first").
+- **Unavailable is never 0.** A row EDHREC couldn't serve keeps the muted `—`
+  chip and an empty bar with "No EDHREC data for this commander right now."
+- **Not-owned rows are labelled inline, in the meta line** ("Not in your
+  binder · $12"), under their own "Not in your binder" heading; they share the
+  row shape so the two sections compare like for like. `CommanderResultCard`
+  takes a `detail` slot for the bar/line/meta block; every other picker leaves
+  it undefined and renders unchanged.
+
 ## Money deltas & value sparklines (E76)
 
 A signed money change ("+$18 this week", "Value down $4") follows the

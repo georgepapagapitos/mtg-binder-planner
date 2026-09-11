@@ -21,6 +21,7 @@ import {
   computeReadiness,
   extractCommanderCandidates,
   isPdhCommanderCandidate,
+  MIN_COLLECTION_SIZE,
   type ReadinessScore,
 } from '../../lib/commander-readiness';
 import {
@@ -31,6 +32,8 @@ import {
 import { CommanderReadiness } from './CommanderReadiness';
 import { PlaystyleGrid } from './PlaystyleGrid';
 import { CommanderResultCard } from './CommanderResultCard';
+import { BinderRanking } from './BinderRanking';
+import { useDeckBuilderStore } from '@/deck-builder/store';
 import type { EnrichedCard } from '../../types';
 import { ManaCost } from '../ManaCost';
 import { ColorPip } from '../shared/ManaSymbol';
@@ -94,6 +97,13 @@ interface Props {
    * playstyle browse): EDHREC has no data for PDH commanders.
    */
   format?: DeckFormat;
+  /**
+   * Enables the "From my binder" tab (E283): owned commanders in the chosen
+   * colors ranked by collection coverage. A pick from that tab lands here
+   * instead of `onSelect`, so the caller can preselect its owned-only build
+   * settings. Only the new-deck page wires it; every other picker is unchanged.
+   */
+  onSelectFromBinder?: (card: ScryfallCard) => void;
 }
 
 const WUBRG_ORDER = 'WUBRGC';
@@ -150,7 +160,7 @@ const SEARCH_MODE_KEY = 'commander-search-mode';
 // inline-growing panel short until the user opts into the full list.
 const PLAYSTYLE_PREVIEW_COUNT = 10;
 
-type SearchMode = 'name' | 'playstyle';
+type SearchMode = 'name' | 'playstyle' | 'binder';
 
 /**
  * The WUBRG + Colorless pip filter, shared by the by-name suggestions and the
@@ -225,7 +235,12 @@ function pickRandom<T>(arr: T[]): T | null {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export function CommanderSearch({ value, onSelect, format = 'commander' }: Props) {
+export function CommanderSearch({
+  value,
+  onSelect,
+  format = 'commander',
+  onSelectFromBinder,
+}: Props) {
   const pdh = format === 'paupercommander';
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ScryfallCard[]>([]);
@@ -579,15 +594,22 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
   // tokens, voltron, …) and browse the commanders that do it best.
   const [searchMode, setSearchMode] = useState<SearchMode>(() => {
     try {
-      return localStorage.getItem(SEARCH_MODE_KEY) === 'playstyle' ? 'playstyle' : 'name';
+      const stored = localStorage.getItem(SEARCH_MODE_KEY);
+      return stored === 'playstyle' || stored === 'binder' ? stored : 'name';
     } catch {
       return 'name';
     }
   });
   // PDH has no playstyle browse (EDHREC-backed) — even a persisted 'playstyle'
   // preference resolves to name search there. The stored preference survives
-  // for the next Commander-format visit.
-  const activeSearchMode: SearchMode = pdh ? 'name' : searchMode;
+  // for the next Commander-format visit. Likewise 'binder' only exists where
+  // the caller wires `onSelectFromBinder`.
+  const activeSearchMode: SearchMode = pdh
+    ? 'name'
+    : searchMode === 'binder' && !onSelectFromBinder
+      ? 'name'
+      : searchMode;
+  const landCount = useDeckBuilderStore((s) => s.customization.landCount);
   const changeMode = (mode: SearchMode) => {
     setSearchMode(mode);
     try {
@@ -731,19 +753,21 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
     : localResults.slice(0, PLAYSTYLE_PREVIEW_COUNT);
 
   // ── Selection handlers ────────────────────────────────────────────────
-  const selectCard = (card: ScryfallCard) => {
-    onSelect(card);
+  // `fromBinder` routes the pick through `onSelectFromBinder` (E283) instead
+  // of `onSelect`; the two handlers are otherwise identical.
+  const selectCard = (card: ScryfallCard, fromBinder = false) => {
+    (fromBinder && onSelectFromBinder ? onSelectFromBinder : onSelect)(card);
     setQuery('');
     setResults([]);
     setLocalResults([]);
   };
 
-  const selectByName = async (name: string) => {
+  const selectByName = async (name: string, fromBinder = false) => {
     setSearchLoading(true);
     setError(null);
     try {
       const card = await getCardByName(name);
-      selectCard(card);
+      selectCard(card, fromBinder);
     } catch (e) {
       setError(userMessage(e, "Couldn't load that card. Try again in a moment."));
     } finally {
@@ -756,12 +780,12 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
   // the generated deck binds the physical copy they picked — right printing and
   // finish. The allocator keys on `card.id` (see pickCollectionCopy), so this
   // is what makes "build from my collection" honor the copy on screen.
-  const selectOwnedCard = async (owned: EnrichedCard) => {
+  const selectOwnedCard = async (owned: EnrichedCard, fromBinder = false) => {
     setSearchLoading(true);
     setError(null);
     try {
       const card = await getOwnedPrinting(owned.scryfallId, owned.name);
-      selectCard(card);
+      selectCard(card, fromBinder);
     } catch (e) {
       setError(userMessage(e, "Couldn't load that card. Try again in a moment."));
     } finally {
@@ -954,6 +978,7 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
 
   // ── Search UI ─────────────────────────────────────────────────────────
   const listboxId = 'commander-search-listbox';
+  const binderColorLabel = getColorFilterLabel(colorFilter).replace(/^Top /, '');
   const resultItems = (
     <>
       <ul className="commander-result-grid" role="listbox" id={listboxId}>
@@ -1012,6 +1037,15 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
           tabs={[
             { id: 'name', label: 'By name', controls: 'commander-search-panel' },
             { id: 'playstyle', label: 'By playstyle', controls: 'commander-search-panel' },
+            ...(onSelectFromBinder
+              ? [
+                  {
+                    id: 'binder' as const,
+                    label: 'From my binder',
+                    controls: 'commander-search-panel',
+                  },
+                ]
+              : []),
           ]}
         />
       )}
@@ -1082,7 +1116,35 @@ export function CommanderSearch({ value, onSelect, format = 'commander' }: Props
         id="commander-search-panel"
         {...(!pdh && { role: 'tabpanel', 'aria-labelledby': `sc-tab-${activeSearchMode}` })}
       >
-        {activeSearchMode === 'playstyle' ? (
+        {activeSearchMode === 'binder' ? (
+          <div className="commander-playstyle-browse">
+            <p className="commander-suggestions-hint">
+              Which {colorFilter.size > 0 ? `${binderColorLabel} ` : ''}commander does your
+              collection build best? Coverage counts the cards you own on each commander's EDHREC
+              page against the {99 - landCount} spell slots a deck needs.
+            </p>
+            <ColorPips colorFilter={colorFilter} setColorFilter={setColorFilter} />
+            {collectionCards.length < MIN_COLLECTION_SIZE ? (
+              <p className="commander-suggestions-empty">
+                Add at least {MIN_COLLECTION_SIZE} cards to your collection to rank commanders by
+                what you own.
+              </p>
+            ) : (
+              <BinderRanking
+                colorFilter={colorFilter}
+                colorLabel={binderColorLabel}
+                ownedOnly={ownedOnly}
+                collectionLegends={collectionLegends}
+                collectionCards={collectionCards}
+                ownedCardNames={ownedCardNames}
+                landCount={landCount}
+                disabled={searchLoading}
+                onSelectOwned={(card) => void selectOwnedCard(card, true)}
+                onSelectByName={(name) => void selectByName(name, true)}
+              />
+            )}
+          </div>
+        ) : activeSearchMode === 'playstyle' ? (
           <div className="commander-playstyle-browse">
             {playstyle ? (
               <>

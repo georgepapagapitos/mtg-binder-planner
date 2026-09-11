@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCardThumb } from '../../lib/card-thumbs';
 import { ColorPip } from '../shared/ManaSymbol';
 import { ReadinessChip } from './CommanderReadiness';
@@ -26,6 +27,12 @@ interface Props {
    * only by CommanderSearch's Top-EDHREC and Playstyle browse tiles.
    */
   platformDeckCount?: number;
+  /**
+   * Extra rows under the type line (E283: the binder ranking's coverage bar,
+   * line and meta). Undefined for every other call site, which renders as
+   * before.
+   */
+  detail?: ReactNode;
 }
 
 /**
@@ -47,6 +54,7 @@ export function CommanderResultCard({
   onSelect,
   onPeek,
   platformDeckCount,
+  detail,
 }: Props) {
   // Only resolve by name when we don't already have art — keeps the by-name
   // path (full ScryfallCards) off the network entirely.
@@ -90,6 +98,7 @@ export function CommanderResultCard({
           </span>
         )}
         {typeLine && <span className="commander-result-type">{typeLine}</span>}
+        {detail}
       </span>
     </button>
   );

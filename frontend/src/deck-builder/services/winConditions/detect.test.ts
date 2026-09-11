@@ -2,6 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { detectWinConditions } from './detect';
 import type { WinConditionInput } from './detect';
 import type { DeckSynergy } from '../synergy/deckSynergy';
+import { CORPUS } from '../synergy/classify.fixtures';
+
+/** Real Scryfall oracle text from the synergy corpus — never author-written. */
+function corpusCard(name: string) {
+  const c = CORPUS.find((x) => x.name === name);
+  if (!c) throw new Error(`corpus fixture missing: ${name}`);
+  return { name: c.name, oracle_text: c.oracle_text, type_line: c.type_line, keywords: c.keywords };
+}
 
 function emptySynergy(invested: string[] = []): DeckSynergy {
   return {
@@ -321,6 +329,53 @@ describe('go-wide tokens', () => {
   });
 });
 
+describe('go-wide via a token-making commander', () => {
+  it('reads a token engine commander fed by an invested axis as the go-wide plan', () => {
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Talrand, Sky Summoner'),
+        cards: [
+          card(
+            "Talrand's Invocation",
+            'create two 2/2 blue drake creature tokens with flying.',
+            'Sorcery'
+          ),
+          card(
+            'Murmuring Mystic',
+            'whenever you cast an instant or sorcery spell, create a 1/1 blue bird illusion creature token with flying.',
+            'Creature'
+          ),
+          card('Opt', 'scry 1. draw a card.'),
+        ],
+        deckSynergy: emptySynergy(['spellslinger']),
+      })
+    );
+    expect(result.primary?.category).toBe('go-wide');
+    expect(result.primary?.evidence[0]).toBe('Talrand, Sky Summoner');
+    expect(result.primary?.summary).toContain('Talrand, Sky Summoner makes tokens');
+    // Command-zone cards are never part of an assembly set.
+    for (const opt of result.primary?.assembly ?? []) {
+      expect(opt.names).not.toContain('Talrand, Sky Summoner');
+    }
+  });
+
+  it('does not qualify go-wide off the commander when nothing feeds its trigger', () => {
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Talrand, Sky Summoner'),
+        cards: [
+          card(
+            "Talrand's Invocation",
+            'create two 2/2 blue drake creature tokens with flying.',
+            'Sorcery'
+          ),
+        ],
+      })
+    );
+    expect(result.primary?.category).not.toBe('go-wide');
+  });
+});
+
 // ── Aristocrats ───────────────────────────────────────────────────────────
 
 describe('aristocrats', () => {
@@ -391,6 +446,24 @@ describe('burn', () => {
       })
     );
     expect(result.primary?.category).toBe('burn');
+  });
+
+  it('never labels an invested spellslinger deck Burn without burn spells (Talrand)', () => {
+    // Regression: the spellslinger axis vouched for Burn on its own, so a
+    // Talrand drake list rendered "Burn — 0 direct-damage spells" as primary.
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Talrand, Sky Summoner'),
+        cards: [
+          card('Counterspell', 'counter target spell.'),
+          card('Opt', 'scry 1. draw a card.'),
+          card('Lightning Bolt', 'deals 3 damage to any target.'),
+        ],
+        deckSynergy: emptySynergy(['spellslinger']),
+      })
+    );
+    expect(result.primary?.category).not.toBe('burn');
+    expect(result.secondary.map((w) => w.category)).not.toContain('burn');
   });
 
   it('does not flag a couple of incidental burn spells as the win-con', () => {

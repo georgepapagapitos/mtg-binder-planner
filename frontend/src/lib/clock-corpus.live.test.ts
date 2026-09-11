@@ -29,7 +29,7 @@ const ENABLED = process.env.CLOCK_EVAL === '1';
  * entry's `expect` is the community's rough read on how fast the deck ends
  * games, NOT anything the engine computes.
  */
-const CORPUS: Array<{ name: string; tier: 'casual' | 'mid' | 'high' | 'cedh' }> = [
+const DEFAULT_CORPUS: Array<{ name: string; tier: 'casual' | 'mid' | 'high' | 'cedh' }> = [
   { name: 'Lathril, Blade of the Elves', tier: 'casual' },
   { name: 'Miirym, Sentinel Wyrm', tier: 'casual' },
   { name: 'Atraxa, Praetors’ Voice', tier: 'casual' },
@@ -51,6 +51,18 @@ const CORPUS: Array<{ name: string; tier: 'casual' | 'mid' | 'high' | 'cedh' }> 
   { name: 'Urza, Lord High Artificer', tier: 'cedh' },
   { name: 'Tivit, Seller of Secrets', tier: 'cedh' },
 ];
+
+/**
+ * `CLOCK_EVAL_COMMANDERS="A;B;C"` swaps in a targeted panel (e.g. one commander
+ * per win-con archetype when stress-testing the detector). Tier is unknown for
+ * an ad-hoc panel, so it's reported as `mid`.
+ */
+const CORPUS = process.env.CLOCK_EVAL_COMMANDERS
+  ? process.env.CLOCK_EVAL_COMMANDERS.split(';')
+      .map((n) => n.trim())
+      .filter(Boolean)
+      .map((name) => ({ name, tier: 'mid' as const }))
+  : DEFAULT_CORPUS;
 
 interface Row {
   commander: string;
@@ -248,7 +260,9 @@ describe.skipIf(!ENABLED)('assembly clock — live corpus eval', () => {
           row.comboSample = detectedCombos
             .filter((c) => c.isComplete)
             .slice(0, 3)
-            .map((c) => c.cards.join(' + '));
+            // Results are what comboBucket reads — keep them visible so a
+            // complete combo that never became a win path can be diagnosed.
+            .map((c) => `${c.cards.join(' + ')} → ${c.results.join(' / ')}`);
           row.bracket = analysis.bracketEstimation?.bracket ?? null;
           row.softScore = analysis.bracketEstimation?.softScore ?? null;
 

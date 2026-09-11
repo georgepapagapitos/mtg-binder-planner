@@ -8,7 +8,14 @@
  * No DOM, no network. Pure + isomorphic.
  */
 
-import { parseCard, millSignals, sacrificeSignals, tokenCreation } from '../synergy/text';
+import {
+  parseCard,
+  splitClauses,
+  millSignals,
+  sacrificeSignals,
+  tokenCreation,
+} from '../synergy/text';
+import type { ParsedCard } from '../synergy/text';
 import { classifyCard } from '../synergy/classify';
 import type { DeckSynergy } from '../synergy/deckSynergy';
 import type { CardLike } from '../synergy/text';
@@ -98,12 +105,28 @@ export function isAltWinCard(card: CardLike): boolean {
 // (Fireball, Comet Storm, Crackle with Power), not a fixed number — a `\d+`-only
 // regex silently misses the entire X-spell family, which is the bulk of the
 // archetype.
+// "damage equal to its power" covers the Warstorm Surge / Terror of the Peaks
+// engines, whose damage has no literal amount.
 const BURN_RE =
-  /deals? (?:\d+|x) damage to (?:(?:target|each) (?:player|opponent)|any target)|deals? (?:\d+|x) damage to players/;
+  /deals? (?:(?:\d+|x) damage|damage equal to [a-z' ]+?) to (?:(?:target|each) (?:player|opponent)|any target|players)/;
 
-function isBurnSpell(typeLine: string, oracle: string): boolean {
-  const isSpell = /instant|sorcery/.test(typeLine);
-  return isSpell && BURN_RE.test(oracle);
+/** A clause that fires repeatedly: a "whenever"/upkeep trigger or an activated
+ *  ability. A one-shot "when X enters/dies" is deliberately NOT repeatable.
+ *  Trigger words are unanchored because the normaliser folds a keyword line
+ *  into the next clause ("flying whenever you draw a card, …"). */
+const REPEATABLE_RE = /\bwhenever\b|\bat the beginning of\b|^[^:.]{0,40}:/;
+
+/**
+ * Burn evidence comes in two shapes: a spell that hits face (Lightning Bolt,
+ * Comet Storm) or a permanent that does so repeatedly (Purphoros, Guttersnipe,
+ * Impact Tremors, Niv-Mizzet, Prodigal Sorcerer). Counting spells only left
+ * every permanent-based damage engine invisible to the detector.
+ */
+function burnEvidence(parsed: ParsedCard): 'spell' | 'engine' | null {
+  if (/instant|sorcery/.test(parsed.typeLine)) return BURN_RE.test(parsed.oracle) ? 'spell' : null;
+  return splitClauses(parsed.oracle).some((c) => REPEATABLE_RE.test(c) && BURN_RE.test(c))
+    ? 'engine'
+    : null;
 }
 
 // ── Aristocrats drain scan ────────────────────────────────────────────────────
@@ -137,6 +160,12 @@ const COMBO_WIN_RE =
 // though it was already counted in bracketEstimation.softScore (E78 items 1).
 const COMBO_DAMAGE_RE =
   /\b(?:near-)?infinite (?:combat )?damage\b|\bunlimited damage\b|\binfinite lifeloss\b/i;
+// An infinite creature-token loop is a win the same way infinite draw is
+// (inevitability — swing next turn, or this turn with haste). Commander
+// Spellbook phrases it "Infinite creature tokens with haste" / "Infinite hasty
+// creature tokens" / "Infinite creature tokens"; Godo's Dualcaster Mage +
+// Twinflame line fell to 'other' and the deck showed zero win-path combos.
+const COMBO_TOKENS_RE = /\binfinite (?:hasty |attacking )?(?:[\w/+-]+ )*creature tokens?\b/i;
 const COMBO_MILL_RE = /\binfinite mill\b|\bexile (?:your |their )?librar/i;
 // Infinite card draw is a genuine plan (assemble any answer, or deck the
 // table via inevitability) — unlike a bare infinite-mana loop below, which
@@ -144,10 +173,13 @@ const COMBO_MILL_RE = /\binfinite mill\b|\bexile (?:your |their )?librar/i;
 const COMBO_DRAW_RE = /\binfinite (?:card )?draw\b|\binfinite draw triggers\b|\bstorm count\b/i;
 const COMBO_MANA_RE = /\binfinite mana\b/i;
 
-function comboBucket(results: string[]): 'win' | 'damage' | 'mill' | 'draw' | 'mana' | 'other' {
+function comboBucket(
+  results: string[]
+): 'win' | 'damage' | 'tokens' | 'mill' | 'draw' | 'mana' | 'other' {
   const joined = results.join(' ');
   if (COMBO_WIN_RE.test(joined)) return 'win';
   if (COMBO_DAMAGE_RE.test(joined)) return 'damage';
+  if (COMBO_TOKENS_RE.test(joined)) return 'tokens';
   if (COMBO_MILL_RE.test(joined)) return 'mill';
   if (COMBO_DRAW_RE.test(joined)) return 'draw';
   if (COMBO_MANA_RE.test(joined)) return 'mana';
@@ -239,33 +271,39 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
   const commandZone = new Set(
     [commander?.name, partnerCommander?.name].filter((n): n is string => Boolean(n))
   );
+  // …but they ARE evidence: a commander that mills, poisons, or pings is the
+  // most reliable card in the deck (always castable), so every strategic scan
+  // reads the command zone alongside the 99. Callers differ on whether the
+  // commander is already in `cards` (the coherence audit includes it, the
+  // Power-tab analysis doesn't), so merge by name.
+  const scanCards = [...cards];
+  for (const cmd of [commander, partnerCommander]) {
+    if (cmd && !cards.some((c) => c.name === cmd.name)) scanCards.push(cmd);
+  }
+  const library = (names: string[]) => names.filter((n) => !commandZone.has(n));
   // "Online" for a strategic plan = the same critical mass the detector itself
   // required to call it a plan (see strategicQualifies / the poison gate).
-  const strategicAssembly = (names: string[], need: number) => [
-    { names, need: Math.min(need, names.length) },
-  ];
+  const strategicAssembly = (names: string[], need: number) => {
+    const drawable = library(names);
+    return [{ names: drawable, need: Math.min(need, drawable.length) }];
+  };
 
   const candidates: WinCondition[] = [];
 
   // ── 1. Infinite combos ────────────────────────────────────────────────────
   const comboWin = combosInDeck.filter((c) => {
     const b = comboBucket(c.results);
-    return b === 'win' || b === 'damage' || b === 'mill' || b === 'draw';
+    return b === 'win' || b === 'damage' || b === 'tokens' || b === 'mill' || b === 'draw';
   });
   if (comboWin.length > 0) {
     const allCards = Array.from(new Set(comboWin.flatMap((c) => c.cards)));
     const buckets = comboWin.map((c) => comboBucket(c.results));
     const dominant =
-      buckets.filter((b) => b === 'win').length > 0
-        ? 'win'
-        : buckets.filter((b) => b === 'damage').length > 0
-          ? 'damage'
-          : buckets.filter((b) => b === 'mill').length > 0
-            ? 'mill'
-            : 'draw';
+      (['win', 'damage', 'tokens', 'mill'] as const).find((b) => buckets.includes(b)) ?? 'draw';
     const suffixes: Record<string, string> = {
       win: 'auto-win lines',
       damage: 'infinite damage loops',
+      tokens: 'infinite creature-token loops',
       mill: 'infinite mill loops',
       draw: 'infinite card-draw engines',
     };
@@ -289,7 +327,7 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
 
   // ── 2. Alt-win-con cards ──────────────────────────────────────────────────
   const altWinCards: string[] = [];
-  for (const card of cards) {
+  for (const card of scanCards) {
     const parsed = parseCard(card);
     if (isAltWin(parsed.oracle, card.name)) altWinCards.push(card.name);
   }
@@ -301,13 +339,13 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
       evidence: altWinCards,
       score: 4 + altWinCards.length * 2,
       // Each alt-win card is a standalone win button — any one suffices.
-      assembly: [{ names: altWinCards, need: 1 }],
+      assembly: [{ names: library(altWinCards), need: 1 }],
     });
   }
 
   // ── 3. Mill (deck-out) ────────────────────────────────────────────────────
   const millCards: string[] = [];
-  for (const card of cards) {
+  for (const card of scanCards) {
     const parsed = parseCard(card);
     const m = millSignals(parsed.oracle);
     if (m.opponentMill || m.doubler) millCards.push(card.name);
@@ -326,14 +364,14 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
 
   // ── 4. Poison / infect ────────────────────────────────────────────────────
   const poisonCards: string[] = [];
-  for (const card of cards) {
+  for (const card of scanCards) {
     const kw = (card.keywords ?? []).map((k) => k.toLowerCase());
     if (kw.some((k) => k === 'infect' || k.startsWith('toxic') || k === 'wither')) {
       poisonCards.push(card.name);
       continue;
     }
     const parsed = parseCard(card);
-    if (/\bpoison counter\b|\binfect\b|\btoxic\b/.test(parsed.oracle)) {
+    if (/\bpoison counters?\b|\binfect\b|\btoxic\b/.test(parsed.oracle)) {
       poisonCards.push(card.name);
     }
   }
@@ -356,7 +394,7 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
   // ── 5. Go-wide tokens ────────────────────────────────────────────────────
   const tokenCards: string[] = [];
   const anthemCards: string[] = [];
-  for (const card of cards) {
+  for (const card of scanCards) {
     const parsed = parseCard(card);
     const tc = tokenCreation(parsed.oracle);
     if (tc.creaturesForYou) tokenCards.push(card.name);
@@ -364,29 +402,32 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
       anthemCards.push(card.name);
     }
   }
-  // A commander that makes creature tokens as the payoff of an axis the deck
-  // is invested in (Talrand off instants/sorceries) IS the go-wide plan: it
-  // never needs drawing and every fuel card in the 99 feeds it. Without this a
-  // Talrand list read as "no clear win condition" (or, worse, as Burn off the
-  // spellslinger axis with zero burn spells).
+  // A commander that makes creature tokens on a REPEATABLE trigger, as the
+  // payoff of an axis the deck is invested in (Talrand off instants/sorceries,
+  // Adeline off attacks), IS the go-wide plan: it never needs drawing and every
+  // fuel card in the 99 feeds it. Without this a Talrand list read as "no clear
+  // win condition" (or, worse, as Burn off the spellslinger axis with zero burn
+  // spells). A one-shot dies/enters token maker (Elenda) is not an engine.
   let tokenEngine: { name: string; reason: string } | null = null;
   for (const cmd of [commander, partnerCommander]) {
     if (!cmd || tokenEngine) continue;
     const cs = classifyCard(cmd);
     const fuel = cs.payoffs.find((p) => investedSet.has(p.axis));
-    if (fuel && cs.producers.some((p) => p.axis === 'tokens')) {
-      tokenEngine = { name: cmd.name, reason: fuel.reason };
-    }
+    const repeatable = splitClauses(parseCard(cmd).oracle).some(
+      (c) => REPEATABLE_RE.test(c) && tokenCreation(c).creaturesForYou
+    );
+    if (fuel && repeatable) tokenEngine = { name: cmd.name, reason: fuel.reason };
   }
   const goWideInvested = investedSet.has('tokens') || tokenEngine !== null;
-  const goWideCount = tokenCards.length + anthemCards.length + (tokenEngine ? 1 : 0);
+  const goWideCount = tokenCards.length + anthemCards.length;
   // Raw-count path additionally requires a real payoff (anthem/Overrun-class):
   // without one, a titan-ramp deck whose only "token" cards are incidental
   // sac-fodder makers (Eldrazi Spawn/Scion) clears the floor on producer count
   // alone and gets mislabeled go-wide with no plan to actually go wide.
   if (goWideInvested || (goWideCount >= GO_WIDE_MIN_CARDS && anthemCards.length >= 1)) {
-    const libraryEvidence = Array.from(new Set([...tokenCards, ...anthemCards]));
-    const allEvidence = tokenEngine ? [tokenEngine.name, ...libraryEvidence] : libraryEvidence;
+    const allEvidence = Array.from(
+      new Set([...(tokenEngine ? [tokenEngine.name] : []), ...tokenCards, ...anthemCards])
+    );
     const engineNote = tokenEngine
       ? `${tokenEngine.name} makes tokens (${tokenEngine.reason}), `
       : '';
@@ -398,7 +439,7 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
       score: goWideCount + (goWideInvested ? INVESTED_BONUS : 0),
       // ponytail: flat count over producers+anthems; require-a-payoff-drawn if
       // this reads too optimistic for anthem-light lists.
-      assembly: strategicAssembly(libraryEvidence, STRATEGIC_MIN_CARDS),
+      assembly: strategicAssembly(allEvidence, STRATEGIC_MIN_CARDS),
     });
   }
 
@@ -406,7 +447,7 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
   const sacOutlets: string[] = [];
   const sacPayoffs: string[] = [];
   const drainCards: string[] = [];
-  for (const card of cards) {
+  for (const card of scanCards) {
     const parsed = parseCard(card);
     const s = sacrificeSignals(parsed.oracle);
     if (s.outlet) sacOutlets.push(card.name);
@@ -415,7 +456,12 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
   }
   const aristoInvested = investedSet.has('sacrifice');
   const aristoEvidence = Array.from(new Set([...sacOutlets, ...sacPayoffs, ...drainCards]));
-  if (strategicQualifies(aristoEvidence.length, aristoInvested)) {
+  // Raw-count path needs a real payoff or drain, mirroring go-wide's anthem
+  // requirement: "sacrifice this: add mana" rocks and self-sacrificing
+  // utility (Lotus Petal, Mind Stone, Goblin Engineer) are outlets by text,
+  // and five of them made a Godo equipment deck read as Aristocrats.
+  const aristoHasPayoff = sacPayoffs.length + drainCards.length >= 1;
+  if (aristoInvested || (aristoHasPayoff && strategicQualifies(aristoEvidence.length, false))) {
     const hasDrain = drainCards.length > 0;
     candidates.push({
       category: 'aristocrats',
@@ -431,21 +477,30 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
   }
 
   // ── 7. Burn / direct damage ──────────────────────────────────────────────
-  const burnCards: string[] = [];
-  for (const card of cards) {
-    const parsed = parseCard(card);
-    if (isBurnSpell(parsed.typeLine, parsed.oracle)) burnCards.push(card.name);
+  const burnSpells: string[] = [];
+  const burnEngines: string[] = [];
+  for (const card of scanCards) {
+    const kind = burnEvidence(parseCard(card));
+    if (kind === 'spell') burnSpells.push(card.name);
+    else if (kind === 'engine') burnEngines.push(card.name);
   }
+  const burnCards = [...burnEngines, ...burnSpells];
   const burnInvested = investedSet.has('spellslinger');
   // Evidence floor: the spellslinger axis says the deck casts a lot of spells,
   // not that those spells burn face. Without it a Talrand drake list rendered
   // "Burn — 0 direct-damage spells" as its primary plan. One incidental Bolt
   // still isn't a plan, so an invested shell needs a couple of real finishers.
   if (burnCards.length >= BURN_MIN_INVESTED && strategicQualifies(burnCards.length, burnInvested)) {
+    const parts = [
+      burnSpells.length > 0 &&
+        `${burnSpells.length} direct-damage spell${burnSpells.length === 1 ? '' : 's'}`,
+      burnEngines.length > 0 &&
+        `${burnEngines.length} damage engine${burnEngines.length === 1 ? '' : 's'}`,
+    ].filter(Boolean);
     candidates.push({
       category: 'burn',
-      label: 'Burn',
-      summary: `${burnCards.length} direct-damage spell${burnCards.length === 1 ? '' : 's'}`,
+      label: burnEngines.length > 0 ? 'Burn / damage engines' : 'Burn',
+      summary: parts.join(', '),
       evidence: burnCards.slice(0, 8),
       score: burnCards.length + (burnInvested ? INVESTED_BONUS : 0),
       assembly: strategicAssembly(burnCards, STRATEGIC_MIN_CARDS),

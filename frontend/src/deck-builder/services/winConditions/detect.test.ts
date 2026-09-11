@@ -3,11 +3,12 @@ import { detectWinConditions } from './detect';
 import type { WinConditionInput } from './detect';
 import type { DeckSynergy } from '../synergy/deckSynergy';
 import { CORPUS } from '../synergy/classify.fixtures';
+import { WINCON_FIXTURES } from './detect.fixtures';
 
-/** Real Scryfall oracle text from the synergy corpus — never author-written. */
+/** Real Scryfall oracle text (synergy corpus or the local fixture file) — never author-written. */
 function corpusCard(name: string) {
-  const c = CORPUS.find((x) => x.name === name);
-  if (!c) throw new Error(`corpus fixture missing: ${name}`);
+  const c = CORPUS.find((x) => x.name === name) ?? WINCON_FIXTURES.find((x) => x.name === name);
+  if (!c) throw new Error(`fixture missing: ${name}`);
   return { name: c.name, oracle_text: c.oracle_text, type_line: c.type_line, keywords: c.keywords };
 }
 
@@ -167,6 +168,40 @@ describe('infinite combo', () => {
       })
     );
     expect(result.primary?.category).toBe('infinite-combo');
+  });
+});
+
+describe('infinite creature-token loops', () => {
+  it('counts an infinite hasty token combo as a win path (Godo: Dualcaster Mage + Twinflame)', () => {
+    // Real Commander Spellbook produces[] labels, as fed by the EDHREC combo page.
+    const result = detectWinConditions(
+      input({
+        combosInDeck: [
+          {
+            results: [
+              'Infinite creature LTB',
+              'Infinite creature ETB',
+              'Infinite creature tokens with haste',
+              'Infinite magecraft triggers',
+            ],
+            cards: ['Dualcaster Mage', 'Twinflame'],
+          },
+        ],
+      })
+    );
+    expect(result.primary?.category).toBe('infinite-combo');
+    expect(result.primary?.summary).toContain('infinite creature-token loops');
+  });
+
+  it('does not treat infinite noncreature tokens as a win path', () => {
+    const result = detectWinConditions(
+      input({
+        combosInDeck: [
+          { results: ['Infinite Treasure tokens', 'Infinite colorless mana'], cards: ['A', 'B'] },
+        ],
+      })
+    );
+    expect(result.primary?.category).not.toBe('infinite-combo');
   });
 });
 
@@ -412,6 +447,37 @@ describe('aristocrats', () => {
   });
 });
 
+describe('aristocrats needs a payoff on the raw-count path', () => {
+  it('self-sacrificing mana rocks and utility are not an aristocrats plan (Godo)', () => {
+    const result = detectWinConditions(
+      input({
+        cards: [
+          card(
+            'Lotus Petal',
+            '{t}, sacrifice this artifact: add one mana of any color.',
+            'Artifact'
+          ),
+          card('Mind Stone', '{1}, {t}, sacrifice this artifact: draw a card.', 'Artifact'),
+          card(
+            'Vessel of Volatility',
+            '{1}{r}, sacrifice this enchantment: add {r}{r}{r}{r}.',
+            'Enchantment'
+          ),
+          card(
+            'Goblin Engineer',
+            'sacrifice an artifact: return target artifact card from your graveyard.',
+            'Creature'
+          ),
+          card('Skirk Prospector', 'sacrifice a goblin: add {r}.', 'Creature'),
+        ],
+      })
+    );
+    expect([result.primary, ...result.secondary].map((c) => c?.category)).not.toContain(
+      'aristocrats'
+    );
+  });
+});
+
 // ── Burn ──────────────────────────────────────────────────────────────────
 
 describe('burn', () => {
@@ -477,6 +543,143 @@ describe('burn', () => {
       })
     );
     expect(result.primary?.category).not.toBe('burn');
+  });
+});
+
+describe('burn via permanent damage engines', () => {
+  it('counts repeatable damage permanents, commander included (Purphoros)', () => {
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Purphoros, God of the Forge'),
+        cards: [
+          corpusCard('Impact Tremors'),
+          corpusCard('Warstorm Surge'),
+          corpusCard('Guttersnipe'),
+        ],
+      })
+    );
+    expect(result.primary?.category).toBe('burn');
+    expect(result.primary?.label).toBe('Burn / damage engines');
+    expect(result.primary?.evidence).toContain('Purphoros, God of the Forge');
+    expect(result.primary?.summary).toBe('4 damage engines');
+    for (const opt of result.primary?.assembly ?? []) {
+      expect(opt.names).not.toContain('Purphoros, God of the Forge');
+    }
+  });
+
+  it('counts pingers and cast triggers alongside burn spells (Niv-Mizzet)', () => {
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Niv-Mizzet, Parun'),
+        cards: [
+          corpusCard('Prodigal Sorcerer'),
+          corpusCard('Kessig Flamebreather'),
+          card('Lightning Bolt', 'deals 3 damage to any target.'),
+        ],
+        deckSynergy: emptySynergy(['spellslinger']),
+      })
+    );
+    expect(result.primary?.category).toBe('burn');
+    expect(result.primary?.summary).toBe('1 direct-damage spell, 3 damage engines');
+  });
+
+  it('ignores one-shot enters/dies damage — not an engine', () => {
+    const result = detectWinConditions(
+      input({
+        cards: [
+          card(
+            'Fake Kavu',
+            'when this creature enters, it deals 4 damage to any target.',
+            'Creature'
+          ),
+          card(
+            'Fake Kavu 2',
+            'when this creature enters, it deals 4 damage to any target.',
+            'Creature'
+          ),
+          card(
+            'Fake Kavu 3',
+            'when this creature enters, it deals 4 damage to any target.',
+            'Creature'
+          ),
+          card(
+            'Fake Kavu 4',
+            'when this creature enters, it deals 4 damage to any target.',
+            'Creature'
+          ),
+        ],
+      })
+    );
+    expect(result.primary?.category).not.toBe('burn');
+  });
+});
+
+describe('command zone counts as evidence', () => {
+  it('poison: a poison commander plus one infect card is a plan (Fynn)', () => {
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Fynn, the Fangbearer'),
+        cards: [corpusCard('Skithiryx, the Blight Dragon')],
+      })
+    );
+    expect(result.primary?.category).toBe('poison');
+    expect(result.primary?.evidence).toContain('Fynn, the Fangbearer');
+    for (const opt of result.primary?.assembly ?? []) {
+      expect(opt.names).not.toContain('Fynn, the Fangbearer');
+    }
+  });
+
+  it('mill: a mill-doubler commander clears the floor with three mill cards (Bruvac)', () => {
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Bruvac the Grandiloquent'),
+        cards: [
+          card('Glimpse the Unthinkable', 'target player mills 10 cards.', 'Sorcery'),
+          card('Maddening Cacophony', 'each opponent mills eight cards.', 'Instant'),
+          card('Mind Funeral', 'target opponent mills cards until four land cards.', 'Sorcery'),
+        ],
+      })
+    );
+    expect(result.primary?.category).toBe('mill');
+    expect(result.primary?.evidence).toContain('Bruvac the Grandiloquent');
+  });
+
+  it('does not double-count a commander the caller already put in cards', () => {
+    const fynn = corpusCard('Fynn, the Fangbearer');
+    const result = detectWinConditions(
+      input({ commander: fynn, cards: [fynn, corpusCard('Skithiryx, the Blight Dragon')] })
+    );
+    expect(result.primary?.evidence.filter((n) => n === fynn.name)).toHaveLength(1);
+  });
+});
+
+describe('token engine must be a repeatable trigger', () => {
+  it('a dies-trigger token maker is not the go-wide engine (Elenda)', () => {
+    const sac = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        card(`Outlet ${i}`, 'sacrifice a creature: draw a card.', 'Creature')
+      );
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Elenda, the Dusk Rose'),
+        cards: sac(4),
+        deckSynergy: emptySynergy(['sacrifice']),
+      })
+    );
+    const goWide = [result.primary, ...result.secondary].find((c) => c?.category === 'go-wide');
+    expect(goWide?.summary ?? '').not.toContain('makes tokens');
+  });
+
+  it('an attack-trigger token maker is the engine when its axis is invested (Adeline)', () => {
+    const result = detectWinConditions(
+      input({
+        commander: corpusCard('Adeline, Resplendent Cathar'),
+        cards: [],
+        deckSynergy: emptySynergy(['tokens']),
+      })
+    );
+    expect(result.primary?.category).toBe('go-wide');
+    expect(result.primary?.summary).toContain('Adeline, Resplendent Cathar makes tokens');
   });
 });
 

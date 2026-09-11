@@ -5,11 +5,11 @@ import { Link, Navigate } from 'react-router-dom';
 import '@/styles/admin-scanner.css';
 import { useAuth } from '../store/auth';
 import { useCollectionStore } from '../store/collection';
-import { SearchPill } from '../components/SearchPill';
+import { AdminPanel } from '../components/AdminPanel';
 import { useConfirm } from '../lib/use-confirm';
+import { stopSyncAndWipeLocal } from '../lib/sync';
 import { Tabs } from '../components/Tabs';
 import { useDecksStore, type Deck } from '../store/decks';
-import { useCubeStore, type SavedCube } from '../store/cube';
 import {
   buildAllocationMap,
   findSuboptimalPrintings,
@@ -26,24 +26,30 @@ import {
 import { formatRelativeTime } from '../lib/format-time';
 import { userMessage } from '../lib/user-error';
 
-type Tab =
-  | 'overview'
-  | 'decks'
-  | 'allocations'
-  | 'collection'
-  | 'binders'
-  | 'analytics'
-  | 'storage'
-  | 'raw';
+type Tab = 'analytics' | 'users' | 'overview' | 'decks' | 'storage' | 'raw';
 
 // Stable empty map for the brief pre-hydration window (keeps the prop a Map).
 const EMPTY_COLLECTION: Map<string, EnrichedCard> = new Map();
+
+/**
+ * "Wipe everything": every local store the app writes, then a cold reload.
+ * Goes through the sync layer's own wipe (entity rows, mutation queue, pull
+ * cursor, in-memory stores) instead of guessing IndexedDB names — the old
+ * `indexedDB.deleteDatabase('spellcontrol')` targeted a database that no
+ * longer exists and silently wiped nothing.
+ */
+export async function wipeThisDevice(): Promise<void> {
+  await stopSyncAndWipeLocal();
+  localStorage.clear();
+  location.reload();
+}
 
 export function AdminPage() {
   // Destructive debug actions go through the shared confirm dialog, never
   // window.confirm (STYLE_GUIDE § Overlays).
   const { confirm, dialog: confirmDialog } = useConfirm();
   const isAdmin = useAuth((s) => s.user?.role === 'admin');
+  const userId = useAuth((s) => s.user?.id ?? null);
   const cards = useCollectionStore((s) => s.cards);
   const hydrating = useCollectionStore((s) => s.hydrating);
   const binders = useCollectionStore((s) => s.binders);
@@ -55,9 +61,8 @@ export function AdminPage() {
   const decks = useDecksStore((s) => s.decks);
   const deleteAllDecks = useDecksStore((s) => s.deleteAllDecks);
   const remapAllocations = useDecksStore((s) => s.remapAllocations);
-  const savedCubes = useCubeStore((s) => s.saved);
 
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>('analytics');
   // First-party beacon counters (lib/analytics + /api/admin/events), fetched
   // once when the tab is first opened. null = not loaded yet.
   const [events, setEvents] = useState<BeaconRows | null>(null);
@@ -229,10 +234,10 @@ export function AdminPage() {
     <div className="admin-page">
       {confirmDialog}
       <div className="admin-header">
-        <h1>Debug / Admin</h1>
+        <h1>Admin</h1>
         <p className="admin-sub">
-          Live view of what is in localStorage + IndexedDB right now. Nothing here is persisted:
-          this page just reads the same stores the rest of the app reads.
+          Production signals and user controls first. The local tabs read this device&apos;s own
+          stores, the same IndexedDB the app uses, and change nothing unless a button says so.
         </p>
         <p className="admin-sub">
           Console helpers: <code>window.__debug.dumpDeck("mono-white")</code>,{' '}
@@ -247,18 +252,24 @@ export function AdminPage() {
         value={tab}
         onChange={setTab}
         tabs={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'decks', label: 'Decks', count: decks.length },
-          { id: 'allocations', label: 'Allocations', count: allocationMap.size },
-          { id: 'collection', label: 'Collection', count: cards.length },
-          { id: 'binders', label: 'Binders', count: binders.length },
           { id: 'analytics', label: 'Analytics' },
-          { id: 'storage', label: 'Storage' },
+          { id: 'users', label: 'Users & reports' },
+          { id: 'overview', label: 'Local checks' },
+          { id: 'decks', label: 'Decks', count: decks.length },
+          { id: 'storage', label: 'Local data' },
           { id: 'raw', label: 'Raw JSON' },
         ]}
       />
 
       {hydrating && <p className="admin-warn">Collection store still hydrating from IndexedDB…</p>}
+
+      {tab === 'analytics' && <AnalyticsTab events={events} error={eventsError} />}
+
+      {tab === 'users' && userId && (
+        <section className="admin-section admin-section--cards">
+          <AdminPanel currentUserId={userId} />
+        </section>
+      )}
 
       {tab === 'overview' && (
         <section className="admin-section">
@@ -472,50 +483,6 @@ export function AdminPage() {
         </section>
       )}
 
-      {tab === 'allocations' && (
-        <AllocationsTab decks={decks} cubes={savedCubes} collectionByCopyId={collectionByCopyId} />
-      )}
-
-      {tab === 'collection' && (
-        <CollectionTab cards={cards} cardsByName={cardsByName} allocationMap={allocationMap} />
-      )}
-
-      {tab === 'binders' && (
-        <section className="admin-section">
-          <h2>Binders</h2>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Mode</th>
-                <th>Groups</th>
-                <th>Pinned</th>
-                <th>Excluded</th>
-                <th>Manual order</th>
-                <th>Hide alloc</th>
-                <th>ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              {binders.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.name}</td>
-                  <td>{b.mode ?? 'rules'}</td>
-                  <td>{b.filterGroups.length}</td>
-                  <td>{b.pinnedCopyIds?.length ?? 0}</td>
-                  <td>{b.excludedCopyIds?.length ?? 0}</td>
-                  <td>{b.manualOrder?.length ?? 0}</td>
-                  <td>{b.hideDeckAllocated === false ? 'yes' : 'no'}</td>
-                  <td className="admin-mono">{b.id.slice(0, 8)}…</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      {tab === 'analytics' && <AnalyticsTab events={events} error={eventsError} />}
-
       {tab === 'storage' && (
         <StorageTab
           fileName={fileName}
@@ -551,14 +518,12 @@ export function AdminPage() {
           onNuke={async () => {
             const ok = await confirm({
               title: 'Wipe everything and reload?',
-              body: 'Collection, decks, binders and local settings are all removed from this device.',
+              body: 'Collection, decks, binders, unsent changes and local settings are all removed from this device. A signed-in account pulls everything back from the server on reload.',
               confirmLabel: 'Wipe everything',
               danger: true,
             });
             if (!ok) return;
-            localStorage.clear();
-            indexedDB.deleteDatabase('spellcontrol');
-            location.reload();
+            await wipeThisDevice();
           }}
           onRerunRemap={() => {
             remapAllocations(cards);
@@ -686,229 +651,6 @@ function DeckDetail({
   );
 }
 
-function AllocationsTab({
-  decks,
-  cubes,
-  collectionByCopyId,
-}: {
-  decks: Deck[];
-  cubes: SavedCube[];
-  collectionByCopyId: Map<string, EnrichedCard>;
-}) {
-  const rows = useMemo(() => {
-    type Row = {
-      copyId: string;
-      claimedBy: { deckId: string; deckName: string; slotName: string; zone: string }[];
-      copy?: EnrichedCard;
-    };
-    const byCopyId = new Map<string, Row>();
-    const record = (
-      copyId: string | null,
-      deckId: string,
-      deckName: string,
-      slotName: string,
-      zone: string
-    ) => {
-      if (!copyId) return;
-      const r = byCopyId.get(copyId) ?? {
-        copyId,
-        claimedBy: [],
-        copy: collectionByCopyId.get(copyId),
-      };
-      r.claimedBy.push({ deckId, deckName, slotName, zone });
-      byCopyId.set(copyId, r);
-    };
-    for (const deck of decks) {
-      record(deck.commanderAllocatedCopyId, deck.id, deck.name, deck.commander?.name ?? '?', 'cmd');
-      record(
-        deck.partnerCommanderAllocatedCopyId,
-        deck.id,
-        deck.name,
-        deck.partnerCommander?.name ?? '?',
-        'partner'
-      );
-      for (const c of deck.cards)
-        record(c.allocatedCopyId, deck.id, deck.name, c.card.name, 'main');
-      for (const c of deck.sideboard ?? [])
-        record(c.allocatedCopyId, deck.id, deck.name, c.card.name, 'side');
-    }
-    return [...byCopyId.values()].sort((a, b) => b.claimedBy.length - a.claimedBy.length);
-  }, [decks, collectionByCopyId]);
-
-  const cubeRows = useMemo(() => {
-    type CubeRow = {
-      copyId: string;
-      cubeName: string;
-      pickName: string;
-      copy?: EnrichedCard;
-    };
-    const rows: CubeRow[] = [];
-    for (const cube of cubes) {
-      if (!cube.isPhysical) continue;
-      for (const pick of cube.picks) {
-        if (!pick.allocatedCopyId) continue;
-        rows.push({
-          copyId: pick.allocatedCopyId,
-          cubeName: cube.name,
-          pickName: pick.card.name,
-          copy: collectionByCopyId.get(pick.allocatedCopyId),
-        });
-      }
-    }
-    return rows;
-  }, [cubes, collectionByCopyId]);
-
-  const multi = rows.filter((r) => r.claimedBy.length > 1);
-
-  return (
-    <section className="admin-section">
-      <h2>Allocations ({rows.length} unique copyIds claimed)</h2>
-      {multi.length > 0 && (
-        <p className="admin-warn">
-          {multi.length} copyId(s) claimed by more than one deck slot. The allocation map in the UI
-          keeps only the LAST one (Map.set wins), so earlier claims silently disappear from the
-          binder badge. Listed first below.
-        </p>
-      )}
-      <table className="admin-table admin-table--dense">
-        <thead>
-          <tr>
-            <th>copyId</th>
-            <th>Card</th>
-            <th>Set / #</th>
-            <th>Finish</th>
-            <th>Claimed by (deck · slot name · zone)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.copyId} className={r.claimedBy.length > 1 ? 'admin-row--err' : ''}>
-              <td className="admin-mono">{r.copyId.slice(0, 8)}…</td>
-              <td>{r.copy?.name ?? <span className="admin-err">missing from collection</span>}</td>
-              <td>{r.copy ? `${r.copy.setCode} #${r.copy.collectorNumber}` : '—'}</td>
-              <td>{r.copy?.finish ?? '—'}</td>
-              <td>
-                <ul className="admin-claim-list">
-                  {r.claimedBy.map((c, i) => (
-                    <li key={i}>
-                      <strong>{c.deckName}</strong> → {c.slotName}{' '}
-                      <span className="admin-sub">({c.zone})</span>
-                    </li>
-                  ))}
-                </ul>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h2>Cube allocations ({cubeRows.length} picks bound)</h2>
-      {cubeRows.length === 0 ? (
-        <p className="admin-sub">No cube allocations.</p>
-      ) : (
-        <table className="admin-table admin-table--dense">
-          <thead>
-            <tr>
-              <th>copyId</th>
-              <th>Card</th>
-              <th>Set / #</th>
-              <th>Finish</th>
-              <th>Cube · pick</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cubeRows.map((r, i) => (
-              <tr key={i}>
-                <td className="admin-mono">{r.copyId.slice(0, 8)}…</td>
-                <td>
-                  {r.copy?.name ?? <span className="admin-err">missing from collection</span>}
-                </td>
-                <td>{r.copy ? `${r.copy.setCode} #${r.copy.collectorNumber}` : '—'}</td>
-                <td>{r.copy?.finish ?? '—'}</td>
-                <td>
-                  <strong>{r.cubeName}</strong> → {r.pickName}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
-  );
-}
-
-function CollectionTab({
-  cards,
-  cardsByName,
-  allocationMap,
-}: {
-  cards: EnrichedCard[];
-  cardsByName: Map<string, EnrichedCard[]>;
-  allocationMap: Map<string, { deckName: string }>;
-}) {
-  const [filter, setFilter] = useState('');
-  const byName = useMemo(() => {
-    const rows = [...cardsByName.entries()].map(([name, copies]) => {
-      const allocCount = copies.filter((c) => allocationMap.has(c.copyId)).length;
-      const deckSet = new Set<string>();
-      for (const c of copies) {
-        const a = allocationMap.get(c.copyId);
-        if (a) deckSet.add(a.deckName);
-      }
-      return {
-        name,
-        count: copies.length,
-        allocated: allocCount,
-        decks: [...deckSet],
-      };
-    });
-    rows.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-    return rows;
-  }, [cardsByName, allocationMap]);
-
-  const lower = filter.trim().toLowerCase();
-  const filtered = lower ? byName.filter((r) => r.name.toLowerCase().includes(lower)) : byName;
-  const shown = filtered.slice(0, 500);
-
-  return (
-    <section className="admin-section">
-      <h2>
-        Collection by name ({cards.length} physical copies, {cardsByName.size} unique names)
-      </h2>
-      <SearchPill
-        className="admin-search"
-        value={filter}
-        onChange={setFilter}
-        placeholder="Filter by card name…"
-        ariaLabel="Filter collection by card name"
-      />
-      <p className="admin-sub">
-        Showing {shown.length} of {filtered.length} rows.
-      </p>
-      <table className="admin-table admin-table--dense">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Total copies</th>
-            <th>Allocated to a deck</th>
-            <th>Decks</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((r) => (
-            <tr key={r.name}>
-              <td>{r.name}</td>
-              <td>{r.count}</td>
-              <td>{r.allocated}</td>
-              <td>{r.decks.join(', ')}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
 function StorageTab({
   fileName,
   uploadedAt,
@@ -929,23 +671,15 @@ function StorageTab({
   onRerunRemap: () => void;
 }) {
   const [remapToast, setRemapToast] = useState<string | null>(null);
-  // Snapshot localStorage once at mount. Admin page is short-lived; no need
-  // to re-read on every render or watch for storage events.
-  const lsKeys = useMemo(() => {
-    const out: { key: string; bytes: number }[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k) continue;
-      const v = localStorage.getItem(k) ?? '';
-      out.push({ key: k, bytes: v.length });
-    }
-    out.sort((a, b) => b.bytes - a.bytes);
-    return out;
-  }, []);
 
   return (
     <section className="admin-section">
-      <h2>Storage</h2>
+      <h2>Local data</h2>
+      <p className="admin-sub">
+        Synced rows (cards, decks, binders) live in the per-row IndexedDB entity store with a
+        durable mutation queue beside it; settings live in localStorage. Nothing here touches the
+        server except through a normal sync.
+      </p>
       <h3>Imports</h3>
       <p className="admin-sub">
         Most recent file: <code>{fileName || '(none)'}</code>{' '}
@@ -974,29 +708,6 @@ function StorageTab({
         </tbody>
       </table>
 
-      <h3>localStorage</h3>
-      <table className="admin-table admin-table--dense">
-        <thead>
-          <tr>
-            <th>Key</th>
-            <th>Bytes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lsKeys.map((r) => (
-            <tr key={r.key}>
-              <td className="admin-mono">{r.key}</td>
-              <td>{r.bytes.toLocaleString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="admin-sub">
-        Collection lives in IndexedDB <code>spellcontrol/collection/current</code> (not shown
-        above). Decks live in localStorage <code>mtg-decks</code>. Binders live in localStorage{' '}
-        <code>spellcontrol</code>.
-      </p>
-
       <h3>Maintenance</h3>
       <p className="admin-sub">
         Re-runs the allocation remap against the current collection. Heals slots that drift from the
@@ -1018,7 +729,7 @@ function StorageTab({
 
       <h3 className="admin-danger-h">Danger zone</h3>
       <div className="admin-danger">
-        <button onClick={onClearCards}>Clear collection (IndexedDB)</button>
+        <button onClick={onClearCards}>Clear collection</button>
         <button onClick={onClearBinders}>Delete all binders</button>
         <button onClick={onClearDecks}>Delete all decks</button>
         <button onClick={onNuke}>Wipe everything &amp; reload</button>

@@ -36,7 +36,7 @@ export function Footer() {
         {isAdmin && (
           <>
             {' · '}
-            <Link to="/admin">Debug</Link>
+            <Link to="/admin">Admin</Link>
           </>
         )}
       </p>

@@ -65,7 +65,7 @@
   <body>
     <main>
       <h1>SpellControl Privacy Policy</h1>
-      <p class="updated">Last updated: 2026-09-07.</p>
+      <p class="updated">Last updated: 2026-09-10.</p>
 
       <p>
         SpellControl is a tool for organizing physical Magic: The Gathering
@@ -89,7 +89,7 @@
           username, a hashed password (we never see the plaintext), and the
           collection / deck / binder / game data you choose to sync. This is
           so you can sign in on another device and see the same data. Data
-          is held on our server at <code>api.spellcontrol.com</code> (hosted
+          is held on our server at <code>spellcontrol.com</code> (hosted
           on Fly.io, with a managed Postgres database on Neon).
         </li>
         <li>
@@ -111,8 +111,9 @@
         <li>
           <strong>Multiplayer game sessions</strong>: when you start an online
           game, the game state (life totals, board snapshot, turn) lives on
-          our server so other players can join. Sessions are removed when the
-          game ends.
+          our server so other players can join. A session is deleted when the
+          host ends the game, and any session idle for 24 hours is removed
+          automatically.
         </li>
       </ul>
 
@@ -130,9 +131,10 @@
         </li>
         <li>
           We don't access your phone's photo library or contacts. The camera
-          permission is used only for the in-app card scanner, and the
-          recognized text never leaves your device during scanning (OCR runs
-          on-device via Google ML Kit on Android).
+          permission is used only for the in-app card scanner. When you scan a
+          card, a cropped image of that card is sent to our server to identify
+          it; the image is processed in memory, never written to disk, and not
+          linked to your account. Only the identified card comes back.
         </li>
       </ul>
 
@@ -153,7 +155,7 @@
       <p>
         Signing in with Google sends you to Google's OAuth consent screen
         and returns a verified email and account identifier to
-        <code>api.spellcontrol.com</code>. Google receives the standard
+        <code>spellcontrol.com</code>. Google receives the standard
         information about that sign-in (which app, when); it does not
         receive your collection data or any other app activity. Google's
         own handling of that data is governed by their
@@ -187,7 +189,7 @@
 
       <h2>Security</h2>
       <p>
-        All traffic to <code>api.spellcontrol.com</code> uses HTTPS.
+        All traffic to <code>spellcontrol.com</code> uses HTTPS.
         Passwords are stored using a one-way salted hash (bcrypt) — we
         cannot recover or read your password. We make a reasonable effort to
         keep the server up to date, but no online service can promise

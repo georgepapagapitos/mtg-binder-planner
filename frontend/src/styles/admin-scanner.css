@@ -27,6 +27,13 @@
 .admin-section {
   margin: 1.25rem 0;
 }
+/* The Users & reports tab hosts the same settings cards the You page used to;
+   stack them the way .settings-page does. */
+.admin-section--cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
 .admin-section h2 {
   margin: 0 0 var(--space-2);
   font-size: var(--text-md);

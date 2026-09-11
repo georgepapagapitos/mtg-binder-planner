@@ -353,7 +353,7 @@ export function AdminPanel({ currentUserId }: { currentUserId: string }) {
             Manage users
           </h2>
           <p className="settings-card-hint">
-            Visible because your role is <strong>admin</strong>. Other users won't see this card.
+            Grant AI features, clear a public profile, or delete an account.
           </p>
         </header>
         <div className="settings-card-body">

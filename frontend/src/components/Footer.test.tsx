@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+let role: string | undefined;
 vi.mock('../store/auth', () => ({
-  useAuth: (sel: (s: { user: { role?: string } | null }) => unknown) => sel({ user: null }),
+  useAuth: (sel: (s: { user: { role?: string } | null }) => unknown) =>
+    sel({ user: role ? { role } : null }),
 }));
 vi.mock('../lib/shortcut-registry', () => ({
   useShortcutRegistry: () => ({ show: vi.fn() }),
@@ -21,6 +23,10 @@ function renderFooter() {
 }
 
 describe('Footer', () => {
+  beforeEach(() => {
+    role = undefined;
+  });
+
   it('links Help & guides to the static guides index, alongside the Scryfall attribution', () => {
     renderFooter();
     expect(screen.getByRole('link', { name: 'Scryfall' }).getAttribute('href')).toBe(
@@ -36,5 +42,16 @@ describe('Footer', () => {
       '/privacy.html'
     );
     expect(screen.getByRole('link', { name: /^terms$/i }).getAttribute('href')).toBe('/terms.html');
+  });
+
+  it('shows the Admin link only to admins', () => {
+    renderFooter();
+    expect(screen.queryByRole('link', { name: 'Admin' })).toBeNull();
+    role = 'user';
+    renderFooter();
+    expect(screen.queryByRole('link', { name: 'Admin' })).toBeNull();
+    role = 'admin';
+    renderFooter();
+    expect(screen.getByRole('link', { name: 'Admin' }).getAttribute('href')).toBe('/admin');
   });
 });

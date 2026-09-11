@@ -91,9 +91,6 @@ vi.mock('../components/OfflineModeSettings', () => ({
 vi.mock('../components/SharedLinksSettings', () => ({
   SharedLinksSettings: () => null,
 }));
-vi.mock('../components/AdminPanel', () => ({
-  AdminPanel: () => null,
-}));
 vi.mock('../components/SyncIndicator', () => ({
   SyncIndicator: () => null,
 }));

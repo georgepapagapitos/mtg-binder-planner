@@ -489,6 +489,12 @@ export function DeckNewPage() {
             value={commander}
             onSelect={selectCommander}
             format={selectedFormat}
+            onSelectFromBinder={(card) => {
+              // E283: a "From my binder" pick is a build-from-what-I-own
+              // intent, so land with collection mode on and "Only my cards".
+              updateCustomization({ collectionMode: true, collectionStrategy: 'full' });
+              selectCommander(card);
+            }}
           />
         </section>
       )}

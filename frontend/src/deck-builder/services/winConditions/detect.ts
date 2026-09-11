@@ -9,6 +9,7 @@
  */
 
 import { parseCard, millSignals, sacrificeSignals, tokenCreation } from '../synergy/text';
+import { classifyCard } from '../synergy/classify';
 import type { DeckSynergy } from '../synergy/deckSynergy';
 import type { CardLike } from '../synergy/text';
 import type { WinCondition, WinConditionAnalysis } from './types';
@@ -195,6 +196,10 @@ const STRATEGIC_MIN_CARDS = 4;
  *  plan get labeled "Go-wide tokens" off a couple of unrelated token makers. */
 const GO_WIDE_MIN_CARDS = 6;
 
+/** Burn spells an invested spellslinger shell must actually run before the
+ *  axis can vouch for a burn plan (see the burn block). */
+const BURN_MIN_INVESTED = 2;
+
 /** Invested-axis score bonus — a flagged engine should clearly outrank an
  *  incidental, one-sided pile of the same card type. */
 const INVESTED_BONUS = 4;
@@ -359,23 +364,41 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
       anthemCards.push(card.name);
     }
   }
-  const goWideInvested = investedSet.has('tokens');
-  const goWideCount = tokenCards.length + anthemCards.length;
+  // A commander that makes creature tokens as the payoff of an axis the deck
+  // is invested in (Talrand off instants/sorceries) IS the go-wide plan: it
+  // never needs drawing and every fuel card in the 99 feeds it. Without this a
+  // Talrand list read as "no clear win condition" (or, worse, as Burn off the
+  // spellslinger axis with zero burn spells).
+  let tokenEngine: { name: string; reason: string } | null = null;
+  for (const cmd of [commander, partnerCommander]) {
+    if (!cmd || tokenEngine) continue;
+    const cs = classifyCard(cmd);
+    const fuel = cs.payoffs.find((p) => investedSet.has(p.axis));
+    if (fuel && cs.producers.some((p) => p.axis === 'tokens')) {
+      tokenEngine = { name: cmd.name, reason: fuel.reason };
+    }
+  }
+  const goWideInvested = investedSet.has('tokens') || tokenEngine !== null;
+  const goWideCount = tokenCards.length + anthemCards.length + (tokenEngine ? 1 : 0);
   // Raw-count path additionally requires a real payoff (anthem/Overrun-class):
   // without one, a titan-ramp deck whose only "token" cards are incidental
   // sac-fodder makers (Eldrazi Spawn/Scion) clears the floor on producer count
   // alone and gets mislabeled go-wide with no plan to actually go wide.
   if (goWideInvested || (goWideCount >= GO_WIDE_MIN_CARDS && anthemCards.length >= 1)) {
-    const allEvidence = Array.from(new Set([...tokenCards, ...anthemCards]));
+    const libraryEvidence = Array.from(new Set([...tokenCards, ...anthemCards]));
+    const allEvidence = tokenEngine ? [tokenEngine.name, ...libraryEvidence] : libraryEvidence;
+    const engineNote = tokenEngine
+      ? `${tokenEngine.name} makes tokens (${tokenEngine.reason}), `
+      : '';
     candidates.push({
       category: 'go-wide',
       label: 'Go-wide tokens',
-      summary: `${tokenCards.length} token maker${tokenCards.length === 1 ? '' : 's'}${anthemCards.length > 0 ? `, ${anthemCards.length} anthem${anthemCards.length === 1 ? '' : 's'}` : ''}`,
+      summary: `${engineNote}${tokenCards.length} token maker${tokenCards.length === 1 ? '' : 's'}${anthemCards.length > 0 ? `, ${anthemCards.length} anthem${anthemCards.length === 1 ? '' : 's'}` : ''}`,
       evidence: allEvidence.slice(0, 8),
       score: goWideCount + (goWideInvested ? INVESTED_BONUS : 0),
       // ponytail: flat count over producers+anthems; require-a-payoff-drawn if
       // this reads too optimistic for anthem-light lists.
-      assembly: strategicAssembly(allEvidence, STRATEGIC_MIN_CARDS),
+      assembly: strategicAssembly(libraryEvidence, STRATEGIC_MIN_CARDS),
     });
   }
 
@@ -414,7 +437,11 @@ export function detectWinConditions(input: WinConditionInput): WinConditionAnaly
     if (isBurnSpell(parsed.typeLine, parsed.oracle)) burnCards.push(card.name);
   }
   const burnInvested = investedSet.has('spellslinger');
-  if (strategicQualifies(burnCards.length, burnInvested)) {
+  // Evidence floor: the spellslinger axis says the deck casts a lot of spells,
+  // not that those spells burn face. Without it a Talrand drake list rendered
+  // "Burn — 0 direct-damage spells" as its primary plan. One incidental Bolt
+  // still isn't a plan, so an invested shell needs a couple of real finishers.
+  if (burnCards.length >= BURN_MIN_INVESTED && strategicQualifies(burnCards.length, burnInvested)) {
     candidates.push({
       category: 'burn',
       label: 'Burn',

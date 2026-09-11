@@ -14,8 +14,24 @@ vi.mock('../lib/api', async () => {
 // The image frame drags in the holographic tilt machinery; the detail panel
 // under test doesn't need it.
 vi.mock('./CardImageFrame', () => ({
-  CardImageFrame: (p: { turn?: number; mounted?: boolean }) => (
-    <div data-testid="card-image-frame" data-turn={p.turn} data-mounted={String(p.mounted)} />
+  CardImageFrame: (p: {
+    card: { name: string };
+    turn?: number;
+    mounted?: boolean;
+    imgErrored: boolean;
+    onImgError: () => void;
+  }) => (
+    <div
+      data-testid="card-image-frame"
+      data-name={p.card.name}
+      data-turn={p.turn}
+      data-mounted={String(p.mounted)}
+      data-errored={String(p.imgErrored)}
+    >
+      <button type="button" onClick={p.onImgError}>
+        break {p.card.name}
+      </button>
+    </div>
   ),
 }));
 
@@ -294,5 +310,32 @@ describe('CardPreview slide mounting', () => {
   it('mounts the focused slide on open even when its card has no scryfallId yet', () => {
     renderPreview(mk({ scryfallId: '', name: 'Mischievous Mystic' }));
     expect(screen.getByTestId('card-image-frame').dataset.mounted).toBe('true');
+  });
+
+  // Image load/error state is keyed by scryfallId so the same printing in
+  // two slides shares one load — but placeholders all carry '' and would
+  // share one key too. They fall back to copyId: one placeholder's broken
+  // image must not flag its neighbors "Image unavailable".
+  it('keeps image-error state per slide for cards with no scryfallId', () => {
+    const a = mk({ scryfallId: '', copyId: 'carousel:0:A', name: 'A', imageNormal: 'https://x/a' });
+    const b = mk({ scryfallId: '', copyId: 'carousel:1:B', name: 'B', imageNormal: 'https://x/b' });
+    render(
+      <MemoryRouter>
+        <CardPreview
+          cards={[a, b]}
+          index={0}
+          binderName=""
+          sectionLabels={['', '']}
+          pageNumbers={[0, 0]}
+          totalPages={1}
+          onIndexChange={() => {}}
+          onClose={() => {}}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'break A' }));
+    const frames = screen.getAllByTestId('card-image-frame');
+    const byName = Object.fromEntries(frames.map((f) => [f.dataset.name, f.dataset.errored]));
+    expect(byName).toEqual({ A: 'true', B: 'false' });
   });
 });

@@ -211,13 +211,18 @@ export function CardPreview({
   // cached; oracle text already renders instantly from the EnrichedCard.
   const detail = useCardDetail(cards[selected]?.name);
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
+  const imgKey = (c: EnrichedCard) => c.scryfallId || c.copyId;
   // Fetching + staging the full-res art takes a beat on a cold cache; the button
   // shows a spinner and refuses a second tap until the sheet opens.
   const [sharing, setSharing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   // Per-card art-loaded flag. Drives the skeleton→image cross-fade so the
   // hero image lands gracefully under the sheet's rise animation instead
-  // of popping in. Keyed by scryfallId since slides stay mounted.
+  // of popping in. Keyed by scryfallId since slides stay mounted (and the
+  // same printing in two slides shares one load). Name-only placeholders
+  // (deck drill-downs, cube picks) open with an empty id, so they fall back
+  // to their unique copyId — otherwise every placeholder shares key '' and
+  // one broken image marks them all "Image unavailable".
   const [imgLoaded, setImgLoaded] = useState<Record<string, boolean>>({});
   const markLoaded = useCallback((id: string) => {
     setImgLoaded((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
@@ -394,10 +399,10 @@ export function CardPreview({
         flipped={!!flipped[i]}
         turn={turned[i] ?? 0}
         mounted={mounted.has(i)}
-        imgLoaded={!!imgLoaded[c.scryfallId]}
-        imgErrored={!!imgErrors[c.scryfallId]}
-        onImgLoad={() => markLoaded(c.scryfallId)}
-        onImgError={() => setImgErrors((prev) => ({ ...prev, [c.scryfallId]: true }))}
+        imgLoaded={!!imgLoaded[imgKey(c)]}
+        imgErrored={!!imgErrors[imgKey(c)]}
+        onImgLoad={() => markLoaded(imgKey(c))}
+        onImgError={() => setImgErrors((prev) => ({ ...prev, [imgKey(c)]: true }))}
         eager={i === selected}
         shouldSuppressTilt={shouldSuppressTilt}
       />

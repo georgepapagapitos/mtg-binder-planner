@@ -250,12 +250,11 @@ export function CardPreview({
   // the card the user clicked. Neighbors fill in on the next tick — they're
   // only needed for swipe peeks, and deferring them buys a faster open.
   // Once mounted, slides stay mounted to avoid mid-swipe DOM thrash.
-  const [mounted, setMounted] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    const id = cards[index]?.scryfallId;
-    if (id) initial.add(id);
-    return initial;
-  });
+  // Keyed by slide INDEX, not scryfallId: name-only placeholders (deck-analysis
+  // drill-downs) open with an empty id and get a real one when enrichment
+  // swaps the row in — an id-keyed set never learned about the focused slide,
+  // so its art stayed blank until a swipe recomputed the set.
+  const [mounted, setMounted] = useState<Set<number>>(() => new Set([index]));
 
   useEffect(() => {
     const expand = () => {
@@ -263,13 +262,12 @@ export function CardPreview({
         let changed = false;
         let next = prev;
         for (let j = index - PRELOAD_RADIUS; j <= index + PRELOAD_RADIUS; j++) {
-          const id = cards[j]?.scryfallId;
-          if (id && !prev.has(id)) {
+          if (j >= 0 && j < cards.length && !prev.has(j)) {
             if (!changed) {
               next = new Set(prev);
               changed = true;
             }
-            next.add(id);
+            next.add(j);
           }
         }
         return next;
@@ -307,19 +305,18 @@ export function CardPreview({
         let changed = false;
         let next = prev;
         for (let j = bestIdx - PRELOAD_RADIUS; j <= bestIdx + PRELOAD_RADIUS; j++) {
-          const id = cards[j]?.scryfallId;
-          if (id && !prev.has(id)) {
+          if (j >= 0 && j < cards.length && !prev.has(j)) {
             if (!changed) {
               next = new Set(prev);
               changed = true;
             }
-            next.add(id);
+            next.add(j);
           }
         }
         return next;
       });
     },
-    [cards]
+    [cards.length]
   );
 
   // Sync parent → carousel if the parent index changes externally.
@@ -396,7 +393,7 @@ export function CardPreview({
         active={i === selected}
         flipped={!!flipped[i]}
         turn={turned[i] ?? 0}
-        mounted={mounted.has(c.scryfallId)}
+        mounted={mounted.has(i)}
         imgLoaded={!!imgLoaded[c.scryfallId]}
         imgErrored={!!imgErrors[c.scryfallId]}
         onImgLoad={() => markLoaded(c.scryfallId)}

@@ -14,8 +14,8 @@ vi.mock('../lib/api', async () => {
 // The image frame drags in the holographic tilt machinery; the detail panel
 // under test doesn't need it.
 vi.mock('./CardImageFrame', () => ({
-  CardImageFrame: (p: { turn?: number }) => (
-    <div data-testid="card-image-frame" data-turn={p.turn} />
+  CardImageFrame: (p: { turn?: number; mounted?: boolean }) => (
+    <div data-testid="card-image-frame" data-turn={p.turn} data-mounted={String(p.mounted)} />
   ),
 }));
 
@@ -283,5 +283,16 @@ describe('CardPreview turn (sideways layouts)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Turn right to read' }));
     const turns = screen.getAllByTestId('card-image-frame').map((f) => f.getAttribute('data-turn'));
     expect(turns).toEqual(['90', '0']);
+  });
+});
+
+describe('CardPreview slide mounting', () => {
+  // Deck-analysis drill-downs (win conditions, curve, types) open name-only
+  // placeholders with an empty scryfallId; enrichment swaps the real card in
+  // later. The focused slide must mount on the first render regardless, or
+  // the art stays blank until a swipe. Guard for the 2026-09-10 report.
+  it('mounts the focused slide on open even when its card has no scryfallId yet', () => {
+    renderPreview(mk({ scryfallId: '', name: 'Mischievous Mystic' }));
+    expect(screen.getByTestId('card-image-frame').dataset.mounted).toBe('true');
   });
 });

@@ -46,21 +46,48 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: center 25%;
 }
 
-/* Gradient overlay: darkens the bottom half for text legibility without
-   obscuring the commander's face (art-crop images have the art centered
-   toward the top third). */
+/* Phone scrim: the art spans the full hero and the text bottom-anchors into
+   a vertical fade — near-opaque under the text, clearing to art up top. Same
+   ruling as the deck-editor hero (STYLE_GUIDE § Page hero art). */
 .gen-takeover-art-fade {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    to bottom,
-    transparent 25%,
-    color-mix(in srgb, var(--surface) 60%, transparent) 65%,
-    color-mix(in srgb, var(--surface) 90%, transparent) 100%
+    to top,
+    var(--surface-raised) 0%,
+    color-mix(in srgb, var(--surface-raised) 85%, transparent) 40%,
+    color-mix(in srgb, var(--surface-raised) 45%, transparent) 75%,
+    color-mix(in srgb, var(--surface-raised) 25%, transparent) 100%
   );
+}
+
+/* ≥600px: the art_crop is ~4:3, so stretching it across a wide, short hero
+   only ever shows a random horizontal slice. Instead it becomes a
+   right-anchored panel sized to the hero's height, fading into the panel
+   background toward the text column (which then sits on plain surface). */
+@media (min-width: 600px) {
+  .gen-takeover-art {
+    inset: 0 0 0 auto;
+    width: min(26rem, 50%);
+  }
+
+  .gen-takeover-art-fade {
+    background:
+      linear-gradient(
+        to top,
+        color-mix(in srgb, var(--surface-raised) 70%, transparent) 0%,
+        transparent 45%
+      ),
+      linear-gradient(
+        to right,
+        var(--surface-raised) 0%,
+        color-mix(in srgb, var(--surface-raised) 55%, transparent) 40%,
+        transparent 100%
+      );
+  }
 }
 
 /* ── Content layer ─────────────────────────────────────────────────────── */

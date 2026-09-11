@@ -247,7 +247,7 @@ export function GenerationTakeover({
   colorIdentity = [],
 }: Props) {
   // Resolve from CDN if we only have a name; direct URL wins immediately.
-  const resolvedThumb = useCardThumb(commanderImageUrl ? undefined : commanderName, 'normal');
+  const resolvedThumb = useCardThumb(commanderImageUrl ? undefined : commanderName, 'art_crop');
   const artUrl = commanderImageUrl ?? resolvedThumb;
 
   const [flavorIndex, setFlavorIndex] = useState(0);
